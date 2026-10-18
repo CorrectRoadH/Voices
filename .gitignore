@@ -9,7 +9,7 @@ dist/
 /bin/
 /.air/
 # Worker local runtime and browser artifacts
-.wrangler/
+.cloudflare/
 .dev.vars*
 web/test-results/
 web/playwright-report/

@@ -79,12 +79,12 @@ Soniox 提供文件与转写删除接口。AssemblyAI 的成功转写删除会�
 
 ## 发布镜像与版本
 
-正式镜像：`ghcr.io/correctroadh/voices:<X.Y.Z>`，提供 Linux amd64/arm64。首次发布前该镜像尚不存在；首次发布后需在 GitHub Package 设置中确认可见性为 public，才能匿名拉取。源码构建仍可使用 `docker compose up -d --build`。
+正式镜像：`correctroad/voices:<X.Y.Z>`，提供 Linux amd64/arm64。首次发布前该镜像尚不存在；Docker Hub 仓库须配置为 public 以支持匿名拉取。源码构建仍可使用 `docker compose up -d --build`。
 
 使用已发布镜像（先按本文配置数据库密码和站点 URL）：
 
 ```sh
-# .env 中设置 VOICES_IMAGE=ghcr.io/correctroadh/voices:具体版本
+# .env 中设置 VOICES_IMAGE=correctroad/voices:具体版本
 # 升级前备份 PostgreSQL；固定版本便于追踪。
 docker compose pull app
 docker compose up -d --no-build
@@ -95,6 +95,6 @@ docker compose exec app voices version
 
 ## 更新服务与公告
 
-`UPDATE_URL` 是可选的部署配置，填写已部署 Worker 的 HTTPS 根地址。为空时禁用更新服务；修改后重启应用。更新检查仅获取公共版本和公告，不发送实例 ID、运行环境、录音、账号或转写数据。管理员在服务器设置查看发布说明并手动检查；后台每 24 小时检查，手动检查至少间隔 60 秒。失败明确显示状态并保留上次成功结果。
+`UPDATE_URL` 未设置时使用 `https://voices.niceeval.com/`，显式设为空禁用更新和统计；修改后重启应用。`UPDATE_TELEMETRY` 默认 true，设为 false 只关闭统计。统计发送数据库持久化的随机安装 UUID、版本、Go/OS/架构；Worker 从 Cloudflare 获取国家。恢复模式禁发统计。录音、账号与转写数据不发送。接收方由 UPDATE_URL 决定。独立克隆数据库须重新生成 instance_identity.instance_id，不能复用任务租约 ID；详见 [统计方案](research/release-updates/telemetry.md)。管理员在服务器设置查看发布说明并手动检查；后台每 24 小时检查，手动检查至少间隔 60 秒。失败明确显示状态并保留上次成功结果。
 
 Worker 的部署与公告维护见 [update-worker/README.md](../update-worker/README.md)。更新提示不会自动安装软件。

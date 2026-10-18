@@ -25,7 +25,7 @@ export default {
       "web/src/components/server-updates.tsx",
       "web/scripts/updates-stack.mjs",
       "web/e2e/updates.spec.ts",
-      "update-worker/wrangler.toml",
+      "update-worker/cloudflare.config.ts",
       "update-worker/vite.config.ts",
       "update-worker/test/worker.test.ts",
       "update-worker/src/manifest.ts",

@@ -1,0 +1,15 @@
+Voices Linux release package
+
+Install PostgreSQL 18 and ffmpeg (including ffprobe) before starting.
+Extract this package, then run from its directory:
+  export DATABASE_URL='postgres://USER:PASSWORD@HOST/voices?sslmode=require'
+  export PUBLIC_BASE_URL='https://your-voices.example'
+  export WEB_DIR=web
+  ./voices
+
+./voices version prints the release tag without connecting to PostgreSQL.
+The first registered account is the administrator. Migrations run on startup.
+Back up PostgreSQL before upgrading; do not roll back across incompatible migrations.
+Updates and limited installation statistics use https://voices.niceeval.com/ by default.
+Set UPDATE_TELEMETRY=false to opt out of statistics, or UPDATE_URL='' to disable both.
+See https://github.com/CorrectRoadH/Voices/blob/main/docs/operations.md for configuration.

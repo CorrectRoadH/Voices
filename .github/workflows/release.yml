@@ -23,54 +23,42 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
-      - name: Image name
-        id: image
-        env:
-          REPOSITORY: ${{ github.repository }}
-        run: echo "name=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@v4
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Prevent latest version regression
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.ref_name }}
-          IMAGE: ${{ steps.image.outputs.name }}
+          IMAGE: correctroad/voices
         run: |
           gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[]' | jq -s . > "$RUNNER_TEMP/releases.json"
           if docker pull "$IMAGE:latest" 2> "$RUNNER_TEMP/image-error"; then
             current=$(docker image inspect "$IMAGE:latest" --format '{{ index .Config.Labels "org.opencontainers.image.version" }}')
             python3 scripts/check-release.py "$RELEASE_TAG" "$RUNNER_TEMP/releases.json" "$current"
           else
-            owner_type=$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.type')
-            scope=users
-            if [ "$owner_type" = Organization ]; then scope=orgs; fi
-            package_name=${IMAGE##*/}
-            # GHCR may return denied for a package which has never been created.
-            # Only an explicit Packages API 404 permits first publication.
-            if gh api "$scope/$GITHUB_REPOSITORY_OWNER/packages/container/$package_name" > /dev/null 2> "$RUNNER_TEMP/package-error"; then
-              cat "$RUNNER_TEMP/image-error" >&2
-              exit 1
-            elif grep -q '(HTTP 404)' "$RUNNER_TEMP/package-error"; then
+            status=$(curl --silent --show-error --output "$RUNNER_TEMP/latest-tag.json" --write-out '%{http_code}' \
+              https://hub.docker.com/v2/repositories/correctroad/voices/tags/latest)
+            if [ "$status" = 404 ]; then
               python3 scripts/check-release.py "$RELEASE_TAG" "$RUNNER_TEMP/releases.json"
             else
-              cat "$RUNNER_TEMP/package-error" >&2
+              echo "Cannot verify latest image (Docker Hub HTTP $status)" >&2
               exit 1
             fi
           fi
       - uses: docker/metadata-action@v6
         id: meta
         with:
-          images: ${{ steps.image.outputs.name }}
+          images: correctroad/voices
           tags: |
             type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=
             type=raw,value=latest
       - uses: docker/build-push-action@v7
         with:
@@ -82,8 +70,57 @@ jobs:
           build-args: VOICES_VERSION=${{ github.ref_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+  frontend:
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm --dir web install --frozen-lockfile
+      - run: pnpm --dir web build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-web
+          path: web/dist
+          retention-days: 1
+          if-no-files-found: error
+  binary:
+    needs: frontend
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-web
+          path: release-package/web
+      - name: Build and package
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_ARCH: ${{ matrix.arch }}
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH="$RELEASE_ARCH" go build -trimpath \
+            -ldflags="-s -w -X main.version=$RELEASE_TAG" -o release-package/voices ./cmd/voices
+          cp docs/release-package.txt release-package/README.txt
+          tar -C release-package -czf "voices-linux-$RELEASE_ARCH.tar.gz" voices web README.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: binary-${{ matrix.arch }}
+          path: voices-linux-${{ matrix.arch }}.tar.gz
+          retention-days: 1
+          if-no-files-found: error
   release:
-    needs: image
+    needs: [image, binary]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -91,6 +128,17 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: binary-*
+          path: release-assets
+          merge-multiple: true
+      - name: Verify and checksum release assets
+        working-directory: release-assets
+        run: |
+          test -s voices-linux-amd64.tar.gz
+          test -s voices-linux-arm64.tar.gz
+          sha256sum voices-linux-amd64.tar.gz voices-linux-arm64.tar.gz > SHA256SUMS
       - name: Generate release notes
         uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff
         id: notes
@@ -102,3 +150,8 @@ jobs:
         with:
           body: ${{ steps.notes.outputs.content }}
           prerelease: false
+          fail_on_unmatched_files: true
+          files: |
+            release-assets/voices-linux-amd64.tar.gz
+            release-assets/voices-linux-arm64.tar.gz
+            release-assets/SHA256SUMS

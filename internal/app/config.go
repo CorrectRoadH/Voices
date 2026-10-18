@@ -12,7 +12,8 @@ import (
 )
 
 type Config struct {
-	UpdateURL string
+	UpdateURL       string
+	UpdateTelemetry bool
 
 	// AllowedOrigins lists explicit additional browser origins; request Host is never trusted.
 	AllowedOrigins                                          []string
@@ -46,7 +47,17 @@ func LoadConfig() (Config, error) {
 	}
 	c := Config{seedEnv: values, ListenAddr: get("LISTEN_ADDR", "127.0.0.1:8080"), WebDir: get("WEB_DIR", "web/dist"), TempDir: values["TEMP_DIR"], RestoreMode: values["RESTORE_MODE"] == "true", MaxUploadBytes: 2 << 30, TranscriptionConcurrency: 2, PrepareConcurrency: 1, HTTPTimeout: 2 * time.Minute}
 	c.DatabaseURL, err = configSecret(values, "DATABASE_URL")
-	c.UpdateURL = values["UPDATE_URL"]
+	c.UpdateURL = "https://voices.niceeval.com/"
+	if value, exists := values["UPDATE_URL"]; exists {
+		c.UpdateURL = value
+	}
+	c.UpdateTelemetry = true
+	if value, exists := values["UPDATE_TELEMETRY"]; exists {
+		if value != "true" && value != "false" {
+			return c, errors.New("UPDATE_TELEMETRY must be true or false")
+		}
+		c.UpdateTelemetry = value == "true"
+	}
 	if !updates.ValidEndpoint(c.UpdateURL) {
 		return c, errors.New("UPDATE_URL must be an HTTPS URL without credentials, query or fragment")
 	}

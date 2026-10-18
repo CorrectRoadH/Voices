@@ -182,3 +182,33 @@ describe("update worker", () => {
     ).toBe(204);
   });
 });
+
+// @use-case docs/feature/updates/use-case/check-updates.md
+describe("installation analytics", () => {
+  const id = "f7f21b46-34e4-4b17-87db-0e39c4a283e6";
+  it("records validated fields even on cached manifests, without forwarding query", async () => {
+    const writeDataPoint = vi.fn();
+    vi.stubGlobal("caches", { default: { match: vi.fn().mockResolvedValue(Response.json(buildManifest([release("v1.0.0")], []))) } });
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+    const request = new Request(`https://voices.niceeval.com/?instanceId=${id.toUpperCase()}&version=dev&goVersion=go1.26&os=linux&arch=arm64&locale=bad%20value&secret=ignored`);
+    Object.defineProperty(request, "cf", { value: { country: "SG" } });
+    expect((await worker.fetch(request, { ...env, UPDATE_REQUESTS: { writeDataPoint } as any }, ctx)).status).toBe(200);
+    await Promise.all(pending.splice(0));
+    expect(writeDataPoint).toHaveBeenCalledExactlyOnceWith({ indexes: [id], blobs: ["dev", "go1.26", "linux", "arm64", "", "SG"], doubles: [] });
+    expect(upstream).not.toHaveBeenCalled();
+  });
+  it("drops incomplete and invalid identities and isolates analytics failure", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json([])));
+    const writeDataPoint = vi.fn(() => { throw new Error("unavailable"); });
+    for (const query of ["", `instanceId=${id}`, "instanceId=bad&version=dev", `instanceId=${id}&version=${"x".repeat(65)}`]) {
+      expect((await worker.fetch(new Request(`https://voices.niceeval.com/?${query}`), { ...env, UPDATE_REQUESTS: { writeDataPoint } as any }, ctx)).status).toBe(200);
+    }
+    await Promise.all(pending.splice(0));
+    expect(writeDataPoint).not.toHaveBeenCalled();
+    const response = await worker.fetch(new Request(`https://voices.niceeval.com/?instanceId=${id}&version=smoke`), { ...env, UPDATE_REQUESTS: { writeDataPoint } as any }, ctx);
+    await Promise.all(pending.splice(0));
+    expect(response.status).toBe(200);
+    expect(writeDataPoint).toHaveBeenCalledOnce();
+  });
+});

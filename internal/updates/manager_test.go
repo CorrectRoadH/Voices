@@ -233,3 +233,36 @@ func TestRequestTimeout(t *testing.T) {
 		t.Fatal("timed out upstream did not cancel")
 	}
 }
+
+// @use-case docs/feature/updates/use-case/check-updates.md
+func TestOptionalTelemetryRequest(t *testing.T) {
+	const id = "f7f21b46-34e4-4b17-87db-0e39c4a283e6"
+	for _, enabled := range []bool{false, true} {
+		t.Run(map[bool]string{false: "off", true: "on"}[enabled], func(t *testing.T) {
+			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				q := r.URL.Query()
+				if enabled {
+					if q.Get("instanceId") != id || q.Get("version") != "1.0.0" || q.Get("goVersion") == "" || q.Get("os") == "" || q.Get("arch") == "" || len(q) != 5 {
+						t.Errorf("unexpected telemetry: %v", q)
+					}
+				} else if len(q) != 0 {
+					t.Error("telemetry sent while disabled")
+				}
+				json.NewEncoder(w).Encode(manifest())
+			}))
+			defer server.Close()
+			var telemetry *Telemetry
+			if enabled {
+				telemetry = &Telemetry{InstanceID: id}
+			}
+			manager := NewWithTelemetry(context.Background(), "v1.0.0", server.URL, server.Client(), telemetry)
+			defer manager.Close()
+			if telemetry != nil {
+				telemetry.InstanceID = "changed"
+			}
+			if manager.Check(context.Background()).Status != "ok" {
+				t.Fatal("check failed")
+			}
+		})
+	}
+}

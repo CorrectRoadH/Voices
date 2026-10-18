@@ -16,3 +16,5 @@ feature: docs/feature/updates/README.md
 普通用户不能访问更新接口；手动检查复用管理员、CSRF、来源与恢复模式约束。远端内容不执行 HTML；链接不允许非 HTTPS 或凭据。
 
 验收覆盖成功、失败、首次未知、禁用、版本比较、缓存过期公告、权限拒绝、请求取消和移动端布局。发布说明唯一来源为 GitHub Releases，公告独立随 Worker 部署更新。
+
+部署者可设置 UPDATE_TELEMETRY=true；默认开启（UPDATE_TELEMETRY=false 可关闭），恢复模式禁发。启用后实际检查向 UPDATE_URL 发送随机安装 ID、版本、Go版本、OS、架构；不发送业务内容。数据库克隆为独立部署时须重新生成安装 ID，不改变任务租约身份。统计失败不影响更新，身份读取最多2秒，缺行或错误时仅禁用统计。验收覆盖关闭/开启/恢复模式、身份稳定与失败降级，详见 [统计方案](../../../research/release-updates/telemetry.md)。

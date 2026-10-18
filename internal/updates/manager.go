@@ -3,8 +3,10 @@ package updates
 import (
 	"context"
 	"errors"
+	"github.com/google/uuid"
 	"io"
 	"net/http"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -23,21 +25,35 @@ type Snapshot struct {
 	Announcements   []Announcement `json:"announcements"`
 }
 
+type Telemetry struct{ InstanceID string }
+
 type Manager struct {
-	ctx      context.Context
-	cancel   context.CancelFunc
-	endpoint string
-	client   *http.Client
-	mu       sync.Mutex
-	state    Snapshot
-	flight   chan struct{}
-	wg       sync.WaitGroup
-	closed   bool
-	now      func() time.Time
+	telemetry *Telemetry
+	ctx       context.Context
+	cancel    context.CancelFunc
+	endpoint  string
+	client    *http.Client
+	mu        sync.Mutex
+	state     Snapshot
+	flight    chan struct{}
+	wg        sync.WaitGroup
+	closed    bool
+	now       func() time.Time
 }
 
 func New(ctx context.Context, version, endpoint string, client *http.Client) *Manager {
+	return NewWithTelemetry(ctx, version, endpoint, client, nil)
+}
+
+func NewWithTelemetry(ctx context.Context, version, endpoint string, client *http.Client, telemetry *Telemetry) *Manager {
 	ctx, cancel := context.WithCancel(ctx)
+	// Copy caller-owned configuration; invalid identities disable all metadata.
+	var snapshot *Telemetry
+	if telemetry != nil {
+		if id, err := uuid.Parse(telemetry.InstanceID); err == nil && id != uuid.Nil {
+			snapshot = &Telemetry{InstanceID: id.String()}
+		}
+	}
 	if client == nil {
 		client = &http.Client{}
 	}
@@ -48,7 +64,7 @@ func New(ctx context.Context, version, endpoint string, client *http.Client) *Ma
 	if endpoint == "" {
 		status = "disabled"
 	}
-	return &Manager{ctx: ctx, cancel: cancel, endpoint: endpoint, client: &transport, now: time.Now, state: Snapshot{CurrentVersion: strings.TrimPrefix(version, "v"), Status: status, Announcements: []Announcement{}}}
+	return &Manager{telemetry: snapshot, ctx: ctx, cancel: cancel, endpoint: endpoint, client: &transport, now: time.Now, state: Snapshot{CurrentVersion: strings.TrimPrefix(version, "v"), Status: status, Announcements: []Announcement{}}}
 }
 
 func (m *Manager) Snapshot() Snapshot {
@@ -121,6 +137,15 @@ func (m *Manager) request(ctx context.Context) (Manifest, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, m.endpoint, nil)
 	if err != nil {
 		return Manifest{}, err
+	}
+	if m.telemetry != nil {
+		q := req.URL.Query()
+		q.Set("instanceId", m.telemetry.InstanceID)
+		q.Set("version", m.state.CurrentVersion)
+		q.Set("goVersion", runtime.Version())
+		q.Set("os", runtime.GOOS)
+		q.Set("arch", runtime.GOARCH)
+		req.URL.RawQuery = q.Encode()
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "voices-updates")

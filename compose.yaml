@@ -1,6 +1,6 @@
 services:
   app:
-    image: ${VOICES_IMAGE:-ghcr.io/correctroadh/voices:latest}
+    image: ${VOICES_IMAGE:-correctroad/voices:latest}
     build:
       context: .
       args:
@@ -15,7 +15,8 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_MODEL: ${LLM_MODEL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
-      UPDATE_URL: ${UPDATE_URL:-}
+      UPDATE_URL: ${UPDATE_URL-https://voices.niceeval.com/}
+      UPDATE_TELEMETRY: ${UPDATE_TELEMETRY:-true}
       RESTORE_MODE: ${RESTORE_MODE:-false}
       MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-2147483648}
       TRANSCRIPTION_CONCURRENCY: ${TRANSCRIPTION_CONCURRENCY:-2}

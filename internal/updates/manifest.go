@@ -1,4 +1,4 @@
-// Package updates fetches public release information without instance telemetry.
+// Package updates fetches public release information with optional installation telemetry.
 package updates
 
 import (

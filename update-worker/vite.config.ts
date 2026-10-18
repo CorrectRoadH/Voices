@@ -1,2 +1,3 @@
-import { defineConfig } from "vite-plus";
-export default defineConfig({ test: { include: ["test/**/*.test.ts"], environment: "node" } });
+import { cloudflare } from "@cloudflare/vite-plugin";
+import { defineConfig } from "vite";
+export default defineConfig({ plugins: [cloudflare()] });

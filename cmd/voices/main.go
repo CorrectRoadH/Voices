@@ -116,7 +116,7 @@ func main() {
 		os.Exit(1)
 	}
 	workerDone := make(chan struct{})
-	application.Updates = updates.New(ctx, version, cfg.UpdateURL, nil)
+	application.Updates = updates.NewWithTelemetry(ctx, version, cfg.UpdateURL, nil, application.UpdateTelemetry(ctx))
 	updatesDone := make(chan struct{})
 	go func() { defer close(updatesDone); application.Updates.Run() }()
 	go func() { defer close(workerDone); application.Run(ctx) }()

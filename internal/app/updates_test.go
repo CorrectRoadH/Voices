@@ -99,3 +99,60 @@ func TestUpdatesUnauthorizedDoesNotFetch(t *testing.T) {
 		t.Fatal("unauthorized fetch")
 	}
 }
+
+// @use-case docs/feature/updates/use-case/check-updates.md
+func TestTelemetryConfigDefaultsAndOptOut(t *testing.T) {
+	t.Chdir(t.TempDir())
+	t.Setenv("DATABASE_URL", "postgres://localhost/test")
+	// Ensure absent variables, while preserving the outer environment after this test.
+	for _, key := range []string{"UPDATE_URL", "UPDATE_TELEMETRY"} {
+		t.Setenv(key, "")
+		os.Unsetenv(key)
+	}
+	c, err := LoadConfig()
+	if err != nil || !c.UpdateTelemetry || c.UpdateURL != "https://voices.niceeval.com/" {
+		t.Fatalf("defaults: %+v %v", c.UpdateTelemetry, err)
+	}
+	t.Setenv("UPDATE_TELEMETRY", "false")
+	c, err = LoadConfig()
+	if err != nil || c.UpdateTelemetry {
+		t.Fatal("opt-out failed", err)
+	}
+	t.Setenv("UPDATE_URL", "")
+	c, err = LoadConfig()
+	if err != nil || c.UpdateURL != "" {
+		t.Fatal("explicit empty ignored", err)
+	}
+	t.Setenv("UPDATE_TELEMETRY", "invalid")
+	if _, err = LoadConfig(); err == nil {
+		t.Fatal("invalid flag accepted")
+	}
+}
+
+// @use-case docs/feature/updates/use-case/check-updates.md
+func TestTelemetryIdentityAndRecovery(t *testing.T) {
+	f := setupAccountFixture(t, false)
+	f.a.Config.UpdateTelemetry = true
+	f.a.Config.UpdateURL = "https://voices.niceeval.com/"
+	first := f.a.UpdateTelemetry(context.Background())
+	if first == nil || first.InstanceID == f.a.InstanceID {
+		t.Fatal("persistent identity missing or reused lease owner")
+	}
+	second := f.a.UpdateTelemetry(context.Background())
+	if second == nil || second.InstanceID != first.InstanceID {
+		t.Fatal("identity changed")
+	}
+	f.a.Config.RestoreMode = true
+	if f.a.UpdateTelemetry(context.Background()) != nil {
+		t.Fatal("recovery sent telemetry")
+	}
+	f.a.Config.RestoreMode = false
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if f.a.UpdateTelemetry(ctx) != nil {
+		t.Fatal("cancelled query did not degrade")
+	}
+	if _, err := f.db.Exec(context.Background(), "INSERT INTO instance_identity(id) VALUES(2)"); err == nil {
+		t.Fatal("singleton constraint absent")
+	}
+}
