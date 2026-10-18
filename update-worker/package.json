@@ -9,15 +9,17 @@
     "check": "tsc --noEmit",
     "test": "vp test run --config vitest.config.ts",
     "build": "cf build",
-    "deploy": "cf deploy"
+    "deploy": "cf deploy",
+    "test:runtime": "cf build && node --test test/runtime.test.mjs"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "beta",
     "@cloudflare/workers-types": "^5.20260922.1",
     "@types/node": "^24.0.0",
-    "typescript": "^5.9.3",
-    "vite-plus": "1.3.0",
     "cf": "1.0.0-beta.5",
-    "@cloudflare/vite-plugin": "beta",
-    "vite": "^8.3.0"
+    "miniflare": "5.20261012.1-beta",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.0",
+    "vite-plus": "1.3.0"
   }
 }

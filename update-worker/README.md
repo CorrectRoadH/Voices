@@ -10,7 +10,7 @@ From the repository root:
 pnpm --dir update-worker install --frozen-lockfile
 pnpm --dir update-worker check
 pnpm --dir update-worker test
-pnpm --dir update-worker build   # cf build; does not publish
+pnpm --dir update-worker test:runtime # cf build + real workerd tests; does not publish
 pnpm --dir update-worker dev
 ```
 

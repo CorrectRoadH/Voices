@@ -37,9 +37,15 @@ async function releases(env: Env): Promise<Release[]> {
   for (let page = 1; page <= 10; page++) {
     const response = await fetch(
       `https://api.github.com/repos/${env.GITHUB_REPO}/releases?per_page=100&page=${page}`,
-      { headers, signal, redirect: "error" },
+      { headers, signal, redirect: "manual" },
     );
-    if (!response.ok) throw new Error("GitHub unavailable");
+    if (!response.ok) {
+      console.warn("GitHub release lookup failed", {
+        status: response.status,
+        rateLimitRemaining: response.headers.get("X-RateLimit-Remaining"),
+      });
+      throw new Error("GitHub unavailable");
+    }
     const value: unknown = await response.json();
     if (
       !Array.isArray(value) ||
@@ -91,7 +97,9 @@ export default {
           ctx.waitUntil(
             cache.put(key, json(releaseManifest, 200, "public, max-age=300")).catch(() => {}),
           );
-      } catch {
+      } catch (error) {
+        // Never log request URLs, identities, credentials, or upstream bodies.
+        console.warn("Release lookup unavailable", error instanceof Error ? error.name : "unknown");
         /* Keep announcements available when releases are unknown. */
       }
     }

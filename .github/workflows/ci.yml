@@ -55,7 +55,7 @@ jobs:
         run: go test ./internal/app -run 'Test.*Browser' -count=1 -v
         env:
           VOICES_BROWSER_TEST: '1'
-      - run: pnpm --dir update-worker build
+      - run: pnpm --dir update-worker test:runtime
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
