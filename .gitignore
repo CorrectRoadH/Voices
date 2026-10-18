@@ -1,0 +1,10 @@
+# Local runtime data and credentials
+/data/
+.env
+.env.*
+!.env.example
+# Build output
+node_modules/
+dist/
+/bin/
+/.air/

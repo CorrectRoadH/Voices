@@ -1,0 +1,77 @@
+{
+  "format": "concord.concepts/v1",
+  "concepts": [
+    {
+      "id": "recording",
+      "definition": "用户导入并独立管理的一份音频记录。",
+      "names": {
+        "zh": {
+          "preferred": "录音"
+        },
+        "en": {
+          "preferred": "Recording"
+        }
+      }
+    },
+    {
+      "id": "transcription",
+      "definition": "一次转写生成的文本、时间位置与说话人标签集合。",
+      "names": {
+        "zh": {
+          "preferred": "转写版本"
+        },
+        "en": {
+          "preferred": "Transcription"
+        }
+      }
+    },
+    {
+      "id": "speaker-label",
+      "definition": "仅在一个转写版本内有效的匿名说话人标识。",
+      "names": {
+        "zh": {
+          "preferred": "说话人标签"
+        },
+        "en": {
+          "preferred": "Speaker label"
+        }
+      }
+    },
+    {
+      "id": "person",
+      "definition": "跨录音复用的真实人物信息，由用户确认与说话人标签的对应关系。",
+      "names": {
+        "zh": {
+          "preferred": "人物档案"
+        },
+        "en": {
+          "preferred": "Person"
+        }
+      }
+    },
+    {
+      "id": "utterance",
+      "definition": "具有起止时间、文本和可选说话人归属的一段发言。",
+      "names": {
+        "zh": {
+          "preferred": "发言片段"
+        },
+        "en": {
+          "preferred": "Utterance"
+        }
+      }
+    },
+    {
+      "id": "provider",
+      "definition": "处理音频并生成转写结果的服务来源。",
+      "names": {
+        "zh": {
+          "preferred": "转写服务商"
+        },
+        "en": {
+          "preferred": "STT provider"
+        }
+      }
+    }
+  ]
+}

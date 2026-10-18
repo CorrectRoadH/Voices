@@ -1,0 +1,46 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+    environment:
+      DATABASE_URL: postgres://voices:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/voices?sslmode=disable
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      SONIOX_API_KEY: ${SONIOX_API_KEY:-}
+      ASSEMBLYAI_API_KEY: ${ASSEMBLYAI_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      RESTORE_MODE: ${RESTORE_MODE:-false}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-2147483648}
+      TRANSCRIPTION_CONCURRENCY: ${TRANSCRIPTION_CONCURRENCY:-2}
+      PREPARE_CONCURRENCY: ${PREPARE_CONCURRENCY:-1}
+    ports:
+      - "127.0.0.1:${PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=6g,mode=1777
+    mem_limit: 2g
+    restart: unless-stopped
+    stop_grace_period: 30s
+  db:
+    image: postgres:18-bookworm
+    environment:
+      POSTGRES_DB: voices
+      POSTGRES_USER: voices
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voices -d voices"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+volumes:
+  postgres_data:
