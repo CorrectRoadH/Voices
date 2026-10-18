@@ -51,7 +51,7 @@ GITHUB_REPO 为部署配置 CorrectRoadH/Voices；GITHUB_TOKEN 为可选服务�
 
 每页100条，最多10页；仍有下一页则返回未知版本，不从不完整集合推断最大版本。过滤 draft、prerelease 和非法 tag，按数值取最大稳定版本。
 
-Cloudflare Cache API 缓存成功版本快照5分钟，缓存故障不影响上游成功结果。公告每次请求重新过滤，HTTP 响应 no-store。GitHub 失败返回 null 版本和有效公告，HTTP 200。
+GitHub 上游 HTTP 200 响应通过 Cloudflare fetch 缓存5分钟，重定向和错误响应不缓存。缓存按公开上游 URL 复用，不包含客户端统计参数。Cloudflare Cache API 另缓存成功版本快照5分钟，缓存故障不影响上游成功结果。公告每次请求重新过滤，HTTP 响应 no-store。GitHub 失败返回 null 版本和有效公告，HTTP 200。
 
 公告来自 `content/announcements.json`，随 Worker 部署。字段 id、title、body、severity、publishedAt、expiresAt、link 必须完整；后两项可为 null。
 

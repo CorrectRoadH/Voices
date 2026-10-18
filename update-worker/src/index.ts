@@ -37,7 +37,13 @@ async function releases(env: Env): Promise<Release[]> {
   for (let page = 1; page <= 10; page++) {
     const response = await fetch(
       `https://api.github.com/repos/${env.GITHUB_REPO}/releases?per_page=100&page=${page}`,
-      { headers, signal, redirect: "manual" },
+      {
+        headers,
+        signal,
+        redirect: "manual",
+        // Reuse public GitHub responses across clients; never cache a rate-limit failure.
+        cf: { cacheEverything: true, cacheTtlByStatus: { "200": 300, "300-599": -1 } },
+      },
     );
     if (!response.ok) {
       console.warn("GitHub release lookup failed", {

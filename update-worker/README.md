@@ -1,6 +1,6 @@
 # Voices update worker
 
-Cloudflare Worker serving `GET /`: latest stable GitHub release plus bundled announcements. The application fetches this endpoint from Go; browsers use the authenticated admin API. Installation telemetry is enabled by default in Voices; UPDATE_TELEMETRY=false opts out. The Worker accepts only a random installation UUID, version, Go version, OS, architecture and optional locale; Cloudflare supplies country. No recording, transcript, account or IP is stored in the dataset. GitHub release changes require no Worker redeploy (release cache lasts five minutes); announcement changes require redeploy.
+Cloudflare Worker serving `GET /`: latest stable GitHub release plus bundled announcements. The application fetches this endpoint from Go; browsers use the authenticated admin API. Installation telemetry is enabled by default in Voices; UPDATE_TELEMETRY=false opts out. The Worker accepts only a random installation UUID, version, Go version, OS, architecture and optional locale; Cloudflare supplies country. No recording, transcript, account or IP is stored in the dataset. Public GitHub responses and successful release snapshots are cached for five minutes; upstream redirects and failures are not cached. GitHub release changes require no Worker redeploy; announcement changes require redeploy.
 
 ## Local checks
 
