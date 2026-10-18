@@ -1,0 +1,28 @@
+name: Deploy update worker
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: update-worker-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: update-worker-production
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: update-worker/pnpm-lock.yaml
+      - run: pnpm --dir update-worker install --frozen-lockfile
+      - run: pnpm --dir update-worker check
+      - run: pnpm --dir update-worker test
+      - run: pnpm --dir update-worker deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

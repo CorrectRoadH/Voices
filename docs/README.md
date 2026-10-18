@@ -2,6 +2,8 @@
 
 ## 产品契约
 
+- [版本更新与公告](feature/updates/README.md)
+
 - [独立账号与系统管理](feature/accounts/README.md)
 
 - [录音库与拖入导入](feature/recording-library/README.md)
@@ -25,6 +27,9 @@
 - [项目原则](constitution.md)
 
 ## 开发机制
+
+- [CI、Docker 与发布](engineering/delivery/README.md)
+- [发布与更新服务设计](research/release-updates/README.md)
 
 使用 [Concord](concord.md) 管理产品契约及代码/测试关系。Go 与前端测试入口见 [开发与测试](development.md)，不用默认 Node runner 声称验证 Go。
 上述产品契约均已实现，并通过真实 PostgreSQL、HTTP 与浏览器验收；真实付费服务商样本验收尚未进行。

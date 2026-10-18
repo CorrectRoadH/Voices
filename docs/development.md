@@ -1,6 +1,6 @@
 # 开发与测试
 
-需要 Go 1.26、Air、Node.js 24.11+、pnpm、Docker、FFmpeg/ffprobe。命令均在仓库根目录执行，命令说明见 [命令](cli.md)。
+需要 Python 3、Go 1.26、Air、Node.js 24.11+、pnpm、Docker、FFmpeg/ffprobe。命令均在仓库根目录执行，命令说明见 [命令](cli.md)。
 
 ## 本地运行
 
@@ -15,6 +15,7 @@ PUBLIC_BASE_URL=http://<本机局域网 IP>:5173
 
 ```sh
 pnpm --dir web install --frozen-lockfile
+pnpm --dir update-worker install --frozen-lockfile
 pnpm db:up        # 开发 PostgreSQL，仅绑定 127.0.0.1:54329
 air .             # 终端一：后端热重启
 pnpm dev          # 终端二：前端 5173，API 代理到 18080

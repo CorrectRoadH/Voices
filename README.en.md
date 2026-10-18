@@ -47,6 +47,7 @@ For public access, put an HTTPS reverse proxy in front and set `PUBLIC_BASE_URL`
 ## Learn more
 
 - [Deployment, configuration, backup and restore](docs/operations.md)
+- [CI, image releases and update service](docs/engineering/delivery/README.md)
 - [Local development and testing](docs/development.md)
 - [Product and architecture docs](docs/README.md)
 

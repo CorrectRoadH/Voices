@@ -8,3 +8,9 @@ node_modules/
 dist/
 /bin/
 /.air/
+# Worker local runtime and browser artifacts
+.wrangler/
+.dev.vars*
+web/test-results/
+web/playwright-report/
+__pycache__/

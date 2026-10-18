@@ -16,9 +16,16 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"voices/internal/app"
 	"voices/internal/persistence"
+	"voices/internal/updates"
 )
 
+var version = "dev"
+
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "version" {
+		fmt.Println(strings.TrimPrefix(version, "v"))
+		return
+	}
 	if len(os.Args) > 1 && ((os.Args[1] == "reset-password" && len(os.Args) != 3) || (os.Args[1] == "resolve-job" && len(os.Args) != 5)) {
 		slog.Error("usage: voices reset-password <email> OR voices resolve-job <job-id> <operation-id> <remote-id>; input is read from stdin")
 		os.Exit(2)
@@ -109,13 +116,20 @@ func main() {
 		os.Exit(1)
 	}
 	workerDone := make(chan struct{})
+	application.Updates = updates.New(ctx, version, cfg.UpdateURL, nil)
+	updatesDone := make(chan struct{})
+	go func() { defer close(updatesDone); application.Updates.Run() }()
 	go func() { defer close(workerDone); application.Run(ctx) }()
 	server := &http.Server{Addr: cfg.ListenAddr, Handler: application.Handler(), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20}
+	shutdownDone := make(chan struct{})
 	go func() {
+		defer close(shutdownDone)
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
-		server.Shutdown(shutdownCtx)
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			server.Close()
+		}
 	}()
 	slog.Info("Voices listening", "address", cfg.ListenAddr, "restore_mode", cfg.RestoreMode)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -123,5 +137,7 @@ func main() {
 		stop()
 	}
 	stop()
+	<-shutdownDone
+	<-updatesDone
 	<-workerDone
 }

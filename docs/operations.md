@@ -76,3 +76,25 @@ Soniox 提供文件与转写删除接口。AssemblyAI 的成功转写删除会�
 忘记密码时，运维者在已加载 DATABASE_URL 的本机运行 `voices reset-password <email>`，从标准输入提供新密码。成功会撤销该用户全部会话，不更改角色或启停状态。不要将密码写入命令行参数或日志。
 
 网页仅允许记录观察或确认该操作已登记的远端 ID。未知远端 ID 由运维者在服务商控制台核实账号与录音归属后，通过 `voices resolve-job <job-id> <operation-id> <remote-id>` 登记，核对说明从标准输入读取。运维命令保留原有隔离与清理约束，不自动解除其他未核实操作。
+
+## 发布镜像与版本
+
+正式镜像：`ghcr.io/correctroadh/voices:<X.Y.Z>`，提供 Linux amd64/arm64。首次发布前该镜像尚不存在；首次发布后需在 GitHub Package 设置中确认可见性为 public，才能匿名拉取。源码构建仍可使用 `docker compose up -d --build`。
+
+使用已发布镜像（先按本文配置数据库密码和站点 URL）：
+
+```sh
+# .env 中设置 VOICES_IMAGE=ghcr.io/correctroadh/voices:具体版本
+# 升级前备份 PostgreSQL；固定版本便于追踪。
+docker compose pull app
+docker compose up -d --no-build
+docker compose exec app voices version
+```
+
+预构建镜像前端基路径为 `/`。部署到 `/voices/` 等子路径时，继续从源码按 `PUBLIC_BASE_URL` 构建；已有数据库中的站点地址也须一致。数据库迁移在启动时运行，回滚镜像前必须核对迁移兼容性，必要时恢复升级前备份。
+
+## 更新服务与公告
+
+`UPDATE_URL` 是可选的部署配置，填写已部署 Worker 的 HTTPS 根地址。为空时禁用更新服务；修改后重启应用。更新检查仅获取公共版本和公告，不发送实例 ID、运行环境、录音、账号或转写数据。管理员在服务器设置查看发布说明并手动检查；后台每 24 小时检查，手动检查至少间隔 60 秒。失败明确显示状态并保留上次成功结果。
+
+Worker 的部署与公告维护见 [update-worker/README.md](../update-worker/README.md)。更新提示不会自动安装软件。

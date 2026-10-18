@@ -6,10 +6,12 @@ export default {
   "testRoots": [
     "internal",
     "web/src",
-    "web/e2e"
+    "web/e2e",
+    "update-worker/test"
   ],
   "sourceRoots": [
-    "web/src"
+    "web/src",
+    "update-worker/src"
   ],
   "runner": {
     "kind": "command",
@@ -18,6 +20,24 @@ export default {
       "scripts/test.sh"
     ],
     "sourceFiles": [
+      "scripts/check-release.py",
+      "scripts/check_release_test.py",
+      "web/src/components/server-updates.tsx",
+      "web/scripts/updates-stack.mjs",
+      "web/e2e/updates.spec.ts",
+      "update-worker/wrangler.toml",
+      "update-worker/vite.config.ts",
+      "update-worker/test/worker.test.ts",
+      "update-worker/src/manifest.ts",
+      "update-worker/src/index.ts",
+      "update-worker/pnpm-lock.yaml",
+      "update-worker/package.json",
+      "update-worker/content/announcements.json",
+      "internal/updates/manifest.go",
+      "internal/updates/manager_test.go",
+      "internal/updates/manager.go",
+      "internal/app/updates_test.go",
+      "internal/app/updates.go",
       "cmd/voices/main.go",
       "docs/api/openapi.json",
       "go.mod",

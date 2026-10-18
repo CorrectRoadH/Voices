@@ -1,0 +1,104 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a stable version tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: '[[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]'
+  ci:
+    needs: validate
+    uses: ./.github/workflows/ci.yml
+  image:
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - name: Image name
+        id: image
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: echo "name=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prevent latest version regression
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          IMAGE: ${{ steps.image.outputs.name }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[]' | jq -s . > "$RUNNER_TEMP/releases.json"
+          if docker pull "$IMAGE:latest" 2> "$RUNNER_TEMP/image-error"; then
+            current=$(docker image inspect "$IMAGE:latest" --format '{{ index .Config.Labels "org.opencontainers.image.version" }}')
+            python3 scripts/check-release.py "$RELEASE_TAG" "$RUNNER_TEMP/releases.json" "$current"
+          else
+            owner_type=$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.type')
+            scope=users
+            if [ "$owner_type" = Organization ]; then scope=orgs; fi
+            package_name=${IMAGE##*/}
+            # GHCR may return denied for a package which has never been created.
+            # Only an explicit Packages API 404 permits first publication.
+            if gh api "$scope/$GITHUB_REPOSITORY_OWNER/packages/container/$package_name" > /dev/null 2> "$RUNNER_TEMP/package-error"; then
+              cat "$RUNNER_TEMP/image-error" >&2
+              exit 1
+            elif grep -q '(HTTP 404)' "$RUNNER_TEMP/package-error"; then
+              python3 scripts/check-release.py "$RELEASE_TAG" "$RUNNER_TEMP/releases.json"
+            else
+              cat "$RUNNER_TEMP/package-error" >&2
+              exit 1
+            fi
+          fi
+      - uses: docker/metadata-action@v6
+        id: meta
+        with:
+          images: ${{ steps.image.outputs.name }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: VOICES_VERSION=${{ github.ref_name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+  release:
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Generate release notes
+        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff
+        id: notes
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+      - name: Publish release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64
+        with:
+          body: ${{ steps.notes.outputs.content }}
+          prerelease: false

@@ -1,9 +1,11 @@
 services:
   app:
+    image: ${VOICES_IMAGE:-ghcr.io/correctroadh/voices:latest}
     build:
       context: .
       args:
         PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+        VOICES_VERSION: ${VOICES_VERSION:-dev}
     environment:
       DATABASE_URL: postgres://voices:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/voices?sslmode=disable
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
@@ -13,6 +15,7 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_MODEL: ${LLM_MODEL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
+      UPDATE_URL: ${UPDATE_URL:-}
       RESTORE_MODE: ${RESTORE_MODE:-false}
       MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-2147483648}
       TRANSCRIPTION_CONCURRENCY: ${TRANSCRIPTION_CONCURRENCY:-2}

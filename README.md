@@ -47,6 +47,7 @@ docker compose up --build -d
 ## 了解更多
 
 - [部署、配置与备份恢复](docs/operations.md)
+- [CI、镜像发布与更新服务](docs/engineering/delivery/README.md)
 - [本地开发与测试](docs/development.md)
 - [产品与架构文档](docs/README.md)
 

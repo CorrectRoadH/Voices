@@ -4165,6 +4165,24 @@ export interface paths {
         };
         trace?: never;
     };
+    "/admin/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 读取当前实例的更新缓存 */
+        get: operations["getUpdates"];
+        put?: never;
+        /** 手动检查更新（进程内合并，至少间隔60秒） */
+        post: operations["checkUpdates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4485,6 +4503,34 @@ export interface components {
             llm_api_key?: string;
             revision: number;
         };
+        UpdateAnnouncement: {
+            id: string;
+            title: string;
+            body: string;
+            /** @enum {string} */
+            severity: "info" | "warning" | "critical";
+            /** Format: date-time */
+            publishedAt: string;
+            /** Format: date-time */
+            expiresAt: string | null;
+            link: string | null;
+        };
+        UpdateStatus: {
+            current_version: string;
+            latest_version: string | null;
+            update_available: boolean;
+            /** @enum {string} */
+            status: "disabled" | "unchecked" | "ok" | "error";
+            /** Format: date-time */
+            checked_at: string | null;
+            /** Format: date-time */
+            last_success_at: string | null;
+            release_url: string | null;
+            /** Format: date-time */
+            released_at: string | null;
+            release_notes: string;
+            announcements: components["schemas"]["UpdateAnnouncement"][];
+        };
     };
     responses: never;
     parameters: never;
@@ -4493,4 +4539,82 @@ export interface components {
     pathItems: never;
 }
 export type $defs = Record<string, never>;
-export type operations = Record<string, never>;
+export interface operations {
+    getUpdates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 更新状态；上游失败通过 status=error 表示 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateStatus"];
+                };
+            };
+            /** @description 未登录 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 非管理员或 CSRF/来源拒绝 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    checkUpdates: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 更新状态；上游失败通过 status=error 表示 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateStatus"];
+                };
+            };
+            /** @description 未登录 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 非管理员或 CSRF/来源拒绝 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 恢复模式禁止手动检查 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+}

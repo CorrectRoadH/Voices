@@ -4635,6 +4635,65 @@
         },
         "summary": "Save server settings; restart all application replicas to apply"
       }
+    },
+    "/admin/updates": {
+      "get": {
+        "summary": "读取当前实例的更新缓存",
+        "operationId": "getUpdates",
+        "responses": {
+          "200": {
+            "description": "更新状态；上游失败通过 status=error 表示",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "非管理员或 CSRF/来源拒绝"
+          }
+        }
+      },
+      "post": {
+        "summary": "手动检查更新（进程内合并，至少间隔60秒）",
+        "operationId": "checkUpdates",
+        "responses": {
+          "200": {
+            "description": "更新状态；上游失败通过 status=error 表示",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "非管理员或 CSRF/来源拒绝"
+          },
+          "409": {
+            "description": "恢复模式禁止手动检查"
+          }
+        },
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -6096,6 +6155,128 @@
           "revision"
         ],
         "additionalProperties": false
+      },
+      "UpdateAnnouncement": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "body",
+          "severity",
+          "publishedAt",
+          "expiresAt",
+          "link"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warning",
+              "critical"
+            ]
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "link": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "UpdateStatus": {
+        "type": "object",
+        "required": [
+          "current_version",
+          "latest_version",
+          "update_available",
+          "status",
+          "checked_at",
+          "last_success_at",
+          "release_url",
+          "released_at",
+          "release_notes",
+          "announcements"
+        ],
+        "properties": {
+          "current_version": {
+            "type": "string"
+          },
+          "latest_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "update_available": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "unchecked",
+              "ok",
+              "error"
+            ]
+          },
+          "checked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "last_success_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "release_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "released_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "release_notes": {
+            "type": "string"
+          },
+          "announcements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UpdateAnnouncement"
+            }
+          }
+        }
       }
     },
     "securitySchemes": {

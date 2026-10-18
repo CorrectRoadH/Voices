@@ -6,4 +6,7 @@ web/node_modules
 web/dist
 web/test-results
 web/playwright-report
+update-worker/node_modules
+update-worker/.wrangler
+update-worker/dist
 memory

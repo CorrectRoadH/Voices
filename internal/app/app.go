@@ -22,6 +22,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"voices/internal/providers"
 	"voices/internal/storage"
+	"voices/internal/updates"
 )
 
 type App struct {
@@ -30,10 +31,12 @@ type App struct {
 	Blobs      *storage.Store
 	Providers  map[string]providers.Adapter
 	InstanceID string
+	Updates    *updates.Manager
 }
 
 func New(c Config, db *pgxpool.Pool, adapters ...providers.Adapter) *App {
 	a := &App{Config: c, DB: db, Blobs: &storage.Store{Pool: db}, Providers: map[string]providers.Adapter{}, InstanceID: uuid.NewString()}
+	a.Updates = updates.New(context.Background(), "dev", "", nil)
 	for _, p := range adapters {
 		a.Providers[p.ID()] = p
 	}
@@ -141,6 +144,8 @@ func (a *App) Handler() http.Handler {
 	protected("PATCH /api/v1/me", a.updateMe)
 	protected("PUT /api/v1/me/password", a.changePassword)
 	protected("GET /api/v1/admin/server-settings", a.adminServerSettings)
+	protected("GET /api/v1/admin/updates", a.adminUpdates)
+	protected("POST /api/v1/admin/updates", a.adminUpdates)
  protected("PATCH /api/v1/admin/server-settings", a.adminServerSettings)
  protected("GET /api/v1/admin/users", a.adminUsers)
 	protected("PATCH /api/v1/admin/users/{id}", a.adminUpdateUser)

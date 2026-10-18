@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/accounts/use-case/manage-server.md
+import { ServerUpdates } from "@/components/server-updates";
 import { useState, type FormEvent } from "react";
 import { Save, Server, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -133,6 +134,7 @@ export function ServerSettingsPage() {
   const [generation, setGeneration] = useState(0);
   return <>
     <PageHeading title="服务器设置" />
+    <ServerUpdates />
     <ErrorBox message={resource.error} retry={resource.refresh} />
     {resource.loading ? <Loading /> : resource.data && <ServerSettingsForm key={`${generation}:${resource.data.revision}`} data={resource.data}
       onSaved={(data) => resource.setData(data)} refresh={() => { setGeneration((n) => n + 1); resource.refresh(); }} />}

@@ -8,9 +8,12 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"voices/internal/updates"
 )
 
 type Config struct {
+	UpdateURL string
+
 	// AllowedOrigins lists explicit additional browser origins; request Host is never trusted.
 	AllowedOrigins                                          []string
 	DatabaseURL, ListenAddr, PublicBaseURL, WebDir, TempDir string
@@ -43,6 +46,10 @@ func LoadConfig() (Config, error) {
 	}
 	c := Config{seedEnv: values, ListenAddr: get("LISTEN_ADDR", "127.0.0.1:8080"), WebDir: get("WEB_DIR", "web/dist"), TempDir: values["TEMP_DIR"], RestoreMode: values["RESTORE_MODE"] == "true", MaxUploadBytes: 2 << 30, TranscriptionConcurrency: 2, PrepareConcurrency: 1, HTTPTimeout: 2 * time.Minute}
 	c.DatabaseURL, err = configSecret(values, "DATABASE_URL")
+	c.UpdateURL = values["UPDATE_URL"]
+	if !updates.ValidEndpoint(c.UpdateURL) {
+		return c, errors.New("UPDATE_URL must be an HTTPS URL without credentials, query or fragment")
+	}
 	if err != nil {
 		return c, err
 	}
