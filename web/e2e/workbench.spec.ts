@@ -136,6 +136,7 @@ async function boundary(
     if (path === `/recordings/${rid}/transcriptions`)
       return json({ items: [version], next_cursor: null });
     if (path === `/transcriptions/${tid}`) return json(version);
+    if (/^\/transcriptions\/[^/]+\/insights$/.test(path)) return json({ configured: false, insight: null });
     if (path === `/segments/${sid}` && req.method() === "PATCH")
       return json(
         { error: { code: "conflict", message: "changed", request_id: "conflict-test" } },
@@ -473,7 +474,9 @@ test("拖入批量文件不重复排队，单文件失败可用原幂等键重�
     button.click();
     button.click();
   });
-  await expect(page.getByText("此音频无法探测，请确认文件完整。（请求 test-audio）")).toBeVisible();
+  await expect(page.locator('.upload-file').getByText("此音频无法探测，请确认文件完整。（请求 test-audio）", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-slot=toast-description]').filter({ hasText: 'retry.wav：此音频无法探测' })).toBeVisible();
+  await page.locator('[data-slot=toast-close]').click();
   await page.getByRole("button", { name: "重新上传", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "导入录音", exact: true })).toHaveCount(0);
   await expect(page.getByText("已导入 2 个文件", { exact: true })).toBeVisible();
@@ -697,8 +700,8 @@ test('未改文字或改后撤回等同取消，不保存也不标记校正', as
   expect(patches).toBe(0);
 });
 
-// @use-case docs/feature/transcription/use-case/transcribe.md
-test('滚动时底部播放器和目录可用，目录定位不重建或自动播放音频', async ({page}) => {
+// @use-case docs/feature/insights/use-case/generate-insights.md
+test('未配置 LLM 时桌面和手机目录提示配置，滚动不影响底部播放器', async ({page}) => {
   await boundary(page);
   const rows = Array.from({length:18}, (_,index) => ({...segment,id:`outline-${index}`,ordinal:index,start_ms:index*60000,text:`第 ${index+1} 段录音正文。` }));
   await page.route(`**/api/v1/transcriptions/${tid}/segments?*`, route => route.fulfill({json:{items:rows,next_cursor:null,previous_cursor:null}}));
@@ -707,9 +710,12 @@ test('滚动时底部播放器和目录可用，目录定位不重建或自动�
   await expect(target).toHaveCount(1);
   await page.evaluate(()=> { (window as any).testAudio = document.querySelector('audio'); });
   await expect(page.locator('.detail-aside')).toHaveCSS('overflow-y','visible');
-  await expect(page.locator('.desktop-outline .transcript-outline')).toHaveCSS('overflow-y','visible');
+  await expect(page.locator('.desktop-outline')).toContainText('请先配置 LLM');
+  await expect(page.locator('.desktop-outline')).toContainText('请管理员在服务器设置中配置 LLM 地址和模型，并重启服务使其生效。');
+  await expect(page.locator('.desktop-outline nav')).toHaveCount(0);
+  await expect(page.locator('.transcript-outline')).toHaveCount(0);
   await expect(page.getByRole('tabpanel')).toHaveCSS('overflow-y','auto');
-  await page.locator('.desktop-outline').getByRole('link').last().click();
+  await target.scrollIntoViewIfNeeded();
   await expect(target).toBeInViewport();
   await expect(page.getByRole('tab',{name:'目录',exact:true})).toBeInViewport();
   await expect(page.locator('.player-panel')).toHaveCSS('position','fixed');
@@ -718,13 +724,120 @@ test('滚动时底部播放器和目录可用，目录定位不重建或自动�
   await page.screenshot({path:'/tmp/voices-fixed-desktop.png'});
   await page.setViewportSize({width:390,height:844});
   await page.locator('.player-panel').getByRole('button',{name:'目录',exact:true}).click();
-  await page.locator('[data-slot=popover-content]').getByRole('link').first().click();
-  await expect(page.locator('#segment-outline-0')).toBeInViewport();
-  await expect(page.locator('[data-slot=popover-content]')).toHaveCount(0);
+  await expect(page.locator('[data-slot=popover-content]')).toContainText('请先配置 LLM');
+  await expect(page.locator('[data-slot=popover-content] nav')).toHaveCount(0);
+  await expect(page.locator('[data-slot=popover-content]')).toContainText('请管理员在服务器设置中配置 LLM 地址和模型，并重启服务使其生效。');
+  await page.keyboard.press('Escape');
   const box = (await page.locator('.player-panel').boundingBox())!;
   expect(box.y+box.height).toBeLessThanOrEqual(844);
   expect(box.y).toBeGreaterThan(650);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   expect(await page.evaluate(()=> (window as any).testAudio === document.querySelector('audio') && (document.querySelector('audio') as HTMLAudioElement).paused)).toBe(true);
   await page.screenshot({path:'/tmp/voices-fixed-mobile.png'});
+});
+
+// @use-case docs/feature/appearance/use-case/change-theme.md
+test('主题跟随系统、手动覆盖、刷新与跨标签同步', async ({ page, context }) => {
+  await boundary(page);
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto('account');
+  const theme = page.getByRole('combobox', { name: '界面主题' });
+  await expect(theme).toHaveValue('system');
+  await expect(page.locator('html')).toHaveClass('dark');
+  await expect(page.locator('html')).toHaveCSS('color-scheme', 'dark');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect(page.locator('html')).not.toHaveClass('dark');
+  await theme.selectOption('dark');
+  await page.reload();
+  await expect(theme).toHaveValue('dark');
+  await expect(page.locator('html')).toHaveClass('dark');
+  const other = await context.newPage();
+  await boundary(other);
+  await other.goto('account');
+  await other.getByLabel('界面主题').selectOption('light');
+  await expect(theme).toHaveValue('light');
+  await expect(page.locator('html')).not.toHaveClass('dark');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(page.locator('html')).not.toHaveClass('dark');
+  await other.evaluate(() => localStorage.clear());
+  await expect(theme).toHaveValue('system');
+  await expect(page.locator('html')).toHaveClass('dark');
+  await other.close();
+});
+
+// @use-case docs/feature/appearance/use-case/change-theme.md
+test('主题初始化在应用加载前完成且存储不可用仍可切换', async ({ page }) => {
+  await boundary(page, { login: true });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'localStorage', { get() { throw new DOMException('Blocked', 'SecurityError'); } });
+  });
+  await page.route('**/src/main.tsx', route => route.abort());
+  await page.route('**/voices/login', async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response, headers: { ...response.headers(), 'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'" } });
+  });
+  await page.goto('login');
+  await expect(page.locator('html')).toHaveClass('dark');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#171b24');
+  await expect(page.locator('#root')).toBeEmpty();
+  await page.unroute('**/src/main.tsx');
+  await page.unroute('**/voices/login');
+  await page.reload();
+  await expect(page.getByLabel('界面主题')).toHaveCount(0);
+  await page.getByLabel('用户名或邮箱').fill('tester@example.test');
+  await page.getByLabel('密码', { exact: true }).fill('test-password');
+  await page.getByRole('button', { name: '进入工作台', exact: true }).click();
+  await page.getByRole('link', { name: '我的账号', exact: true }).click();
+  await page.getByLabel('界面主题').selectOption('light');
+  await expect(page.locator('html')).not.toHaveClass('dark');
+});
+
+// @use-case docs/feature/appearance/use-case/change-theme.md
+test('主题在手机个人设置切换并应用于工作台、导入弹窗与转写详情', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await boundary(page, { login: true });
+  await page.goto('login');
+  await expect(page.getByLabel('界面主题')).toHaveCount(0);
+  await page.getByLabel('用户名或邮箱').fill('tester@example.test');
+  await page.getByLabel('密码', { exact: true }).fill('test-password');
+  await page.getByRole('button', { name: '进入工作台', exact: true }).click();
+  await page.getByRole('link', { name: '我的账号', exact: true }).click();
+  await page.getByLabel('界面主题').selectOption('light');
+  await page.getByLabel('界面主题').selectOption('dark');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: '/tmp/voices-theme-account-mobile.png', fullPage: true });
+  await page.getByRole('link', { name: '录音库', exact: true }).click();
+  await expect(page.getByLabel('界面主题')).toHaveCount(0);
+  await page.getByRole('button', { name: '导入录音', exact: true }).first().click();
+  await expect(page.getByRole('dialog', { name: '导入录音', exact: true })).toBeVisible();
+  await page.screenshot({ path: '/tmp/voices-dark-dialog.png', fullPage: true });
+  await page.keyboard.press('Escape');
+  await page.goto(`recordings/${rid}/transcriptions/${tid}`);
+  await expect(page.locator('.segment-bubble').first()).toBeVisible();
+  await expect(page.locator('html')).toHaveClass('dark');
+  await page.screenshot({ path: '/tmp/voices-dark-mobile.png', fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: '/tmp/voices-dark-desktop.png', fullPage: true });
+});
+
+// @use-case docs/feature/interface-language/use-case/choose-language.md
+test("英文转写详情保留中文正文并翻译未分配说话人", async ({ page }) => {
+  await boundary(page);
+  await page.route('**/api/v1/session', route => route.fulfill({
+    contentType: 'application/json', body: JSON.stringify({ ...session, user: { ...session.user, ui_language: 'en' } }),
+  }));
+  const unknown = { ...segment, person_id: null, speaker_label_id: null, speaker_name: '未知说话人' };
+  await page.route(`**/api/v1/segments/${sid}`, route => route.fulfill({ contentType: 'application/json', body: JSON.stringify(unknown) }));
+  await page.route(`**/api/v1/transcriptions/${tid}/segments?*`, route => route.fulfill({
+    contentType: 'application/json', body: JSON.stringify({ items: [unknown], next_cursor: null, previous_cursor: null }),
+  }));
+  await page.goto(deepLink);
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await expect(page.getByText('Unknown speaker', { exact: true })).toBeVisible();
+  await expect(page.locator('.segment-text')).toHaveText(segment.text);
+  await expect(page.getByRole('heading', { name: recording.title, exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Play from 00:01 to the end of this sentence', exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

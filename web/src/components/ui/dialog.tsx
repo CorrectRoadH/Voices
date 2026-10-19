@@ -1,3 +1,4 @@
+import { tr } from "@/lib/i18n";
 import * as React from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { cn } from "cn";
@@ -60,7 +61,7 @@ function DialogContent({
             render={<Button variant="ghost" className="absolute top-2 right-2" size="icon-sm" />}
           >
             <XIcon />
-            <span className="sr-only">关闭</span>
+            <span className="sr-only">{tr("关闭")}</span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Popup>

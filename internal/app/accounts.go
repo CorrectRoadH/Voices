@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -40,29 +41,51 @@ func (a *App) authorizeResource(r *http.Request) error {
 }
 func (a *App) updateMe(w http.ResponseWriter, r *http.Request) error {
 	var in struct {
-		DisplayName string  `json:"display_name"`
-		Username    *string `json:"username"`
+		DisplayName json.RawMessage `json:"display_name"`
+		Username    json.RawMessage `json:"username"`
+		UILanguage  json.RawMessage `json:"ui_language"`
 	}
 	if err := decode(r, &in); err != nil {
 		return err
 	}
-	in.DisplayName = strings.TrimSpace(in.DisplayName)
-	if len([]rune(in.DisplayName)) < 1 || len([]rune(in.DisplayName)) > 100 {
-		return bad("invalid_name", "显示名称须为 1–100 字")
+	var name, username, language *string
+	for _, field := range []struct {
+		raw  json.RawMessage
+		dest **string
+		code string
+	}{{in.DisplayName, &name, "invalid_name"}, {in.Username, &username, "invalid_username"}, {in.UILanguage, &language, "invalid_ui_language"}} {
+		if len(field.raw) == 0 {
+			continue
+		}
+		if err := json.Unmarshal(field.raw, field.dest); err != nil || *field.dest == nil {
+			return bad(field.code, "字段必须为字符串，不能为 null")
+		}
 	}
-	if in.Username != nil {
-		*in.Username = normalizeEmail(*in.Username)
-		if !validUsername(*in.Username) {
+	if name == nil && username == nil && language == nil {
+		return bad("invalid_request", "请提供要修改的个人资料字段")
+	}
+	if name != nil {
+		*name = strings.TrimSpace(*name)
+		if len([]rune(*name)) < 1 || len([]rune(*name)) > 100 {
+			return bad("invalid_name", "显示名称须为 1–100 字")
+		}
+	}
+	if username != nil {
+		*username = normalizeEmail(*username)
+		if !validUsername(*username) {
 			return bad("invalid_username", "用户名须为 2–32 个字母、数字或下划线")
 		}
 	}
-	u := currentUser(r.Context())
-	if _, err := a.DB.Exec(r.Context(), "UPDATE users SET display_name=$2,username=CASE WHEN $3::text IS NULL THEN username ELSE NULLIF($3,'') END,updated_at=clock_timestamp() WHERE id=$1", u.ID, in.DisplayName, in.Username); err != nil {
-		return err
+	if language != nil && *language != "zh-CN" && *language != "en" {
+		return bad("invalid_ui_language", "界面语言仅支持简体中文和英文")
 	}
-	u.DisplayName = in.DisplayName
-	if in.Username != nil {
-		u.Username = *in.Username
+	var u User
+	if err := a.DB.QueryRow(r.Context(), `UPDATE users SET display_name=COALESCE($2,display_name),
+		username=CASE WHEN $3::text IS NULL THEN username ELSE NULLIF($3,'') END,
+		ui_language=COALESCE($4,ui_language),updated_at=clock_timestamp() WHERE id=$1
+		RETURNING id,email,COALESCE(username,''),display_name,role,status,ui_language`,
+		persistence.UserID(r.Context()), name, username, language).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.Role, &u.Status, &u.UILanguage); err != nil {
+		return err
 	}
 	writeJSON(w, 200, u)
 	return nil
@@ -155,7 +178,21 @@ func (a *App) adminUsers(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	items, err := many(r.Context(), a.DB, "SELECT id,email,COALESCE(username,'') AS username,display_name,role,status,created_at FROM users ORDER BY created_at,id LIMIT $1 OFFSET $2", limit+1, offset)
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	status, role := r.URL.Query().Get("status"), r.URL.Query().Get("role")
+	if len([]rune(q)) > 100 {
+		return bad("invalid_query", "搜索内容最多 100 个字符")
+	}
+	if status != "" && status != "active" && status != "disabled" {
+		return bad("invalid_status", "账号状态不正确")
+	}
+	if role != "" && role != "admin" && role != "user" {
+		return bad("invalid_role", "账号角色不正确")
+	}
+	items, err := many(r.Context(), a.DB, `SELECT id,email,COALESCE(username,'') AS username,display_name,role,status,ui_language,created_at
+		FROM users WHERE ($3='' OR position(lower($3) in lower(email))>0 OR position(lower($3) in lower(COALESCE(username,'')))>0 OR position(lower($3) in lower(display_name))>0)
+		AND ($4='' OR status=$4) AND ($5='' OR role=$5)
+		ORDER BY created_at,id LIMIT $1 OFFSET $2`, limit+1, offset, q, status, role)
 	if err != nil {
 		return err
 	}
@@ -184,7 +221,7 @@ func (a *App) adminUpdateUser(w http.ResponseWriter, r *http.Request) error {
 		if err := lockAdmin(r.Context(), tx); err != nil {
 			return err
 		}
-		if err := tx.QueryRow(r.Context(), "SELECT id,email,COALESCE(username,''),display_name,role,status FROM users WHERE id=$1 FOR UPDATE", r.PathValue("id")).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.Role, &u.Status); err != nil {
+		if err := tx.QueryRow(r.Context(), "SELECT id,email,COALESCE(username,''),display_name,role,status,ui_language FROM users WHERE id=$1 FOR UPDATE", r.PathValue("id")).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.Role, &u.Status, &u.UILanguage); err != nil {
 			return err
 		}
 		oldRole, oldStatus := u.Role, u.Status

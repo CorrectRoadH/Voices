@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/transcription/use-case/transcribe.md
+import { tr } from "@/lib/i18n";
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { Button } from "./ui/button";
@@ -61,7 +62,7 @@ export function MessageBubble({ children, metadata, actions }: {
     <div className="message-meta">
       {metadata}
       <DropdownMenu triggerId={triggerId} open={open} onOpenChange={setOpen}>
-        <DropdownMenuTrigger id={triggerId} render={<Button className="message-more" variant="ghost" size="icon-sm" aria-label="更多操作" />}><MoreHorizontal /></DropdownMenuTrigger>
+        <DropdownMenuTrigger id={triggerId} render={<Button className="message-more" variant="ghost" size="icon-sm" aria-label={tr("更多操作")} />}><MoreHorizontal /></DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48"><DropdownMenuGroup>{actions}</DropdownMenuGroup></DropdownMenuContent>
       </DropdownMenu>
     </div>

@@ -9,7 +9,7 @@
 | PUBLIC_BASE_URL | 首次导入数据库的对外绝对 URL，默认 http://localhost:8080 |
 | LISTEN_ADDR | 默认 127.0.0.1:8080；容器使用 0.0.0.0:8080 |
 | SONIOX_API_KEY / ASSEMBLYAI_API_KEY | 首次导入数据库的 STT 凭据，读取 API 不返回原文 |
-| LLM_BASE_URL / LLM_MODEL / LLM_API_KEY | 首次导入数据库的 LLM 接口地址、模型和凭据；本期仅配置 |
+| LLM_BASE_URL / LLM_MODEL / LLM_API_KEY | 首次导入数据库的 LLM 接口地址、模型和凭据；用于手动摘要与主题目录 |
 | WEB_DIR | 编译后的前端目录，默认 web/dist |
 | TEMP_DIR | 可丢弃临时目录；运行账户须可写 |
 | MAX_UPLOAD_BYTES | 单文件上限，默认和最大值均为 2147483648 |
@@ -98,3 +98,18 @@ docker compose exec app voices version
 `UPDATE_URL` 未设置时使用 `https://voices.niceeval.com/`，显式设为空禁用更新和统计；修改后重启应用。`UPDATE_TELEMETRY` 默认 true，设为 false 只关闭统计。统计发送数据库持久化的随机安装 UUID、版本、Go/OS/架构；Worker 从 Cloudflare 获取国家。恢复模式禁发统计。录音、账号与转写数据不发送。接收方由 UPDATE_URL 决定。独立克隆数据库须重新生成 instance_identity.instance_id，不能复用任务租约 ID；详见 [统计方案](research/release-updates/telemetry.md)。管理员在服务器设置查看发布说明并手动检查；后台每 24 小时检查，手动检查至少间隔 60 秒。失败明确显示状态并保留上次成功结果。
 
 Worker 的部署与公告维护见 [update-worker/README.md](../update-worker/README.md)。更新提示不会自动安装软件。
+
+
+## 管理概览与日志
+
+管理员从站点概览查看数据库快照、账号/任务计数、ready blob 字节与当前实例限制。数据库 up 不表示 worker、服务商或全集群健康；查询失败明确显示错误。
+
+系统日志区分长期保留的管理审计与最近7天运行异常。可按类型、日期筛选，运行异常支持请求 ID。运行异常只有路由模板、错误码、请求/任务 ID，没有原始请求或服务商正文；高负载与数据库故障时可能丢弃，本实例丢弃数在概览显示。清理在恢复模式仍运行，物理删除可能滞后于可见窗口；需要堆栈时查看容器日志。
+
+## LLM 摘要
+
+LLM Base URL 包含兼容服务所需路径（例如 /v1），服务须支持 Chat Completions、JSON object response format 与 max_completion_tokens。地址和模型必填，本地无认证服务可留空 key；配置重启生效，SDK 不继承 OPENAI_*。所有账号共用实例服务额度。生成只发送用户所选转写版本的文本与片段锚点，不发送音频或人物档案。
+
+每次最多输出4096 tokens、等待120秒；无自动重试或模型降级。一个有效运行任务覆盖全实例，lease180秒，过期仅失败。兼容服务不支持参数时显示失败，请调整服务配置后显式重新生成。模型名变化使旧 queued 请求失败；地址或凭据更换前先完成排队任务，避免 queued 使用新服务。
+
+数据库快照恢复的 Restore 入口将所有 queued/running 摘要任务转为 interrupted，保留成功结果。退出恢复模式后不会自动重放这些生成请求；重新生成可能再次收费。普通服务重启继续 queued，运行中断只标失败。删除录音会回收摘要、输入快照与幂等键，已发出的远端推理可能完成但无法写回删除的录音。

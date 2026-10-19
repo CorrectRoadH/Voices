@@ -1,12 +1,13 @@
+import { tr, interfaceLocale } from "@/lib/i18n";
 export function duration(ms: number | null) {
-  if (ms === null) return "无时间";
+  if (ms === null) return tr("无时间");
   const seconds = Math.floor(ms / 1000);
   return `${Math.floor(seconds / 60)
     .toString()
     .padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
 }
 export function date(value: string) {
-  return new Date(value).toLocaleString("zh-CN", {
+  return new Date(value).toLocaleString(interfaceLocale(), {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -42,7 +43,7 @@ export const states: Record<string, string> = {
   confirmed_absent: "确认未创建",
 };
 export function stateName(value: string) {
-  return states[value] || value;
+  return states[value] ? tr(states[value]) : value;
 }
 
 export function localDateValue(value: string | null) {

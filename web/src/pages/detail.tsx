@@ -1,6 +1,8 @@
 // @concord-file
 // @concord-implements docs/feature/sentence-links/use-case/copy-sentence-link.md
 // @concord-implements docs/feature/transcription/use-case/transcribe.md
+import { segmentSpeakerName, labelName } from "@/lib/person-name";
+import { tr, interfaceLocale } from "@/lib/i18n";
 import { requestKey } from "@/lib/request-key";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -37,7 +39,7 @@ import { Separator } from "@/components/ui/separator";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { SpeakerPicker } from "@/components/speaker-picker";
 import { EmptyState, ErrorBox, Loading, Modal, Status } from "@/components/shared";
-import { TranscriptOutline } from "@/components/transcript-outline";
+import { InsightSummary, InsightOutline, type InsightsResponse } from "@/components/transcription-insights";
 import { Popover, PopoverTrigger, PopoverContent, PopoverTitle } from "@/components/ui/popover";
 import { MessageBubble } from "@/components/message-bubble";
 import { PersonAvatar } from "@/components/person-avatar";
@@ -93,6 +95,11 @@ export function DetailPage() {
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(false);
   const [reload, setReload] = useState(0);
+  const [insightPoll, setInsightPoll] = useState(0);
+  const insights = useResource<InsightsResponse>(selected ? `/transcriptions/${selected}/insights` : null, reload, insightPoll);
+  const insightKey = useRef(requestKey());
+  useEffect(() => { setInsightPoll(insights.data?.insight && ["queued", "running"].includes(insights.data.insight.state) ? 2000 : 0); }, [insights.data?.insight?.state]);
+  useEffect(() => { insightKey.current = requestKey(); }, [selected]);
   const [cursor, setCursor] = useState("");
   const [showBuiltin, setShowBuiltin] = useState(!!anchor);
   const [speakerPicker, setSpeakerPicker] = useState<string | null>(null);
@@ -172,7 +179,7 @@ export function DetailPage() {
         }
         page.items.forEach((segment) => validateAnchor(recordingId, selected, v, segment));
         if (changed && anchor && !page.items.some((segment) => segment.id === anchor))
-          throw new Error("服务器返回的窗口未包含引用片段，无法定位。");
+          throw new Error(tr("服务器返回的窗口未包含引用片段，无法定位。"));
         if (controller.signal.aborted) return;
         pendingAnchor.current = changed && !!anchor;
         loadedView.current = view;
@@ -195,7 +202,7 @@ export function DetailPage() {
             return {...current,items,...(pagingRequest.direction === "next" ? {next_cursor:page.next_cursor} : {previous_cursor:page.previous_cursor,current_cursor:page.current_cursor})};
           });
         }
-        if (changed && target && !cursor && target.start_ms !== null)
+        if (changed && target && !cursor && target.start_ms !== null && target.end_ms !== null && target.end_ms > target.start_ms)
           pendingSeek.current = target.start_ms / 1000;
       } catch (e) {
         if (!controller.signal.aborted) setLoadError(errorMessage(e));
@@ -257,7 +264,7 @@ export function DetailPage() {
     player.current.pause();
     try {
       const end = segment.end_ms;
-      if (end === null || end <= segment.start_ms) throw new Error("没有有效的结束时间，无法播放此范围。");
+      if (end === null || end <= segment.start_ms) throw new Error(tr("没有有效的结束时间，无法播放此范围。"));
       stopAt.current = end / 1000;
       pendingSeek.current = segment.start_ms / 1000;
       applySeek();
@@ -285,20 +292,42 @@ export function DetailPage() {
       return () => clearTimeout(timer);
     }
   }, [segments, anchor, cursor]);
+  async function generateInsights() {
+    if (!selected) return;
+    await action.run(async () => {
+      const result = await write<InsightsResponse>(`/transcriptions/${selected}/insights`, "POST", {}, insightKey.current);
+      insights.setData(result);
+      insightKey.current = requestKey();
+      insights.refresh();
+    });
+  }
+  async function jumpChapter(id: string) {
+    try {
+      const segment = await request<Segment>(`/segments/${id}`);
+      if (!version) return;
+      validateAnchor(recordingId, selected!, version, segment);
+      setOutlineOpen(false);
+      player.current?.pause();
+      stopAt.current = null;
+      const timed = segment.start_ms !== null && segment.end_ms !== null && segment.end_ms > segment.start_ms;
+      if (timed) { pendingSeek.current = segment.start_ms! / 1000; applySeek(); }
+      else notify(tr("该片段没有有效时间，仅定位正文。"));
+      if (anchor === id) document.getElementById(`segment-${id}`)?.scrollIntoView({block:"center"});
+      else navigate(`/recordings/${recordingId}/transcriptions/${selected}?segment=${id}`);
+    } catch (error) { notify(errorMessage(error), true); }
+  }
   async function copy(segment: Segment, markdown: boolean) {
     const text = markdown
       ? sentenceMarkdown(session.public_base_url, segment, location.origin)
       : sentenceUrl(session.public_base_url, segment, location.origin);
-    if (await copyText(text)) notify(markdown ? "句子引用已复制" : "句子链接已复制");
+    if (await copyText(text)) notify(markdown ? tr("句子引用已复制") : tr("句子链接已复制"));
     else setManualCopy(text);
   }
   if (!recording.data)
     return (
       <>
         <Button variant="ghost" nativeButton={false} render={<Link to="/recordings" />}>
-          <ArrowLeft data-icon="inline-start" />
-          返回录音库
-        </Button>
+          <ArrowLeft data-icon="inline-start" />{tr("返回录音库")}{" "}</Button>
         {recording.loading ? (
           <Loading />
         ) : (
@@ -312,22 +341,16 @@ export function DetailPage() {
     return (
       <>
         <Button variant="ghost" nativeButton={false} render={<Link to="/recordings" />}>
-          <ArrowLeft data-icon="inline-start" />
-          返回录音库
-        </Button>
+          <ArrowLeft data-icon="inline-start" />{tr("返回录音库")}{" "}</Button>
         <Alert>
-          <AlertTitle>录音正在清理</AlertTitle>
-          <AlertDescription>
-            录音已停止访问。后台正在核对任务与清理远端资源；全部操作核对完成前，会保留待清理记录。
-          </AlertDescription>
+          <AlertTitle>{tr("录音正在清理")}</AlertTitle>
+          <AlertDescription>{tr("录音已停止访问。后台正在核对任务与清理远端资源；全部操作核对完成前，会保留待清理记录。")}{" "}</AlertDescription>
         </Alert>
         <Button
           variant="outline"
           nativeButton={false}
           render={<Link to={`/jobs?recording_id=${r.id}`} />}
-        >
-          查看清理任务
-        </Button>
+        >{tr("查看清理任务")}{" "}</Button>
       </>
     );
   const createError = optionError(options, providers.data?.items || [], r);
@@ -335,9 +358,7 @@ export function DetailPage() {
     <>
       <div className="flex items-center justify-between gap-2">
         <Button variant="ghost" size="sm" nativeButton={false} render={<Link to="/recordings" />}>
-          <ArrowLeft data-icon="inline-start" />
-          录音库
-        </Button>
+          <ArrowLeft data-icon="inline-start" />{tr("录音库")}{" "}</Button>
         <div className="flex gap-1">
           <Button
             variant="ghost"
@@ -345,13 +366,11 @@ export function DetailPage() {
             disabled={blocked}
             onClick={() => { setRailTab("info"); setMetadataOpen(true); setCalibrateTime(false); setEditRecording(true); requestAnimationFrame(() => document.getElementById("recording-metadata")?.scrollIntoView({block:"nearest"})); }}
           >
-            <Pencil data-icon="inline-start" />
-            编辑信息
-          </Button>
+            <Pencil data-icon="inline-start" />{tr("编辑信息")}{" "}</Button>
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label="删除录音"
+            aria-label={tr("删除录音")}
             onClick={() => setDeleteOpen(true)}
             disabled={blocked}
           >
@@ -366,12 +385,12 @@ export function DetailPage() {
         <h1>{r.title || r.original_name}</h1>
       </header>
       <ErrorBox message={recording.error || versions.error} retry={refresh} />
+      <ErrorBox message={people.error} retry={people.refresh} />
+      <ErrorBox message={settings.error} retry={settings.refresh} />
       {blocked ? (
         <Alert>
-          <AlertTitle>录音正在清理</AlertTitle>
-          <AlertDescription>
-            录音已停止访问，后台仍在核对任务与清理远端资源。请在任务页查看状态。
-          </AlertDescription>
+          <AlertTitle>{tr("录音正在清理")}</AlertTitle>
+          <AlertDescription>{tr("录音已停止访问，后台仍在核对任务与清理远端资源。请在任务页查看状态。")}{" "}</AlertDescription>
         </Alert>
       ) : (
         <div className="player-panel">
@@ -382,10 +401,10 @@ export function DetailPage() {
             <div className="player-caption">
               <p className="truncate text-xs font-medium">{r.title || r.original_name}</p>
               <Popover open={outlineOpen} onOpenChange={setOutlineOpen}>
-                <PopoverTrigger render={<Button variant="ghost" size="xs" />}><List data-icon="inline-start" />目录</PopoverTrigger>
+                <PopoverTrigger render={<Button variant="ghost" size="xs" />}><List data-icon="inline-start" />{tr("目录")}</PopoverTrigger>
                 <PopoverContent side="top" align="end" finalFocus={false} className="max-h-[55dvh] overflow-y-auto">
-                  <PopoverTitle>时间目录</PopoverTitle>
-                  <TranscriptOutline segments={segments?.items || []} onJump={() => setOutlineOpen(false)} />
+                  <PopoverTitle>{tr("录音目录")}</PopoverTitle>
+                  <InsightOutline insight={insights.data?.insight} configured={insights.data?.configured} onJump={(id) => void jumpChapter(id)} />
                 </PopoverContent>
               </Popover>
             </div>
@@ -401,26 +420,25 @@ export function DetailPage() {
                 onPause={() => { if (player.current?.paused) { cancelAnimationFrame(playbackFrame.current); stopAt.current = null; } }}
                 onTimeUpdate={() => { if (stopAt.current !== null) watchPlayback(); }}
                 onError={() => setPlaybackError(true)}
-                aria-label="录音播放器"
+                aria-label={tr("录音播放器")}
               />
             ) : (
-              <p className="text-sm text-muted-foreground">
-                播放副本
-                {r.state === "failed" ? "生成失败，请在任务页检查。" : "准备中，完成后可播放。"}
+              <p className="text-sm text-muted-foreground">{tr("播放副本")}{" "}{r.state === "failed" ? tr("生成失败，请在任务页检查。") : tr("准备中，完成后可播放。")}
               </p>
             )}
             {playbackError && (
-              <p className="text-sm text-destructive">音频暂时无法加载，请刷新会话或稍后重试。</p>
+              <p className="text-sm text-destructive">{tr("音频暂时无法加载，请刷新会话或稍后重试。")}</p>
             )}
           </div>
         </div>
       )}
+      {selected && !blocked && <InsightSummary data={insights.data} error={insights.error} busy={action.busy} disabled={session.restore_mode || version?.state !== "succeeded"} onGenerate={() => void generateInsights()} onRefresh={insights.refresh} />}
       <div className="detail-grid">
         <Card className="transcript-card">
           <CardHeader>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <CardTitle>转写文字</CardTitle>
+                <CardTitle>{tr("转写文字")}</CardTitle>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -429,9 +447,7 @@ export function DetailPage() {
                   disabled={!version || blocked}
                   onClick={() => setLabelsOpen(true)}
                 >
-                  <Tags data-icon="inline-start" />
-                  说话人
-                </Button>
+                  <Tags data-icon="inline-start" />{tr("说话人")}{" "}</Button>
                 <Button
                   size="sm"
                   disabled={blocked}
@@ -442,16 +458,14 @@ export function DetailPage() {
                     setNewOpen(true);
                   }}
                 >
-                  <Plus data-icon="inline-start" />
-                  新建转写
-                </Button>
+                  <Plus data-icon="inline-start" />{tr("新建转写")}{" "}</Button>
               </div>
             </div>
           </CardHeader>
           <CardContent>
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="version">转写版本</FieldLabel>
+                <FieldLabel htmlFor="version">{tr("转写版本")}</FieldLabel>
                 <NativeSelect
                   id="version"
                   value={selected || ""}
@@ -460,14 +474,14 @@ export function DetailPage() {
                       navigate(`/recordings/${r.id}/transcriptions/${e.target.value}`);
                   }}
                 >
-                  <NativeSelectOption value="">尚无激活版本</NativeSelectOption>
+                  <NativeSelectOption value="">{tr("尚无激活版本")}</NativeSelectOption>
                   {selected && !versions.data?.items.some((t) => t.id === selected) && (
-                    <NativeSelectOption value={selected}>指定版本 {selected}</NativeSelectOption>
+                    <NativeSelectOption value={selected}>{tr("指定版本")}{" "}{selected}</NativeSelectOption>
                   )}
                   {versions.data?.items.map((t) => (
                     <NativeSelectOption key={t.id} value={t.id}>
                       {date(t.created_at)} · {t.provider}/{t.model} ·{" "}
-                      {t.id === r.active_transcription_id ? "当前激活" : t.state}
+                      {t.id === r.active_transcription_id ? tr("当前激活") : t.state}
                     </NativeSelectOption>
                   ))}
                 </NativeSelect>
@@ -484,123 +498,117 @@ export function DetailPage() {
                     {version.provider} / {version.model}
                   </span>
                   {version.id !== r.active_transcription_id && (
-                    <Badge variant="outline">独立版本</Badge>
+                    <Badge variant="outline">{tr("独立版本")}</Badge>
                   )}
                 </div>
                 <Field orientation="horizontal" className="mb-4">
-                  <FieldLabel htmlFor="show-builtin">显示背景声等内置人物片段</FieldLabel>
+                  <FieldLabel htmlFor="show-builtin">{tr("显示背景声等内置人物片段")}</FieldLabel>
                   <Switch id="show-builtin" checked={showBuiltin || !!anchor} disabled={!!anchor} onCheckedChange={(checked) => { setCursor(""); setShowBuiltin(checked); }} />
                 </Field>
                 {version.error_code && (
                   <Alert variant="destructive">
-                    <AlertTitle>转写未完成</AlertTitle>
-                    <AlertDescription>
-                      错误代码：{version.error_code}。可在任务页查看处理状态。
-                    </AlertDescription>
+                    <AlertTitle>{tr("转写未完成")}</AlertTitle>
+                    <AlertDescription>{tr("错误代码：")}{version.error_code}{tr("。可在任务页查看处理状态。")}{" "}</AlertDescription>
                   </Alert>
                 )}
-                {segments.previous_cursor && <div ref={topSentinel} className="h-6 text-center text-xs text-muted-foreground" aria-live="polite">{paging ? "正在加载…" : "向上滚动加载更多"}</div>}
+                {segments.previous_cursor && <div ref={topSentinel} className="h-6 text-center text-xs text-muted-foreground" aria-live="polite">{paging ? tr("正在加载…") : tr("向上滚动加载更多")}</div>}
                 <div className="segments">
                   {segments.items.map((segment, index) => {
                     const instant = segment.start_ms === null ? null : new Date(new Date(r.recorded_at).getTime() + segment.start_ms);
                     const previous = segments.items[index - 1];
-                    const previousDate = previous?.start_ms == null ? null : new Date(new Date(r.recorded_at).getTime() + previous.start_ms).toLocaleDateString("zh-CN");
+                    const previousDate = previous?.start_ms == null ? null : new Date(new Date(r.recorded_at).getTime() + previous.start_ms).toLocaleDateString(interfaceLocale());
                     return <Fragment key={segment.id}>
-                    {instant && instant.toLocaleDateString("zh-CN") !== previousDate && <div className="chat-date">{instant.toLocaleDateString("zh-CN")}</div>}
+                    {instant && instant.toLocaleDateString(interfaceLocale()) !== previousDate && <div className="chat-date">{instant.toLocaleDateString(interfaceLocale())}</div>}
                     <article
                       id={`segment-${segment.id}`}
                       key={segment.id}
                       className={cn("segment", index > 0 && (segments.items[index-1].person_id || segments.items[index-1].speaker_label_id || "unknown") === (segment.person_id || segment.speaker_label_id || "unknown") && "segment-continuation", index < segments.items.length - 1 && (segments.items[index+1].person_id || segments.items[index+1].speaker_label_id || "unknown") === (segment.person_id || segment.speaker_label_id || "unknown") && "segment-has-next", people.data?.items.some((p) => p.id === segment.person_id && p.is_self) && "segment-self", anchor === segment.id && "segment-highlight")}
                       tabIndex={anchor === segment.id ? -1 : undefined}
                     >
-                      <div className="segment-avatar">{version.speaker_labels.find((label) => label.id === segment.speaker_label_id) ? <SpeakerPicker label={version.speaker_labels.find((label) => label.id === segment.speaker_label_id)!} name={segment.speaker_name || "未知说话人"} people={people.data?.items || []} disabled={blocked} onSaved={refresh} open={speakerPicker === segment.id} onOpenChange={(open) => setSpeakerPicker(open ? segment.id : null)}><PersonAvatar id={segment.person_id || segment.speaker_label_id || "unknown"} name={segment.speaker_name || "未知"} person={people.data?.items.find((p) => p.id === segment.person_id)} /></SpeakerPicker> : <PersonAvatar id={segment.person_id || segment.speaker_label_id || "unknown"} name={segment.speaker_name || "未知"} person={people.data?.items.find((p) => p.id === segment.person_id)} />}</div>
+                      <div className="segment-avatar">{version.speaker_labels.find((label) => label.id === segment.speaker_label_id) ? <SpeakerPicker label={version.speaker_labels.find((label) => label.id === segment.speaker_label_id)!} name={segmentSpeakerName(segment)} people={people.data?.items || []} disabled={blocked} onSaved={refresh} open={speakerPicker === segment.id} onOpenChange={(open) => setSpeakerPicker(open ? segment.id : null)}><PersonAvatar id={segment.person_id || segment.speaker_label_id || "unknown"} name={segmentSpeakerName(segment)} person={people.data?.items.find((p) => p.id === segment.person_id)} /></SpeakerPicker> : <PersonAvatar id={segment.person_id || segment.speaker_label_id || "unknown"} name={segmentSpeakerName(segment)} person={people.data?.items.find((p) => p.id === segment.person_id)} />}</div>
                       <MessageBubble
                         metadata={<>
-                          {segment.edited_text !== null && segment.edited_text !== segment.source_text && <span className="message-edited">已校正</span>}
-                          <Button className="message-time" variant="ghost" size="sm" disabled={segment.start_ms === null || r.state !== "ready" || blocked} onClick={() => void playSegment(segment)} aria-label={`播放 ${duration(segment.start_ms)} 至本句结束`} title={instant ? `${instant.toLocaleString("zh-CN", {hour12:false})} · 音频 ${duration(segment.start_ms)}` : "缺少时间"}><Play /></Button>
+                          {segment.edited_text !== null && segment.edited_text !== segment.source_text && <span className="message-edited">{tr("已校正")}</span>}
+                          <Button className="message-time" variant="ghost" size="sm" disabled={segment.start_ms === null || r.state !== "ready" || blocked} onClick={() => void playSegment(segment)} aria-label={tr("播放 {{v0}} 至本句结束", { v0: duration(segment.start_ms) })} title={instant ? tr("{{v0}} · 音频 {{v1}}", { v0: instant.toLocaleString(interfaceLocale(), {hour12:false}), v1: duration(segment.start_ms) }) : tr("缺少时间")}><Play /></Button>
                         </>}
                         actions={<>
-                          <DropdownMenuItem disabled={segment.start_ms === null || r.state !== "ready" || blocked} onClick={() => void playSegment(segment)}><Play />播放本句</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => void copyText(segment.text).then((ok) => { if (ok) notify("文字已复制"); else setManualCopy(segment.text); })}><Copy />复制文字</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => void copy(segment, true)}><Copy />复制引用</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => void copy(segment, false)}><Link2 />链接</DropdownMenuItem>
-                          <DropdownMenuItem disabled={blocked} onClick={() => setEditSegment(segment)}><Pencil />编辑</DropdownMenuItem>
-                          <DropdownMenuItem disabled={blocked || !version.speaker_labels.some((label) => label.id === segment.speaker_label_id)} onClick={() => setSpeakerPicker(segment.id)}><Users />更换人物</DropdownMenuItem>
+                          <DropdownMenuItem disabled={segment.start_ms === null || r.state !== "ready" || blocked} onClick={() => void playSegment(segment)}><Play />{tr("播放本句")}</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => void copyText(segment.text).then((ok) => { if (ok) notify(tr("文字已复制")); else setManualCopy(segment.text); })}><Copy />{tr("复制文字")}</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => void copy(segment, true)}><Copy />{tr("复制引用")}</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => void copy(segment, false)}><Link2 />{tr("链接")}</DropdownMenuItem>
+                          <DropdownMenuItem disabled={blocked} onClick={() => setEditSegment(segment)}><Pencil />{tr("编辑")}</DropdownMenuItem>
+                          <DropdownMenuItem disabled={blocked || !version.speaker_labels.some((label) => label.id === segment.speaker_label_id)} onClick={() => setSpeakerPicker(segment.id)}><Users />{tr("更换人物")}</DropdownMenuItem>
                         </>}
                       >
                         <div className="segment-top">
                           <div>
                             {version.speaker_labels.find((label) => label.id === segment.speaker_label_id) ? (
-                              <SpeakerPicker label={version.speaker_labels.find((label) => label.id === segment.speaker_label_id)!} name={segment.speaker_name || "未知说话人"} people={people.data?.items || []} disabled={blocked} onSaved={refresh} />
-                            ) : <strong>{segment.speaker_name || "未知说话人"}</strong>}
+                              <SpeakerPicker label={version.speaker_labels.find((label) => label.id === segment.speaker_label_id)!} name={segmentSpeakerName(segment)} people={people.data?.items || []} disabled={blocked} onSaved={refresh} />
+                            ) : <strong>{segmentSpeakerName(segment)}</strong>}
                           </div>
                         </div>
-                      <SegmentText segment={segment} disabled={blocked} onSaved={(saved) => setSegments((current) => current && ({ ...current, items: current.items.map((item) => item.id === saved.id ? saved : item) }))} />
+                      <SegmentText segment={segment} disabled={blocked} onSaved={(saved) => { setSegments((current) => current && ({ ...current, items: current.items.map((item) => item.id === saved.id ? saved : item) })); insights.refresh(); }} />
                       </MessageBubble>
                     </article></Fragment>;
                   })}
                 </div>
                 {!segments.items.length && (
                   <EmptyState
-                    title={version.state === "succeeded" ? "没有可显示的片段，可开启内置人物片段显示" : "转写处理中"}
-                    description="后台任务会继续运行，可在任务页查看实际阶段。"
+                    title={version.state === "succeeded" ? tr("没有可显示的片段，可开启内置人物片段显示") : tr("转写处理中")}
+                    description={tr("后台任务会继续运行，可在任务页查看实际阶段。")}
                   >
                     <Button variant="outline" onClick={refresh}>
-                      <RefreshCw data-icon="inline-start" />
-                      刷新结果
-                    </Button>
+                      <RefreshCw data-icon="inline-start" />{tr("刷新结果")}{" "}</Button>
                   </EmptyState>
                 )}
-                {segments.next_cursor && <div ref={bottomSentinel} className="h-8 text-center text-xs text-muted-foreground" aria-live="polite">{paging ? "正在加载…" : "继续滚动加载更多"}</div>}
+                {segments.next_cursor && <div ref={bottomSentinel} className="h-8 text-center text-xs text-muted-foreground" aria-live="polite">{paging ? tr("正在加载…") : tr("继续滚动加载更多")}</div>}
               </>
             ) : (
               !loadError &&
               !selected && (
                 <EmptyState
-                  title="暂无转写"
-                  description="选择语言与模型，生成第一份转写。没有成功版本时，可在版本列表查看处理中版本。"
+                  title={tr("暂无转写")}
+                  description={tr("选择语言与模型，生成第一份转写。没有成功版本时，可在版本列表查看处理中版本。")}
                 />
               )
             )}
           </CardContent>
           <CardFooter>
-            <span className="text-xs text-muted-foreground">
-              引用绑定当前版本，人工修改后链接保持有效。
-            </span>
+            <span className="text-xs text-muted-foreground">{tr("引用绑定当前版本，人工修改后链接保持有效。")}{" "}</span>
           </CardFooter>
         </Card>
         <aside className="detail-aside">
           <Tabs value={railTab} onValueChange={(value) => setRailTab(String(value))} className="sidebar-tabs">
-            <TabsList className="w-full" aria-label="录音侧栏"><TabsTrigger value="outline">目录</TabsTrigger><TabsTrigger value="info">录音信息</TabsTrigger></TabsList>
+            <TabsList className="w-full" aria-label={tr("录音侧栏")}><TabsTrigger value="outline">{tr("目录")}</TabsTrigger><TabsTrigger value="info">{tr("录音信息")}</TabsTrigger></TabsList>
             <TabsContent value="outline" keepMounted>
-              <div className="desktop-outline"><TranscriptOutline segments={segments?.items || []} /></div>
+              <div className="desktop-outline"><InsightOutline insight={insights.data?.insight} configured={insights.data?.configured} onJump={(id) => void jumpChapter(id)} /></div>
             </TabsContent>
             <TabsContent value="info" keepMounted>
           <details id="recording-metadata" className="recording-tools" open={metadataOpen} onToggle={(event) => setMetadataOpen(event.currentTarget.open)}>
-            <summary>录音信息</summary>
+            <summary>{tr("录音信息")}</summary>
             {editRecording || calibrateTime ? <>
-              <p className="text-xs text-muted-foreground">时间按 {Intl.DateTimeFormat().resolvedOptions().timeZone} 显示，开始时间对应音频 00:00。</p>
+              <p className="text-xs text-muted-foreground">{tr("时间按")}{" "}{Intl.DateTimeFormat().resolvedOptions().timeZone}{" "}{tr("显示，开始时间对应音频 00:00。")}</p>
               <RecordingEditor key={calibrateTime ? "time" : "all"} timeOnly={calibrateTime} recording={r} onClose={() => { setEditRecording(false); setCalibrateTime(false); }} onSaved={recording.refresh} />
             </> : <>
               <dl className="recording-facts">
-                <div><dt>开始时间</dt><dd>{new Date(r.recorded_at).toLocaleString("zh-CN", {hour12:false})}</dd></div>
-                {(r.recorded_at_source === "import" || r.recorded_at_source === "imported") && <div><dd>暂用导入时间，请校准</dd></div>}
-                <div><dt>时长 / 大小</dt><dd>{duration(r.duration_ms)} · {bytes(r.size_bytes)}</dd></div>
-                <div><dt>原文件</dt><dd>{r.original_name}</dd></div>
-                {r.notes && <div><dt>备注</dt><dd className="whitespace-pre-wrap">{r.notes}</dd></div>}
+                <div><dt>{tr("开始时间")}</dt><dd>{new Date(r.recorded_at).toLocaleString(interfaceLocale(), {hour12:false})}</dd></div>
+                {(r.recorded_at_source === "import" || r.recorded_at_source === "imported") && <div><dd>{tr("暂用导入时间，请校准")}</dd></div>}
+                <div><dt>{tr("时长 / 大小")}</dt><dd>{duration(r.duration_ms)} · {bytes(r.size_bytes)}</dd></div>
+                <div><dt>{tr("原文件")}</dt><dd>{r.original_name}</dd></div>
+                {r.notes && <div><dt>{tr("备注")}</dt><dd className="whitespace-pre-wrap">{r.notes}</dd></div>}
               </dl>
-              <div className="flex gap-1"><Button variant="ghost" size="xs" onClick={() => setEditRecording(true)}><Pencil data-icon="inline-start" />编辑录音信息</Button><Button variant="ghost" size="xs" onClick={() => setCalibrateTime(true)}>校准时间</Button></div>
+              <div className="flex gap-1"><Button variant="ghost" size="xs" onClick={() => setEditRecording(true)}><Pencil data-icon="inline-start" />{tr("编辑录音信息")}</Button><Button variant="ghost" size="xs" onClick={() => setCalibrateTime(true)}>{tr("校准时间")}</Button></div>
             </>}
           </details>
           <details className="recording-tools">
-            <summary>版本与导出</summary>
+            <summary>{tr("版本与导出")}</summary>
             <Card>
             <CardContent className="flex flex-col gap-3">
               {version ? (
                 <>
-                  <p className="truncate text-xs text-muted-foreground" title={version.id}>版本：{version.provider} / {version.model}</p>
+                  <p className="truncate text-xs text-muted-foreground" title={version.id}>{tr("版本：")}{version.provider} / {version.model}</p>
                   <p className="text-sm">{date(version.created_at)}</p>
-                  {version.id === r.active_transcription_id ? <Badge variant="secondary" className="w-fit">当前激活版本</Badge> : <Button
+                  {version.id === r.active_transcription_id ? <Badge variant="secondary" className="w-fit">{tr("当前激活版本")}</Badge> : <Button
                     variant="outline"
                     size="sm"
                     disabled={
@@ -615,13 +623,11 @@ export function DetailPage() {
                           revision: version.revision,
                         });
                         recording.refresh();
-                      }, "已设为激活版本")
+                      }, tr("已设为激活版本"))
                     }
-                  >
-                    设为激活版本
-                  </Button>}
+                  >{tr("设为激活版本")}{" "}</Button>}
                   <Separator />
-                  <p className="text-sm font-medium">下载转写</p>
+                  <p className="text-sm font-medium">{tr("下载转写")}</p>
                   <div className="flex flex-wrap gap-2">
                     {["txt", "srt", "json"].map((format) => (
                       <Button
@@ -641,19 +647,17 @@ export function DetailPage() {
                       </Button>
                     ))}
                   </div>
-                  {segments?.items.some((segment) => segment.start_ms === null || segment.end_ms === null) && <p className="text-xs text-muted-foreground">含无时间片段，暂不支持 SRT。</p>}
+                  {segments?.items.some((segment) => segment.start_ms === null || segment.end_ms === null) && <p className="text-xs text-muted-foreground">{tr("含无时间片段，暂不支持 SRT。")}</p>}
                   {!["succeeded", "cancelled", "failed"].includes(version.state) && (
                     <Button
                       variant="outline"
                       disabled={action.busy || blocked}
                       onClick={() => setCancelOpen(true)}
-                    >
-                      取消当前转写
-                    </Button>
+                    >{tr("取消当前转写")}{" "}</Button>
                   )}
                 </>
               ) : (
-                <p className="text-sm text-muted-foreground">选择一个转写版本后，可激活或导出。</p>
+                <p className="text-sm text-muted-foreground">{tr("选择一个转写版本后，可激活或导出。")}</p>
               )}
             </CardContent>
             <CardFooter>
@@ -662,14 +666,12 @@ export function DetailPage() {
                 size="sm"
                 nativeButton={false}
                 render={<Link to={`/jobs?recording_id=${r.id}`} />}
-              >
-                查看处理任务
-              </Button>
+              >{tr("查看处理任务")}{" "}</Button>
             </CardFooter>
             </Card>
           </details>
           <details className="recording-tools">
-            <summary>说话人与人物</summary>
+            <summary>{tr("说话人与人物")}</summary>
             <Card>
             <CardContent className="flex flex-col gap-3">
               {version?.speaker_labels.length ? (
@@ -678,14 +680,12 @@ export function DetailPage() {
                     
                     <span>{label.display_name}</span>
                     <span className="ml-auto text-muted-foreground">
-                      {label.person_name || "未关联"}
+                      {label.person_id ? labelName(label, people.data?.items || []) : tr("未关联")}
                     </span>
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-muted-foreground">
-                  尚无说话人标签。即使模型未区分说话人，也能创建人工标签。
-                </p>
+                <p className="text-sm text-muted-foreground">{tr("尚无说话人标签。即使模型未区分说话人，也能创建人工标签。")}{" "}</p>
               )}
             </CardContent>
             <CardFooter>
@@ -694,9 +694,7 @@ export function DetailPage() {
                 className="w-full"
                 disabled={!version || blocked}
                 onClick={() => setLabelsOpen(true)}
-              >
-                管理标签与关联
-              </Button>
+              >{tr("管理标签与关联")}{" "}</Button>
             </CardFooter>
             </Card>
           </details>
@@ -708,6 +706,7 @@ export function DetailPage() {
         <SegmentEditor
           segment={editSegment}
           labels={version?.speaker_labels || []}
+          people={people.data?.items || []}
           onClose={() => setEditSegment(null)}
           onSaved={refresh}
         />
@@ -722,8 +721,8 @@ export function DetailPage() {
         />
       )}
       <Modal
-        title="新建转写版本"
-        description="每次转写创建独立版本，不会覆盖已保存的文字或人物关联。"
+        title={tr("新建转写版本")}
+        description={tr("每次转写创建独立版本，不会覆盖已保存的文字或人物关联。")}
         open={newOpen}
         onOpenChange={setNewOpen}
       >
@@ -749,13 +748,11 @@ export function DetailPage() {
           {uncertain && (
             <>
               <Alert variant="destructive">
-                <AlertTitle>已有任务尚未核实</AlertTitle>
-                <AlertDescription>
-                  新的转写可能造成重复收费；旧任务继续保留，需核对远端 ID 和清理状态。
-                </AlertDescription>
+                <AlertTitle>{tr("已有任务尚未核实")}</AlertTitle>
+                <AlertDescription>{tr("新的转写可能造成重复收费；旧任务继续保留，需核对远端 ID 和清理状态。")}{" "}</AlertDescription>
               </Alert>
               <Field orientation="horizontal">
-                <FieldLabel htmlFor="duplicate-consent">我接受可能重复收费，另建新版本</FieldLabel>
+                <FieldLabel htmlFor="duplicate-consent">{tr("我接受可能重复收费，另建新版本")}</FieldLabel>
                 <Switch
                   id="duplicate-consent"
                   checked={duplicateConsent}
@@ -787,24 +784,20 @@ export function DetailPage() {
                 setNewOpen(false);
                 versions.refresh();
                 navigate(`/recordings/${r.id}/transcriptions/${result.transcription.id}`);
-              }, "转写已加入后台任务")
+              }, tr("转写已加入后台任务"))
             }
-          >
-            开始转写
-          </Button>
+          >{tr("开始转写")}{" "}</Button>
         </FieldGroup>
       </Modal>
       <Modal
-        title="删除这条录音？"
-        description="录音将立即停止访问，音频与已知服务商资源在后台清理。结果待确认的远端操作会继续保留核对记录。"
+        title={tr("删除这条录音？")}
+        description={tr("录音将立即停止访问，音频与已知服务商资源在后台清理。结果待确认的远端操作会继续保留核对记录。")}
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
       >
         <ErrorBox message={action.error} />
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-            保留录音
-          </Button>
+          <Button variant="outline" onClick={() => setDeleteOpen(false)}>{tr("保留录音")}{" "}</Button>
           <Button
             variant="destructive"
             disabled={action.busy}
@@ -813,24 +806,20 @@ export function DetailPage() {
                 await write(`/recordings/${r.id}`, "DELETE");
                 setDeleteOpen(false);
                 navigate("/recordings");
-              }, "已请求删除，后台正在清理")
+              }, tr("已请求删除，后台正在清理"))
             }
-          >
-            确认删除
-          </Button>
+          >{tr("确认删除")}{" "}</Button>
         </div>
       </Modal>
       <Modal
-        title="取消当前转写？"
-        description="将停止在本地使用该结果。若服务商不支持中止，仍可能计费；后台会继续核对与清理资源。"
+        title={tr("取消当前转写？")}
+        description={tr("将停止在本地使用该结果。若服务商不支持中止，仍可能计费；后台会继续核对与清理资源。")}
         open={cancelOpen}
         onOpenChange={setCancelOpen}
       >
         <ErrorBox message={action.error} />
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setCancelOpen(false)}>
-            返回
-          </Button>
+          <Button variant="outline" onClick={() => setCancelOpen(false)}>{tr("返回")}{" "}</Button>
           <Button
             disabled={action.busy}
             onClick={() =>
@@ -839,16 +828,14 @@ export function DetailPage() {
                 await write(`/transcriptions/${version.id}/cancel`, "POST", {});
                 setCancelOpen(false);
                 refresh();
-              }, "取消请求已接受")
+              }, tr("取消请求已接受"))
             }
-          >
-            确认取消
-          </Button>
+          >{tr("确认取消")}{" "}</Button>
         </div>
       </Modal>
       <Modal
-        title="手动复制"
-        description="浏览器无法使用剪贴板，请选中下方内容后复制。"
+        title={tr("手动复制")}
+        description={tr("浏览器无法使用剪贴板，请选中下方内容后复制。")}
         open={!!manualCopy}
         onOpenChange={(v) => {
           if (!v) setManualCopy("");
@@ -856,7 +843,7 @@ export function DetailPage() {
       >
         <FieldGroup>
           <Field>
-            <FieldLabel htmlFor="manual-copy">引用内容</FieldLabel>
+            <FieldLabel htmlFor="manual-copy">{tr("引用内容")}</FieldLabel>
             <Textarea
               id="manual-copy"
               readOnly
@@ -865,7 +852,7 @@ export function DetailPage() {
               onFocus={(e) => e.target.select()}
             />
           </Field>
-          <FieldDescription>Windows / Linux 按 Ctrl+C，macOS 按 ⌘C。</FieldDescription>
+          <FieldDescription>{tr("Windows / Linux 按 Ctrl+C，macOS 按 ⌘C。")}</FieldDescription>
         </FieldGroup>
       </Modal>
     </>

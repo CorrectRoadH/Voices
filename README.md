@@ -52,3 +52,7 @@ docker compose up --build -d
 - [产品与架构文档](docs/README.md)
 
 前端基于 React 与 shadcn/ui，后端基于 Go 与 PostgreSQL。
+
+## 致谢
+
+感谢 [Linux Do](https://linux.do) 在项目早期开发阶段提供的支持与反馈。

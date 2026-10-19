@@ -168,6 +168,7 @@ func (a *App) deleteOneRecording(ctx context.Context) error {
 			return nil
 		}
 		for _, sql := range []string{
+			"DELETE FROM idempotency_keys WHERE scope IN (SELECT 'insights:' || id::text FROM transcriptions WHERE recording_id=$1)",
 			"DELETE FROM idempotency_keys WHERE resource_id=$1 OR resource_id IN (SELECT id FROM transcriptions WHERE recording_id=$1) OR resource_id IN (SELECT l.id FROM speaker_labels l JOIN transcriptions t ON t.id=l.transcription_id WHERE t.recording_id=$1)",
 			"DELETE FROM provider_resources WHERE transcription_id IN (SELECT id FROM transcriptions WHERE recording_id=$1)",
 			"DELETE FROM provider_operations WHERE job_id IN (SELECT id FROM jobs WHERE recording_id=$1)",

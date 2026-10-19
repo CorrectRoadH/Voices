@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,16 +27,20 @@ import (
 )
 
 type App struct {
-	Config     Config
-	DB         *pgxpool.Pool
-	Blobs      *storage.Store
-	Providers  map[string]providers.Adapter
-	InstanceID string
-	Updates    *updates.Manager
+	StartedAt       time.Time
+	runtimeWriting  atomic.Bool
+	runtimeCleaning atomic.Bool
+	runtimeDropped  atomic.Uint64
+	Config          Config
+	DB              *pgxpool.Pool
+	Blobs           *storage.Store
+	Providers       map[string]providers.Adapter
+	InstanceID      string
+	Updates         *updates.Manager
 }
 
 func New(c Config, db *pgxpool.Pool, adapters ...providers.Adapter) *App {
-	a := &App{Config: c, DB: db, Blobs: &storage.Store{Pool: db}, Providers: map[string]providers.Adapter{}, InstanceID: uuid.NewString()}
+	a := &App{Config: c, DB: db, Blobs: &storage.Store{Pool: db}, Providers: map[string]providers.Adapter{}, InstanceID: uuid.NewString(), StartedAt: time.Now().UTC()}
 	a.Updates = updates.New(context.Background(), "dev", "", nil)
 	for _, p := range adapters {
 		a.Providers[p.ID()] = p
@@ -94,8 +99,9 @@ func (a *App) handle(fn func(http.ResponseWriter, *http.Request) error) http.Han
 			if e.Status == 429 {
 				w.Header().Set("Retry-After", "60")
 			}
-			if e.Status == 500 {
-				slog.Error("request failed", "request_id", id, "method", r.Method, "path", r.URL.Path, "error_type", errorType(err))
+			if e.Status >= 500 {
+				slog.Error("request failed", "request_id", id, "method", r.Method, "route", r.Pattern, "error_type", errorType(err))
+				a.recordRuntime(r.Context(), "request_failed", errorType(err), id, r.Pattern, e.Status, "")
 			}
 			writeJSON(w, e.Status, map[string]any{"error": map[string]any{"code": e.Code, "message": e.Message, "request_id": id}})
 		}
@@ -146,8 +152,12 @@ func (a *App) Handler() http.Handler {
 	protected("GET /api/v1/admin/server-settings", a.adminServerSettings)
 	protected("GET /api/v1/admin/updates", a.adminUpdates)
 	protected("POST /api/v1/admin/updates", a.adminUpdates)
- protected("PATCH /api/v1/admin/server-settings", a.adminServerSettings)
- protected("GET /api/v1/admin/users", a.adminUsers)
+	protected("PATCH /api/v1/admin/server-settings", a.adminServerSettings)
+	protected("POST /api/v1/admin/llm-models", a.adminLLMModels)
+	protected("GET /api/v1/admin/users", a.adminUsers)
+	protected("GET /api/v1/admin/overview", a.adminOverview)
+	protected("GET /api/v1/admin/audit-events", a.adminAuditEvents)
+	protected("GET /api/v1/admin/runtime-events", a.adminRuntimeEvents)
 	protected("PATCH /api/v1/admin/users/{id}", a.adminUpdateUser)
 	protected("GET /api/v1/admin/registration", a.adminRegistration)
 	protected("PATCH /api/v1/admin/registration", a.adminRegistration)
@@ -169,6 +179,8 @@ func (a *App) Handler() http.Handler {
 	protected("GET /api/v1/recordings/{id}/transcriptions", a.listTranscriptions)
 	protected("POST /api/v1/recordings/{id}/transcriptions", a.createTranscription)
 	protected("GET /api/v1/transcriptions/{id}", a.getTranscription)
+	protected("GET /api/v1/transcriptions/{id}/insights", a.getInsights)
+	protected("POST /api/v1/transcriptions/{id}/insights", a.createInsights)
 	protected("POST /api/v1/transcriptions/{id}/activate", a.activateTranscription)
 	protected("POST /api/v1/transcriptions/{id}/cancel", a.cancelTranscription)
 	protected("GET /api/v1/transcriptions/{id}/segments", a.listSegments)

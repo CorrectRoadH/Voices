@@ -1,0 +1,84 @@
+package app
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"os/exec"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"voices/internal/insights"
+)
+
+// @use-case docs/feature/insights/use-case/generate-insights.md
+func TestAdministrationInsightsBrowser(t *testing.T) {
+	if os.Getenv("VOICES_BROWSER_TEST") != "1" {
+		t.Skip("set VOICES_BROWSER_TEST=1 after building web")
+	}
+	f, rid, tid, ids := insightFixture(t)
+	ctx := context.Background()
+	anotherAccount(t, f, "viewer")
+	f.a.Config.WebDir = "../../web/dist"
+	for i := 3; i < 75; i++ {
+		id := uuid.NewString()
+		ids = append(ids, id)
+		if _, err := f.db.Exec(ctx, `INSERT INTO segments(id,transcription_id,ordinal,start_ms,end_ms,source_text) VALUES($1,$2,$3,$4,$5,$6)`, id, tid, i, i*1000, (i+1)*1000, "后续讨论"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := f.db.Exec(ctx, `UPDATE segments SET start_ms=NULL,end_ms=NULL WHERE id=$1`, ids[0]); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 52; i++ {
+		if _, err := f.db.Exec(ctx, `INSERT INTO admin_audit_events(id,action) VALUES($1,'password_reset')`, uuid.NewString()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var calls atomic.Int32
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := calls.Add(1)
+		var body struct {
+			Messages []struct {
+				Content string `json:"content"`
+			} `json:"messages"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Error(err)
+			return
+		}
+		var input []insights.Segment
+		if err := json.Unmarshal([]byte(body.Messages[1].Content), &input); err != nil {
+			t.Error(err)
+			return
+		}
+		first, last := input[0].ID, input[len(input)-1].ID
+		if n == 2 {
+			last = uuid.NewString()
+		}
+		content := string(jsonBytes(map[string]any{"summary": "会议摘要", "chapters": []any{map[string]any{"segment_id": first, "title": "开场"}, map[string]any{"segment_id": last, "title": "决定"}}}))
+		writeJSON(w, 200, map[string]any{"choices": []any{map[string]any{"finish_reason": "stop", "message": map[string]any{"role": "assistant", "content": content}}}})
+	}))
+	defer remote.Close()
+	f.a.Config.LLMBaseURL = remote.URL
+	runCtx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() { defer close(done); f.a.Run(runCtx) }()
+	defer func() { cancel(); <-done }()
+	cmdCtx, stop := context.WithTimeout(ctx, 90*time.Second)
+	defer stop()
+	cmd := exec.CommandContext(cmdCtx, "node", "../../web/scripts/administration-insights-stack.mjs")
+	cmd.Env = append(os.Environ(), "VOICES_TEST_URL="+f.server.URL, "VOICES_TEST_RECORDING="+rid, "VOICES_TEST_TRANSCRIPTION="+tid, "VOICES_TEST_LAST_SEGMENT="+ids[len(ids)-1])
+	out, err := cmd.CombinedOutput()
+	t.Log(string(out))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls.Load() != 3 {
+		t.Fatal("unexpected model calls", calls.Load())
+	}
+}

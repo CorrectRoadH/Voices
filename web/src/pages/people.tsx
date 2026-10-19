@@ -1,5 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/people/use-case/link-person.md
+import { personName } from "@/lib/person-name";
+import { tr } from "@/lib/i18n";
 import { requestKey } from "@/lib/request-key";
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
@@ -20,8 +22,8 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { EmptyState, ErrorBox, Loading, Modal, More, PageHeading } from "@/components/shared";
-import { useAction, useResource } from "@/lib/hooks";
-import { write, query } from "@/lib/api";
+import { useAction, useApp, useResource } from "@/lib/hooks";
+import { write, query, errorMessage } from "@/lib/api";
 import type { Person, Recording, Page } from "@/lib/types";
 import { PersonAvatar, prepareAvatar } from "@/components/person-avatar";
 import { RecordingRows } from "./library";
@@ -38,6 +40,7 @@ function PersonEditor({
   const [notes, setNotes] = useState(person?.notes || "");
   const [avatar, setAvatar] = useState<string | null | undefined>(undefined);
   const [avatarError, setAvatarError] = useState("");
+  const { notify } = useApp();
   const [preparing, setPreparing] = useState(false);
   const [archived, setArchived] = useState(!!person?.archived_at);
   const [key] = useState(() => requestKey());
@@ -48,8 +51,8 @@ function PersonEditor({
       onOpenChange={(v) => {
         if (!v && !action.busy) onClose();
       }}
-      title={person ? "编辑人物" : "新建人物"}
-      description="显示名可以相同；归档后保留原有引用，不再新增关联。"
+      title={person ? tr("编辑人物") : tr("新建人物")}
+      description={tr("显示名可以相同；归档后保留原有引用，不再新增关联。")}
     >
       <form
         onSubmit={(e) => {
@@ -68,22 +71,26 @@ function PersonEditor({
             );
             onSaved();
             onClose();
-          }, "人物已保存");
+          }, tr("人物已保存"));
         }}
       >
         <FieldGroup>
           <ErrorBox message={action.error || avatarError} />
           <Field>
-            <FieldLabel htmlFor="person-avatar">头像</FieldLabel>
+            <FieldLabel htmlFor="person-avatar">{tr("头像")}</FieldLabel>
             <PersonAvatar id={person?.id || name} name={name} person={person} preview={avatar} />
             <Input id="person-avatar" type="file" accept="image/png,image/jpeg,image/webp" disabled={action.busy || preparing} onChange={(event) => {
               const file = event.target.files?.[0]; event.target.value = ""; if (!file) return;
-              setPreparing(true); setAvatarError(""); void prepareAvatar(file).then(setAvatar).catch((error: Error) => setAvatarError(error.message)).finally(() => setPreparing(false));
+              setPreparing(true); setAvatarError(""); void prepareAvatar(file).then(setAvatar).catch((error: unknown) => {
+                const message = errorMessage(error);
+                setAvatarError(message);
+                notify(message, true);
+              }).finally(() => setPreparing(false));
             }} />
-            {(avatar || (avatar === undefined && person?.has_avatar)) && <Button type="button" variant="ghost" size="sm" onClick={() => setAvatar(null)}>移除头像</Button>}
+            {(avatar || (avatar === undefined && person?.has_avatar)) && <Button type="button" variant="ghost" size="sm" onClick={() => setAvatar(null)}>{tr("移除头像")}</Button>}
           </Field>
           <Field>
-            <FieldLabel htmlFor="person-name">显示名</FieldLabel>
+            <FieldLabel htmlFor="person-name">{tr("显示名")}</FieldLabel>
             <Input
               id="person-name"
               required
@@ -92,7 +99,7 @@ function PersonEditor({
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="person-notes">备注</FieldLabel>
+            <FieldLabel htmlFor="person-notes">{tr("备注")}</FieldLabel>
             <Textarea
               id="person-notes"
               value={notes}
@@ -102,13 +109,11 @@ function PersonEditor({
           </Field>
           {person && (
             <Field orientation="horizontal">
-              <FieldLabel htmlFor="person-archive">归档人物</FieldLabel>
+              <FieldLabel htmlFor="person-archive">{tr("归档人物")}</FieldLabel>
               <Switch id="person-archive" checked={archived} onCheckedChange={setArchived} />
             </Field>
           )}
-          <Button type="submit" disabled={action.busy || preparing}>
-            保存人物
-          </Button>
+          <Button type="submit" disabled={action.busy || preparing}>{tr("保存人物")}{" "}</Button>
         </FieldGroup>
       </form>
     </Modal>
@@ -145,36 +150,30 @@ export function PeoplePage() {
   return (
     <>
       <PageHeading
-        title="人物"
+        title={tr("人物")}
       >
         <Button onClick={() => setEditing("new")}>
-          <Plus data-icon="inline-start" />
-          新建人物
-        </Button>
+          <Plus data-icon="inline-start" />{tr("新建人物")}{" "}</Button>
       </PageHeading>
       <FieldGroup className="people-filters">
         <Field>
-          <FieldLabel className="sr-only" htmlFor="people-search">
-            搜索人物
-          </FieldLabel>
+          <FieldLabel className="sr-only" htmlFor="people-search">{tr("搜索人物")}{" "}</FieldLabel>
           <Input
             id="people-search"
             value={params.get("q") || ""}
-            placeholder="搜索人物…"
+            placeholder={tr("搜索人物…")}
             onChange={(e) => filter("q", e.target.value)}
           />
         </Field>
         <Field>
-          <FieldLabel className="sr-only" htmlFor="people-archived">
-            归档状态
-          </FieldLabel>
+          <FieldLabel className="sr-only" htmlFor="people-archived">{tr("归档状态")}{" "}</FieldLabel>
           <NativeSelect
             id="people-archived"
             value={params.get("archived") || "false"}
             onChange={(e) => filter("archived", e.target.value)}
           >
-            <NativeSelectOption value="false">活跃人物</NativeSelectOption>
-            <NativeSelectOption value="true">已归档人物</NativeSelectOption>
+            <NativeSelectOption value="false">{tr("活跃人物")}</NativeSelectOption>
+            <NativeSelectOption value="true">{tr("已归档人物")}</NativeSelectOption>
           </NativeSelect>
         </Field>
       </FieldGroup>
@@ -187,21 +186,19 @@ export function PeoplePage() {
             <Link key={p.id} to={`/people/${p.id}`} className="person-card-link">
               <Card>
                 <CardHeader>
-                  <PersonAvatar id={p.id} name={p.display_name} person={p} />
-                  <CardTitle>{p.display_name} {p.builtin_key && <Badge variant="outline">内置</Badge>} {p.is_self && <Badge>本人</Badge>}</CardTitle>
+                  <PersonAvatar id={p.id} name={personName(p)} person={p} />
+                  <CardTitle>{personName(p)} {p.builtin_key && <Badge variant="outline">{tr("内置")}</Badge>} {p.is_self && <Badge>{tr("本人")}</Badge>}</CardTitle>
                 </CardHeader>
-                <CardContent><p className="line-clamp-2 text-sm text-muted-foreground">{p.archived_at ? "已归档" : p.notes || (p.builtin_key ? "内置人物" : "暂无备注")}</p></CardContent>
+                <CardContent><p className="line-clamp-2 text-sm text-muted-foreground">{p.archived_at ? tr("已归档") : p.notes || (p.builtin_key ? tr("内置人物") : tr("暂无备注"))}</p></CardContent>
               </Card>
             </Link>
           ))}
         </div>
       ) : (
         !data.error && (
-          <EmptyState title="暂无人物" description="新建人物后，在录音详情里关联说话人标签。">
+          <EmptyState title={tr("暂无人物")} description={tr("新建人物后，在录音详情里关联说话人标签。")}>
             <Button onClick={() => setEditing("new")}>
-              <Users data-icon="inline-start" />
-              新建人物
-            </Button>
+              <Users data-icon="inline-start" />{tr("新建人物")}{" "}</Button>
           </EmptyState>
         )
       )}
@@ -243,34 +240,30 @@ export function PersonPage() {
   return (
     <>
       <Button variant="ghost" nativeButton={false} render={<Link to="/people" />}>
-        <ArrowLeft data-icon="inline-start" />
-        返回人物
-      </Button>
+        <ArrowLeft data-icon="inline-start" />{tr("返回人物")}{" "}</Button>
       {person.loading ? (
         <Loading />
       ) : person.data ? (
         <>
-          <PersonAvatar id={person.data.id} name={person.data.display_name} person={person.data} />
+          <PersonAvatar id={person.data.id} name={personName(person.data)} person={person.data} />
           <ErrorBox message={selfAction.error} />
           <PageHeading
-            title={person.data.display_name}
+            title={personName(person.data)}
             description={person.data.notes || undefined}
           >
-            {!person.data.builtin_key && <Button variant="outline" onClick={() => setEditing(true)}>
-              编辑人物
-            </Button>}
+            {!person.data.builtin_key && <Button variant="outline" onClick={() => setEditing(true)}>{tr("编辑人物")}{" "}</Button>}
             {!person.data.builtin_key && <Button variant="ghost" disabled={selfAction.busy} onClick={() => void selfAction.run(async () => {
               const saved = await write<Person>(`/people/${person.data!.id}`, "PATCH", {revision:person.data!.revision,is_self:!person.data!.is_self});
               person.setData(saved);
-            }, person.data!.is_self ? "已取消本人标记" : "已标记为本人")}>{person.data.is_self ? "取消本人" : "标记为本人"}</Button>}
-            {person.data.is_self && <Badge>本人</Badge>}
-            {person.data.builtin_key && <Badge variant="outline">内置</Badge>}
-            {person.data.archived_at && <Badge variant="secondary">已归档</Badge>}
+            }, person.data!.is_self ? tr("已取消本人标记") : tr("已标记为本人"))}>{person.data.is_self ? tr("取消本人") : tr("标记为本人")}</Button>}
+            {person.data.is_self && <Badge>{tr("本人")}</Badge>}
+            {person.data.builtin_key && <Badge variant="outline">{tr("内置")}</Badge>}
+            {person.data.archived_at && <Badge variant="secondary">{tr("已归档")}</Badge>}
           </PageHeading>
           <Card>
             <CardHeader>
-              <CardTitle>相关录音</CardTitle>
-              <CardDescription>人物出现在当前激活转写版本中的录音。</CardDescription>
+              <CardTitle>{tr("相关录音")}</CardTitle>
+              <CardDescription>{tr("人物出现在当前激活转写版本中的录音。")}</CardDescription>
             </CardHeader>
             <CardContent>
               <ErrorBox message={recordings.error} retry={recordings.refresh} />
@@ -281,8 +274,8 @@ export function PersonPage() {
               ) : (
                 !recordings.error && (
                   <EmptyState
-                    title="还没有相关录音"
-                    description="在录音详情中，将说话人标签关联至此人物。历史版本可单独查看。"
+                    title={tr("还没有相关录音")}
+                    description={tr("在录音详情中，将说话人标签关联至此人物。历史版本可单独查看。")}
                   />
                 )
               )}

@@ -30,6 +30,7 @@ func (a *App) Restore(ctx context.Context) error {
 		}
 		for _, sql := range []string{
 			"DELETE FROM blob_read_leases",
+			"UPDATE transcription_insights SET state='failed',error_code='interrupted',input_json=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE state IN ('queued','running')",
 			"UPDATE blobs SET write_generation=write_generation+1,write_lease_until=NULL,writer_id=NULL WHERE state='writing'",
 			"UPDATE jobs SET lease_generation=lease_generation+1,lease_owner=NULL,lease_until=NULL,state=CASE WHEN kind='transcribe' THEN 'restore_hold' WHEN state IN ('running','retry_wait') THEN 'queued' ELSE state END,error_code=CASE WHEN kind='transcribe' THEN 'restore_hold' ELSE error_code END WHERE state<>'succeeded' OR EXISTS(SELECT 1 FROM provider_operations o WHERE o.job_id=jobs.id AND o.state IN ('prepared','sent','uncertain'))",
 			"UPDATE transcriptions t SET state='restore_hold',error_code='restore_hold',revision=revision+1 WHERE EXISTS(SELECT 1 FROM jobs j WHERE j.transcription_id=t.id AND j.state='restore_hold')",
@@ -48,6 +49,10 @@ func (a *App) Restore(ctx context.Context) error {
 func (a *App) Run(ctx context.Context) {
 	var wg sync.WaitGroup
 	defer wg.Wait()
+	if a.runtimeCleaning.CompareAndSwap(false, true) {
+		wg.Add(1)
+		go func() { defer wg.Done(); a.runRuntimeCleanup(ctx) }()
+	}
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	lastCleanup := time.Time{}
@@ -59,10 +64,17 @@ func (a *App) Run(ctx context.Context) {
 			if a.Config.RestoreMode {
 				continue
 			}
+			if work, err := a.claimInsight(ctx); err == nil {
+				wg.Add(1)
+				go func() { defer wg.Done(); a.executeInsight(ctx, work) }()
+			} else if err != pgx.ErrNoRows && ctx.Err() == nil {
+				a.recordRuntime(ctx, "job_claim_failed", errorType(err), "", "", 0, "")
+			}
 			for _, kind := range []string{"prepare", "transcribe"} {
 				j, err := a.claim(ctx, kind)
 				if err != nil && err != pgx.ErrNoRows && ctx.Err() == nil {
 					slog.Error("job claim failed", "kind", kind, "error_type", errorType(err))
+					a.recordRuntime(ctx, "job_claim_failed", errorType(err), "", "", 0, "")
 				}
 				if err == nil {
 					wg.Add(1)
@@ -76,6 +88,7 @@ func (a *App) Run(ctx context.Context) {
 					defer wg.Done()
 					if err := a.maintenance(ctx); err != nil && ctx.Err() == nil {
 						slog.Error("maintenance failed", "error_type", errorType(err))
+						a.recordRuntime(ctx, "maintenance_failed", errorType(err), "", "", 0, "")
 					}
 				}()
 			}
@@ -152,6 +165,7 @@ func (a *App) execute(parent context.Context, j job) {
 	if err != nil && !errors.Is(err, storage.ErrLease) && ctx.Err() == nil {
 		if e := a.failJob(ctx, j, err); e != nil {
 			slog.Error("job failure persistence failed", "job_id", j.ID, "error_type", errorType(e))
+			a.recordRuntime(ctx, "job_failure_persistence_failed", errorType(e), "", "", 0, j.ID)
 		}
 	}
 	cancel()
@@ -192,7 +206,7 @@ func (a *App) failJob(ctx context.Context, j job, cause error) error {
 			delay = max(delay, time.Duration(pe.RetryAfterSeconds)*time.Second)
 		}
 	}
-	return persistence.Transaction(ctx, a.DB, func(tx pgx.Tx) error {
+	err := persistence.Transaction(ctx, a.DB, func(tx pgx.Tx) error {
 		if err := a.fence(ctx, tx, j); err != nil {
 			return err
 		}
@@ -206,6 +220,10 @@ func (a *App) failJob(ctx context.Context, j job, cause error) error {
 		_, err := tx.Exec(ctx, "UPDATE recordings SET state='failed',revision=revision+1 WHERE id=$1", j.RecordingID)
 		return err
 	})
+	if err == nil {
+		a.recordRuntime(ctx, "job_failed", code, "", "", 0, j.ID)
+	}
+	return err
 }
 func pause(ctx context.Context, d time.Duration) error {
 	t := time.NewTimer(d)

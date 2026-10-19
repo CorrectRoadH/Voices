@@ -11,7 +11,7 @@ sources: []
 
 ## 目标与范围
 
-管理员在 /admin/server 管理站点 Public Base URL、额外可信 origins、STT（Soniox / AssemblyAI API Key）、LLM（OpenAI-compatible Base URL、模型、API Key）。LLM 本期仅保存配置，不发起模型请求或新增摘要功能。实际 STT 适配器使用数据库配置。
+管理员在 /admin/server 管理站点 Public Base URL、额外可信 origins、STT（Soniox / AssemblyAI API Key）、LLM（OpenAI-compatible Base URL、模型、API Key）。LLM 配置由[录音摘要与主题目录](../transcription-insights/README.md)使用；保存配置本身不发起模型请求。实际 STT 适配器使用数据库配置。
 
 ## 持久化与优先级
 

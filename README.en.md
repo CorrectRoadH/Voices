@@ -52,3 +52,7 @@ For public access, put an HTTPS reverse proxy in front and set `PUBLIC_BASE_URL`
 - [Product and architecture docs](docs/README.md)
 
 The docs are written in Chinese. The frontend is built with React and shadcn/ui; the backend with Go and PostgreSQL.
+
+## Acknowledgments
+
+We thank [Linux Do](https://linux.do) for their support and feedback during the project's early development.

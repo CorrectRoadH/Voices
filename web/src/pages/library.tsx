@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/recording-library/README.md
+import { tr } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { AudioLines, ArrowUpRight, CalendarDays, Plus, Search, UploadCloud } from "lucide-react";
@@ -36,11 +37,11 @@ export function RecordingRows({ items }: { items: Recording[] }) {
                 ·{" "}
                 {recording.recorded_at_source === "import" ||
                 recording.recorded_at_source === "imported"
-                  ? "导入时间"
-                  : "录制时间"}
+                  ? tr("导入时间")
+                  : tr("录制时间")}
               </span>
             </p>
-            {!!recording.people?.length && <p className="truncate text-sm text-muted-foreground" title={recording.people.map((person) => person.display_name).join("、")}>人物：{recording.people.map((person) => person.display_name).join("、")}</p>}
+            {!!recording.people?.length && <p className="truncate text-sm text-muted-foreground" title={recording.people.map((person) => person.display_name).join("、")}>{tr("人物：")}{recording.people.map((person) => person.display_name).join("、")}</p>}
           </div>
           <div className="row-detail text-sm tabular-nums text-muted-foreground">
             {duration(recording.duration_ms)}
@@ -95,7 +96,7 @@ export function LibraryPage() {
   return (
     <>
       <PageHeading
-        title="录音库"
+        title={tr("录音库")}
       >
         <Button
           onClick={() => {
@@ -103,9 +104,7 @@ export function LibraryPage() {
             setOpen(true);
           }}
         >
-          <Plus data-icon="inline-start" />
-          导入录音
-        </Button>
+          <Plus data-icon="inline-start" />{tr("导入录音")}{" "}</Button>
       </PageHeading>
       <button
         type="button"
@@ -125,8 +124,8 @@ export function LibraryPage() {
           <UploadCloud />
         </div>
         <div>
-          <strong>拖入音频</strong>
-          <p>或点击选择文件 · 支持批量上传</p>
+          <strong>{tr("拖入音频")}</strong>
+          <p>{tr("或点击选择文件 · 支持批量上传")}</p>
         </div>
         <Plus className="ml-auto size-5 text-muted-foreground" />
       </button>
@@ -134,55 +133,47 @@ export function LibraryPage() {
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <CardTitle>全部录音</CardTitle>
+              <CardTitle>{tr("全部录音")}</CardTitle>
             </div>
-            <Button size="sm" variant="ghost" onClick={refresh}>
-              刷新
-            </Button>
+            <Button size="sm" variant="ghost" onClick={refresh}>{tr("刷新")}{" "}</Button>
           </div>
         </CardHeader>
         <CardContent>
           <FieldGroup className="filters">
             <Field>
-              <FieldLabel htmlFor="recording-search" className="sr-only">
-                搜索标题
-              </FieldLabel>
+              <FieldLabel htmlFor="recording-search" className="sr-only">{tr("搜索标题")}{" "}</FieldLabel>
               <div className="search-input">
                 <Search />
                 <Input
                   id="recording-search"
-                  placeholder="搜索录音标题…"
+                  placeholder={tr("搜索录音标题…")}
                   value={search.get("q") || ""}
                   onChange={(e) => filter("q", e.target.value)}
                 />
               </div>
             </Field>
             <Field>
-              <FieldLabel htmlFor="state-filter" className="sr-only">
-                录音状态
-              </FieldLabel>
+              <FieldLabel htmlFor="state-filter" className="sr-only">{tr("录音状态")}{" "}</FieldLabel>
               <NativeSelect
                 id="state-filter"
                 value={search.get("state") || ""}
                 onChange={(e) => filter("state", e.target.value)}
               >
-                <NativeSelectOption value="">全部状态</NativeSelectOption>
-                <NativeSelectOption value="ready">已就绪</NativeSelectOption>
-                <NativeSelectOption value="preparing">预处理中</NativeSelectOption>
-                <NativeSelectOption value="failed">失败</NativeSelectOption>
-                <NativeSelectOption value="deleting">待清理</NativeSelectOption>
+                <NativeSelectOption value="">{tr("全部状态")}</NativeSelectOption>
+                <NativeSelectOption value="ready">{tr("已就绪")}</NativeSelectOption>
+                <NativeSelectOption value="preparing">{tr("预处理中")}</NativeSelectOption>
+                <NativeSelectOption value="failed">{tr("失败")}</NativeSelectOption>
+                <NativeSelectOption value="deleting">{tr("待清理")}</NativeSelectOption>
               </NativeSelect>
             </Field>
             <Field>
-              <FieldLabel htmlFor="person-filter" className="sr-only">
-                人物
-              </FieldLabel>
+              <FieldLabel htmlFor="person-filter" className="sr-only">{tr("人物")}{" "}</FieldLabel>
               <NativeSelect
                 id="person-filter"
                 value={search.get("person_id") || ""}
                 onChange={(e) => filter("person_id", e.target.value)}
               >
-                <NativeSelectOption value="">全部人物</NativeSelectOption>
+                <NativeSelectOption value="">{tr("全部人物")}</NativeSelectOption>
                 {people.data?.items.map((p) => (
                   <NativeSelectOption value={p.id} key={p.id}>
                     {p.display_name}
@@ -193,12 +184,10 @@ export function LibraryPage() {
           </FieldGroup>
           <details className="date-filters">
             <summary>
-              <CalendarDays className="size-4" />
-              日期范围
-            </summary>
+              <CalendarDays className="size-4" />{tr("日期范围")}{" "}</summary>
             <FieldGroup className="form-columns">
               <Field>
-                <FieldLabel htmlFor="from">开始日期</FieldLabel>
+                <FieldLabel htmlFor="from">{tr("开始日期")}</FieldLabel>
                 <Input
                   id="from"
                   type="date"
@@ -212,7 +201,7 @@ export function LibraryPage() {
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor="to">结束日期</FieldLabel>
+                <FieldLabel htmlFor="to">{tr("结束日期")}</FieldLabel>
                 <Input
                   id="to"
                   type="date"
@@ -228,6 +217,9 @@ export function LibraryPage() {
             </FieldGroup>
           </details>
           <ErrorBox message={recordings.error} retry={recordings.refresh} />
+          <ErrorBox message={people.error} retry={people.refresh} />
+          <ErrorBox message={providers.error} retry={providers.refresh} />
+          <ErrorBox message={settings.error} retry={settings.refresh} />
           {recordings.loading && !items.length ? (
             <Loading />
           ) : items.length ? (
@@ -235,20 +227,18 @@ export function LibraryPage() {
           ) : (
             !recordings.error && (
               <EmptyState
-                title={params ? "没有找到匹配的录音" : "暂无录音"}
+                title={params ? tr("没有找到匹配的录音") : tr("暂无录音")}
                 description={
-                  params ? "试试调整搜索词或筛选条件。" : "拖入音频或选择文件导入。"
+                  params ? tr("试试调整搜索词或筛选条件。") : tr("拖入音频或选择文件导入。")
                 }
               >
-                <Button variant="outline" onClick={() => setOpen(true)}>
-                  导入音频
-                </Button>
+                <Button variant="outline" onClick={() => setOpen(true)}>{tr("导入音频")}{" "}</Button>
               </EmptyState>
             )
           )}
         </CardContent>
         <CardFooter>
-          <p className="text-xs text-muted-foreground">已显示 {items.length} 条录音</p>
+          <p className="text-xs text-muted-foreground">{tr("已显示 {{count}} 条录音", { count: items.length })}</p>
           <div className="ml-auto">
             <More
               cursor={recordings.data?.next_cursor}

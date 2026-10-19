@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/sentence-links/use-case/copy-sentence-link.md
+import { tr } from "@/lib/i18n";
 import type { Segment, TranscriptionDetail } from "./types";
 
 export function basePath(value: string) {
@@ -32,7 +33,7 @@ export function escapeMarkdown(value: string) {
     .replace(/[\r\n]+/g, " ");
 }
 export function sentenceMarkdown(publicBase: string, segment: Segment, origin: string) {
-  return `[${escapeMarkdown(segment.speaker_name || "未知说话人")}: ${escapeMarkdown(segment.text)}](${sentenceUrl(publicBase, segment, origin)})`;
+  return `[${escapeMarkdown(segment.speaker_name || tr("未知说话人"))}: ${escapeMarkdown(segment.text)}](${sentenceUrl(publicBase, segment, origin)})`;
 }
 export function validateAnchor(
   recordingId: string,
@@ -46,7 +47,7 @@ export function validateAnchor(
     (segment &&
       (segment.recording_id !== recordingId || segment.transcription_id !== transcriptionId))
   ) {
-    throw new Error("该引用的录音、转写版本与片段不匹配，无法打开。");
+    throw new Error(tr("该引用的录音、转写版本与片段不匹配，无法打开。"));
   }
 }
 export async function copyText(text: string, clipboard = globalThis.navigator?.clipboard) {

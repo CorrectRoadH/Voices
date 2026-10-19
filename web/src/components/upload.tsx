@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/recording-library/use-case/import-audio.md
+import { tr } from "@/lib/i18n";
 import { requestKey } from "@/lib/request-key";
 import { useEffect, useRef, useState } from "react";
 import { UploadCloud, FileAudio, CheckCircle2, Plus } from "lucide-react";
@@ -65,7 +66,7 @@ export function UploadDialog({
   useEffect(() => {
     if (!completed.current && entries.length > 0 && entries.every((entry) => entry.status === "done")) {
       completed.current = true;
-      notify(`已导入 ${entries.length} 个文件`);
+      notify(tr("已导入 {{v0}} 个文件", { v0: entries.length }));
       onOpenChange(false);
     }
   }, [entries, notify, onOpenChange]);
@@ -91,6 +92,7 @@ export function UploadDialog({
       });
       if (invalid) {
         patch(entry.id, { status: "error", error: invalid });
+        notify(`${entry.file.name}：${invalid}`, true);
         return;
       }
     }
@@ -115,6 +117,7 @@ export function UploadDialog({
       onComplete();
     } catch (e) {
       patch(entry.id, { status: "error", error: errorMessage(e) });
+      if (!controller.signal.aborted) notify(`${entry.file.name}：${errorMessage(e)}`, true);
     } finally {
       controllers.current.delete(controller);
       active.current.delete(entry.id);
@@ -131,12 +134,12 @@ export function UploadDialog({
   }
   return (
     <Modal
-      title="导入录音"
-      description="支持批量导入；重复文件返回已有录音。"
+      title={tr("导入录音")}
+      description={tr("支持批量导入；重复文件返回已有录音。")}
       open={open}
       onOpenChange={(value) => {
         if (!value && busy) {
-          notify("正在上传，请等待本批次完成。", true);
+          notify(tr("正在上传，请等待本批次完成。"), true);
           return;
         }
         onOpenChange(value);
@@ -156,19 +159,17 @@ export function UploadDialog({
         }}
       >
         <UploadCloud className="size-8 text-primary" />
-        <strong>将音频拖到这里</strong>
+        <strong>{tr("将音频拖到这里")}</strong>
         <span className="text-sm text-muted-foreground">MP3、M4A、WAV、FLAC、OGG、WebM</span>
         <Button variant="outline" onClick={() => input.current?.click()}>
-          <Plus data-icon="inline-start" />
-          选择文件
-        </Button>
+          <Plus data-icon="inline-start" />{tr("选择文件")}{" "}</Button>
         <input
           ref={input}
           type="file"
           accept="audio/*,.m4a,.flac,.ogg,.webm"
           multiple
           className="sr-only"
-          aria-label="选择音频文件"
+          aria-label={tr("选择音频文件")}
           onChange={(e) => {
             add(Array.from(e.target.files || []));
             e.target.value = "";
@@ -187,21 +188,21 @@ export function UploadDialog({
                   {bytes(entry.file.size)} ·{" "}
                   {entry.status === "uploading"
                     ? entry.progress === 100
-                      ? "已传输，正在校验与保存…"
-                      : `上传中 ${entry.progress}%`
+                      ? tr("已传输，正在校验与保存…")
+                      : tr("上传中 {{v0}}%", { v0: entry.progress })
                     : entry.status === "done"
                       ? entry.existing
-                        ? "重复文件 · 已有录音"
-                        : "已保存"
+                        ? tr("重复文件 · 已有录音")
+                        : tr("已保存")
                       : entry.status === "waiting"
-                        ? "等待导入"
-                        : "上传失败"}
+                        ? tr("等待导入")
+                        : tr("上传失败")}
                 </p>
               </div>
               {entry.status === "done" ? <CheckCircle2 className="size-5 text-primary" /> : null}
             </div>
             {entry.status === "uploading" && (
-              <Progress value={entry.progress} aria-label={`${entry.file.name} 上传进度`} />
+              <Progress value={entry.progress} aria-label={tr("{{v0}} 上传进度", { v0: entry.file.name })} />
             )}
             {entry.error && (
               <p className="text-sm text-destructive" role="alert">
@@ -216,17 +217,13 @@ export function UploadDialog({
                     size="sm"
                     disabled={busy}
                     onClick={() => setEditing(editing === entry.id ? null : entry.id)}
-                  >
-                    录音标题与选项
-                  </Button>
+                  >{tr("录音标题与选项")}{" "}</Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     disabled={busy}
                     onClick={() => setEntries((old) => old.filter((e) => e.id !== entry.id))}
-                  >
-                    移除
-                  </Button>
+                  >{tr("移除")}{" "}</Button>
                 </>
               )}
               {entry.status === "error" && (
@@ -235,9 +232,7 @@ export function UploadDialog({
                   size="sm"
                   disabled={busy}
                   onClick={() => void send(entry)}
-                >
-                  重新上传
-                </Button>
+                >{tr("重新上传")}{" "}</Button>
               )}
               {entry.recordingId && (
                 <Button
@@ -250,15 +245,13 @@ export function UploadDialog({
                       onClick={() => onOpenChange(false)}
                     />
                   }
-                >
-                  查看录音
-                </Button>
+                >{tr("查看录音")}{" "}</Button>
               )}
             </div>
             {editing === entry.id && entry.status === "waiting" && (
               <FieldGroup>
                 <Field>
-                  <FieldLabel htmlFor={`title-${entry.id}`}>录音标题</FieldLabel>
+                  <FieldLabel htmlFor={`title-${entry.id}`}>{tr("录音标题")}</FieldLabel>
                   <Input
                     id={`title-${entry.id}`}
                     value={entry.title}
@@ -278,15 +271,13 @@ export function UploadDialog({
         ))}
       </div>
       <div className="flex justify-end gap-2">
-        <Button variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>
-          关闭
-        </Button>
+        <Button variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>{tr("关闭")}{" "}</Button>
         <Button
           disabled={busy || !entries.some((e) => e.status === "waiting")}
           onClick={() => void start()}
         >
           <UploadCloud data-icon="inline-start" />
-          {busy ? "正在导入…" : "开始导入"}
+          {busy ? tr("正在导入…") : tr("开始导入")}
         </Button>
       </div>
     </Modal>

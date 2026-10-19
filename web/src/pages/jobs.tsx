@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/transcription/use-case/transcribe.md
+import { tr } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ExternalLink, RefreshCw, ShieldQuestion } from "lucide-react";
@@ -68,23 +69,19 @@ export function JobsPage() {
   return (
     <>
       <PageHeading
-        title="处理任务"
+        title={tr("处理任务")}
       >
         <Button variant="outline" onClick={data.refresh}>
-          <RefreshCw data-icon="inline-start" />
-          刷新
-        </Button>
+          <RefreshCw data-icon="inline-start" />{tr("刷新")}{" "}</Button>
       </PageHeading>
       {items.some((job) => ["uncertain", "restore_hold"].includes(job.state)) && <Alert>
         <ShieldQuestion />
-        <AlertTitle>安全恢复任务</AlertTitle>
-        <AlertDescription>
-          结果待确认或恢复待核对的任务不会重新提交。可以记录查询观察；未知远端 ID 由运维者核实归属后登记，观察不会解除隔离。
-        </AlertDescription>
+        <AlertTitle>{tr("安全恢复任务")}</AlertTitle>
+        <AlertDescription>{tr("结果待确认或恢复待核对的任务不会重新提交。可以记录查询观察；未知远端 ID 由运维者核实归属后登记，观察不会解除隔离。")}{" "}</AlertDescription>
       </Alert>}
       <FieldGroup className="mt-5 max-w-xs">
         <Field>
-          <FieldLabel htmlFor="job-filter">任务状态</FieldLabel>
+          <FieldLabel htmlFor="job-filter">{tr("任务状态")}</FieldLabel>
           <NativeSelect
             id="job-filter"
             value={params.get("state") || ""}
@@ -94,7 +91,7 @@ export function JobsPage() {
               setParams(next);
             }}
           >
-            <NativeSelectOption value="">全部任务</NativeSelectOption>
+            <NativeSelectOption value="">{tr("全部任务")}</NativeSelectOption>
             {[
               "queued",
               "running",
@@ -123,26 +120,24 @@ export function JobsPage() {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <CardTitle>
                     {job.kind === "transcribe" || job.kind === "transcription"
-                      ? "音频转写"
+                      ? tr("音频转写")
                       : job.kind === "prepare"
-                        ? "音频预处理"
+                        ? tr("音频预处理")
                         : job.kind}
                   </CardTitle>
                   <Status value={job.state} />
                 </div>
                 <CardDescription>
-                  {date(job.created_at)} · 失败 {job.attempt} 次 · 阶段：{stateName(job.stage)}
+                  {date(job.created_at)}{" "}{tr("· 失败")}{" "}{job.attempt}{" "}{tr("次 · 阶段：")}{stateName(job.stage)}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="break-all text-xs text-muted-foreground">任务 ID：{job.id}</p>
+                <p className="break-all text-xs text-muted-foreground">{tr("任务 ID：")}{job.id}</p>
                 {job.error_code && (
-                  <p className="mt-2 text-sm text-destructive">错误代码：{job.error_code}</p>
+                  <p className="mt-2 text-sm text-destructive">{tr("错误代码：")}{job.error_code}</p>
                 )}
                 {["uncertain", "restore_hold"].includes(job.state) && (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    此任务可能已在服务商受理，不能安全重试或宣称清理完成。
-                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">{tr("此任务可能已在服务商受理，不能安全重试或宣称清理完成。")}{" "}</p>
                 )}
               </CardContent>
               <CardFooter className="flex-wrap gap-2">
@@ -160,9 +155,7 @@ export function JobsPage() {
                     />
                   }
                 >
-                  <ExternalLink data-icon="inline-start" />
-                  查看录音
-                </Button>
+                  <ExternalLink data-icon="inline-start" />{tr("查看录音")}{" "}</Button>
                 {canRetry(job) && (
                   <Button
                     size="sm"
@@ -171,11 +164,9 @@ export function JobsPage() {
                       void action.run(async () => {
                         await write(`/jobs/${job.id}/retry`, "POST", {});
                         data.refresh();
-                      }, "已请求恢复安全阶段")
+                      }, tr("已请求恢复安全阶段"))
                     }
-                  >
-                    恢复安全阶段
-                  </Button>
+                  >{tr("恢复安全阶段")}{" "}</Button>
                 )}
                 {["uncertain", "restore_hold"].includes(job.state) && (
                   <Button
@@ -186,9 +177,7 @@ export function JobsPage() {
                       setRemoteId("");
                       setNote("");
                     }}
-                  >
-                    登记核对结果
-                  </Button>
+                  >{tr("登记核对结果")}{" "}</Button>
                 )}
               </CardFooter>
             </Card>
@@ -197,15 +186,15 @@ export function JobsPage() {
       ) : (
         !data.error && (
           <EmptyState
-            title="暂无处理任务"
-            description="导入录音或创建转写后，可以在这里跟踪进度。"
+            title={tr("暂无处理任务")}
+            description={tr("导入录音或创建转写后，可以在这里跟踪进度。")}
           />
         )
       )}
       <More cursor={data.data?.next_cursor} loading={data.loading} onLoad={setCursor} />
       <Modal
-        title="登记远端 ID 或查询观察"
-        description="仅登记已核实的信息，不触发新的付费请求。“暂未查到”会保留待确认状态。"
+        title={tr("登记远端 ID 或查询观察")}
+        description={tr("仅登记已核实的信息，不触发新的付费请求。“暂未查到”会保留待确认状态。")}
         open={!!resolve}
         onOpenChange={(v) => {
           if (!v && !action.busy) setResolve(null);
@@ -223,13 +212,13 @@ export function JobsPage() {
               });
               setResolve(null);
               data.refresh();
-            }, "核对记录已保存；任务状态由服务器核实");
+            }, tr("核对记录已保存；任务状态由服务器核实"));
           }}
         >
           <FieldGroup>
             <ErrorBox message={action.error} />
             <Field>
-              <FieldLabel htmlFor="operation-id">核对的远端操作</FieldLabel>
+              <FieldLabel htmlFor="operation-id">{tr("核对的远端操作")}</FieldLabel>
               {resolve?.operations?.length ? (
                 <NativeSelect
                   id="operation-id"
@@ -240,13 +229,13 @@ export function JobsPage() {
                     setRemoteId("");
                   }}
                 >
-                  <NativeSelectOption value="">请选择操作</NativeSelectOption>
+                  <NativeSelectOption value="">{tr("请选择操作")}</NativeSelectOption>
                   {resolve.operations.map((operation) => (
                     <NativeSelectOption key={operation.id} value={operation.id}>
                       {operation.kind === "upload"
-                        ? "上传音频"
+                        ? tr("上传音频")
                         : operation.kind === "submit"
-                          ? "提交转写"
+                          ? tr("提交转写")
                           : operation.kind}{" "}
                       · {stateName(operation.state)} · {operation.id}
                     </NativeSelectOption>
@@ -257,12 +246,10 @@ export function JobsPage() {
                   id="operation-id"
                   value={operationId}
                   onChange={(e) => setOperationId(e.target.value)}
-                  placeholder="操作 ID（可选）"
+                  placeholder={tr("操作 ID（可选）")}
                 />
               )}
-              <FieldDescription>
-                同一任务有多个操作时，须先确认核对的是上传还是转写提交。
-              </FieldDescription>
+              <FieldDescription>{tr("同一任务有多个操作时，须先确认核对的是上传还是转写提交。")}{" "}</FieldDescription>
               {resolve?.operations
                 ?.filter((operation) => operation.id === operationId)
                 .map((operation) => (
@@ -270,31 +257,30 @@ export function JobsPage() {
                     key={operation.id}
                     className="flex flex-col gap-2 text-sm text-muted-foreground"
                   >
-                    <p className="break-all">已登记远端 ID：{operation.remote_id || "尚无"}</p>
-                    <p className="whitespace-pre-wrap">
-                      既有核对说明：{operation.resolution_note || "尚无"}
+                    <p className="break-all">{tr("已登记远端 ID：")}{operation.remote_id || tr("尚无")}</p>
+                    <p className="whitespace-pre-wrap">{tr("既有核对说明：")}{operation.resolution_note || tr("尚无")}
                     </p>
                   </div>
                 ))}
             </Field>
             <Field>
-              <FieldLabel htmlFor="remote-id">已核实的远端 ID（可选）</FieldLabel>
+              <FieldLabel htmlFor="remote-id">{tr("已核实的远端 ID（可选）")}</FieldLabel>
               <Input
                 id="remote-id"
                 value={remoteId}
                 onChange={(e) => setRemoteId(e.target.value)}
               />
-              <FieldDescription>只能确认此操作已经登记的 ID。未知 ID 请联系运维者；留空则仅保存查询观察。</FieldDescription>
+              <FieldDescription>{tr("只能确认此操作已经登记的 ID。未知 ID 请联系运维者；留空则仅保存查询观察。")}</FieldDescription>
             </Field>
             <Field>
-              <FieldLabel htmlFor="resolve-note">核对说明</FieldLabel>
+              <FieldLabel htmlFor="resolve-note">{tr("核对说明")}</FieldLabel>
               <Textarea
                 id="resolve-note"
                 required
                 value={note}
                 rows={4}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="例如：在服务商控制台按时间查询，暂未查到。"
+                placeholder={tr("例如：在服务商控制台按时间查询，暂未查到。")}
               />
             </Field>
             <Button
@@ -302,9 +288,7 @@ export function JobsPage() {
                 action.busy || !note.trim() || (!!resolve?.operations?.length && !operationId)
               }
               type="submit"
-            >
-              保存核对记录
-            </Button>
+            >{tr("保存核对记录")}{" "}</Button>
           </FieldGroup>
         </form>
       </Modal>

@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/transcription/README.md
+import { tr } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { LockKeyhole, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,7 @@ export function SettingsPage() {
   return (
     <>
       <PageHeading
-        title="设置"
+        title={tr("设置")}
       />
       {settings.loading || providers.loading ? (
         <Loading />
@@ -42,10 +43,8 @@ export function SettingsPage() {
         <div className="settings-grid">
           <Card>
             <CardHeader>
-              <CardTitle>转写偏好</CardTitle>
-              <CardDescription>
-                新设置只用于未来的导入，不改变已接受任务的选项快照。
-              </CardDescription>
+              <CardTitle>{tr("转写偏好")}</CardTitle>
+              <CardDescription>{tr("新设置只用于未来的导入，不改变已接受任务的选项快照。")}{" "}</CardDescription>
             </CardHeader>
             <CardContent>
               <ErrorBox
@@ -75,41 +74,37 @@ export function SettingsPage() {
                       auto_transcribe: true,
                     });
                     settings.refresh();
-                  }, "偏好设置已保存")
+                  }, tr("偏好设置已保存"))
                 }
               >
-                <Save data-icon="inline-start" />
-                保存设置
-              </Button>
+                <Save data-icon="inline-start" />{tr("保存设置")}{" "}</Button>
             </CardFooter>
           </Card>
           <div className="flex flex-col gap-5">
             <Card>
               <CardHeader>
-                <CardTitle>服务商连接</CardTitle>
-                <CardDescription>密钥由管理员在服务器设置中管理，浏览器仅显示当前实例的配置状态。</CardDescription>
+                <CardTitle>{tr("服务商连接")}</CardTitle>
+                <CardDescription>{tr("密钥由管理员在服务器设置中管理，浏览器仅显示当前实例的配置状态。")}</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 {providers.data?.items.map((p) => (
                   <div key={p.id} className="flex items-center justify-between gap-2">
                     <span className="font-medium">{p.name}</span>
                     <Badge variant={p.configured ? "secondary" : "outline"}>
-                      {p.configured ? "已配置" : "未配置"}
+                      {p.configured ? tr("已配置") : tr("未配置")}
                     </Badge>
                   </div>
                 ))}
               </CardContent>
               <CardFooter>
-                <p className="text-xs text-muted-foreground">
-                  已配置表示存在服务端凭据，实际可用性由转写响应确认。
-                </p>
+                <p className="text-xs text-muted-foreground">{tr("已配置表示存在服务端凭据，实际可用性由转写响应确认。")}{" "}</p>
               </CardFooter>
             </Card>
             {session.restore_mode && <Alert>
               <LockKeyhole />
-              <AlertTitle>数据库恢复核对模式</AlertTitle>
+              <AlertTitle>{tr("数据库恢复核对模式")}</AlertTitle>
               <AlertDescription>
-                {session.restore_mode && "当前处于数据库恢复核对模式，历史任务需逐项核实。"}
+                {session.restore_mode && tr("当前处于数据库恢复核对模式，历史任务需逐项核实。")}
               </AlertDescription>
             </Alert>}
           </div>

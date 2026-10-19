@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"crypto/subtle"
+	"encoding/json"
 	"errors"
 	"net"
 	"net/http"
@@ -27,6 +28,7 @@ type User struct {
 	DisplayName string `json:"display_name"`
 	Role        string `json:"role"`
 	Status      string `json:"status"`
+	UILanguage  string `json:"ui_language"`
 }
 type userKey struct{}
 
@@ -110,13 +112,22 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	var in struct {
-		Email       string `json:"email"`
-		Username    string `json:"username"`
-		DisplayName string `json:"display_name"`
-		Password    string `json:"password"`
+		Email       string          `json:"email"`
+		Username    string          `json:"username"`
+		DisplayName string          `json:"display_name"`
+		Password    string          `json:"password"`
+		UILanguage  json.RawMessage `json:"ui_language"`
 	}
 	if err := decode(r, &in); err != nil {
 		return err
+	}
+	language := "zh-CN"
+	if len(in.UILanguage) > 0 {
+		var selected *string
+		if err := json.Unmarshal(in.UILanguage, &selected); err != nil || selected == nil || (*selected != "zh-CN" && *selected != "en") {
+			return bad("invalid_ui_language", "界面语言仅支持简体中文和英文")
+		}
+		language = *selected
 	}
 	in.Email = normalizeEmail(in.Email)
 	in.Username = normalizeEmail(in.Username)
@@ -137,7 +148,7 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	u := User{ID: uuid.NewString(), Email: in.Email, Username: in.Username, DisplayName: in.DisplayName, Role: "user", Status: "active"}
+	u := User{ID: uuid.NewString(), Email: in.Email, Username: in.Username, DisplayName: in.DisplayName, Role: "user", Status: "active", UILanguage: language}
 	sid, csrf := token(), token()
 	err = persistence.Transaction(r.Context(), a.DB, func(tx pgx.Tx) error {
 		var initialized, open bool
@@ -157,7 +168,7 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) error {
 		if !initialized {
 			u.Role = "admin"
 		}
-		if _, err := tx.Exec(r.Context(), "INSERT INTO users(id,email,display_name,password_hash,role,username) VALUES($1,$2,$3,$4,$5,NULLIF($6,''))", u.ID, u.Email, u.DisplayName, string(hash), u.Role, u.Username); err != nil {
+		if _, err := tx.Exec(r.Context(), "INSERT INTO users(id,email,display_name,password_hash,role,username,ui_language) VALUES($1,$2,$3,$4,$5,NULLIF($6,''),$7)", u.ID, u.Email, u.DisplayName, string(hash), u.Role, u.Username, u.UILanguage); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(r.Context(), "UPDATE instance_settings SET bootstrap_completed=true WHERE id=1"); err != nil {
@@ -201,7 +212,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) error {
 	if strings.Contains(identifier, "@") {
 		column = "email"
 	}
-	err := a.DB.QueryRow(r.Context(), "SELECT id,email,COALESCE(username,''),display_name,role,status,password_hash FROM users WHERE "+column+"=$1", identifier).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.Role, &u.Status, &hash)
+	err := a.DB.QueryRow(r.Context(), "SELECT id,email,COALESCE(username,''),display_name,role,status,password_hash,ui_language FROM users WHERE "+column+"=$1", identifier).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.Role, &u.Status, &hash, &u.UILanguage)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
@@ -223,7 +234,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) error {
 	err = persistence.Transaction(r.Context(), a.DB, func(tx pgx.Tx) error {
 		// Serialize session creation with password changes and account disable.
 		var currentHash, status string
-		if err := tx.QueryRow(r.Context(), "SELECT password_hash,status,role,display_name FROM users WHERE id=$1 FOR UPDATE", u.ID).Scan(&currentHash, &status, &u.Role, &u.DisplayName); err != nil {
+		if err := tx.QueryRow(r.Context(), "SELECT password_hash,status,role,display_name,COALESCE(username,''),ui_language FROM users WHERE id=$1 FOR UPDATE", u.ID).Scan(&currentHash, &status, &u.Role, &u.DisplayName, &u.Username, &u.UILanguage); err != nil {
 			return err
 		}
 		if status != "active" || currentHash != hash {
@@ -251,7 +262,7 @@ func (a *App) authenticate(r *http.Request) error {
 	}
 	var csrf string
 	var u User
-	err = a.DB.QueryRow(r.Context(), `SELECT s.csrf_hash,u.id,u.email,COALESCE(u.username,''),u.display_name,u.role,u.status FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id_hash=$1 AND s.expires_at>clock_timestamp() AND u.status='active'`, digest([]byte(c.Value))).Scan(&csrf, &u.ID, &u.Email, &u.Username, &u.DisplayName, &u.Role, &u.Status)
+	err = a.DB.QueryRow(r.Context(), `SELECT s.csrf_hash,u.id,u.email,COALESCE(u.username,''),u.display_name,u.role,u.status,u.ui_language FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id_hash=$1 AND s.expires_at>clock_timestamp() AND u.status='active'`, digest([]byte(c.Value))).Scan(&csrf, &u.ID, &u.Email, &u.Username, &u.DisplayName, &u.Role, &u.Status, &u.UILanguage)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return &apiError{401, "unauthenticated", "请先登录"}
 	}

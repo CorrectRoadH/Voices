@@ -352,3 +352,29 @@ func TestUsernameAndEmailLoginShareIdentityAndLimit(t *testing.T) {
 	}
 	f.json(t, "POST", "/api/v1/session", map[string]any{"identifier": "tester@example.test", "password": "wrong-password"}, 429, "")
 }
+
+// @use-case docs/feature/administration/use-case/inspect-instance.md
+func TestAdminAccountFilters(t *testing.T) {
+ f := setup(t)
+ b := anotherAccount(t, f, "lookup")
+ c := anotherAccount(t, f, "other")
+ bid, cid := userID(t, b), userID(t, c)
+ b.json(t, "PATCH", "/api/v1/me", map[string]any{"display_name": "100% Named_User", "username": "lookup_alias"}, 200, "")
+ f.json(t, "PATCH", "/api/v1/admin/users/"+cid, map[string]any{"status": "disabled"}, 200, "")
+ cases := []struct{ query, id string; count int }{
+  {"q=LOOKUP", bid, 1}, {"q=lookup_alias", bid, 1}, {"q="+url.QueryEscape("Named_User"), bid, 1},
+  {"q="+url.QueryEscape("%"), bid, 1}, {"q="+url.QueryEscape("_"), bid, 1},
+  {"status=disabled", cid, 1}, {"role=admin", userID(t, f), 1},
+  {"q=other&status=active", "", 0}, {"role=user&status=active", bid, 1},
+ }
+ for _, tc := range cases {
+  _, result := f.json(t,"GET","/api/v1/admin/users?"+tc.query,nil,200,"")
+  items := result["items"].([]any)
+  if len(items)!=tc.count { t.Fatalf("%s: count=%d want=%d",tc.query,len(items),tc.count) }
+  if tc.count==1 && items[0].(map[string]any)["id"]!=tc.id { t.Fatalf("%s: wrong account",tc.query) }
+ }
+ for _, q := range []string{"status=unknown","role=owner","q="+strings.Repeat("x",101)} {
+  f.json(t,"GET","/api/v1/admin/users?"+q,nil,400,"")
+ }
+ b.json(t,"GET","/api/v1/admin/users?q=Tester",nil,403,"")
+}

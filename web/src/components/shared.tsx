@@ -1,3 +1,4 @@
+import { tr } from "@/lib/i18n";
 import { AlertCircle, AudioLines, CheckCircle2, RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "./ui/button";
@@ -37,14 +38,12 @@ export function ErrorBox({ message, retry }: { message: string; retry?: () => vo
   return (
     <Alert variant="destructive">
       <AlertCircle />
-      <AlertTitle>暂时无法完成</AlertTitle>
+      <AlertTitle>{tr("暂时无法完成")}</AlertTitle>
       <AlertDescription>
         <p>{message}</p>
         {retry && (
           <Button variant="outline" size="sm" onClick={retry}>
-            <RefreshCw data-icon="inline-start" />
-            重新加载
-          </Button>
+            <RefreshCw data-icon="inline-start" />{tr("重新加载")}{" "}</Button>
         )}
       </AlertDescription>
     </Alert>
@@ -52,7 +51,7 @@ export function ErrorBox({ message, retry }: { message: string; retry?: () => vo
 }
 export function Loading() {
   return (
-    <div className="flex flex-col gap-4" role="status" aria-label="正在加载">
+    <div className="flex flex-col gap-4" role="status" aria-label={tr("正在加载")}>
       <Skeleton className="h-8 w-1/3" />
       <Skeleton className="h-28 w-full" />
       <Skeleton className="h-28 w-full" />
@@ -60,7 +59,7 @@ export function Loading() {
   );
 }
 export function EmptyState({
-  title = "还没有录音",
+  title = tr("还没有录音"),
   description,
   children,
 }: {
@@ -136,9 +135,7 @@ export function More({
 }) {
   return cursor ? (
     <div className="flex justify-center py-4">
-      <Button variant="outline" disabled={loading} onClick={() => onLoad(cursor)}>
-        加载更多
-      </Button>
+      <Button variant="outline" disabled={loading} onClick={() => onLoad(cursor)}>{tr("加载更多")}{" "}</Button>
     </div>
   ) : null;
 }
