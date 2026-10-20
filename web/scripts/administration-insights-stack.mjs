@@ -53,7 +53,9 @@ try {
   await page.goto(`${base}/recordings/${rid}/transcriptions/${tid}`);
   await expect(page.getByRole("button", { name: "生成摘要与目录", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "生成摘要与目录", exact: true }).click();
+  await page.getByRole("tab", { name: "摘要", exact: true }).click();
   await expect(page.getByText("会议摘要", { exact: true })).toBeVisible({ timeout: 15000 });
+  await page.getByRole("tab", { name: "目录", exact: true }).click();
   await expect(page.getByRole("navigation", { name: "AI 主题目录" })).toBeVisible();
   await expect(page.locator(`#segment-${last}`)).toHaveCount(0);
   await page
@@ -70,9 +72,10 @@ try {
   await page.getByLabel("片段文字", { exact: true }).fill("更新后的决定");
   await page.getByRole("button", { name: "保存文字" }).click();
   await expect(page.getByText("转写已更改，结果已过期", { exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "摘要", exact: true }).click();
   await page.getByRole("button", { name: "重新生成", exact: true }).click();
   await expect(page.getByText(/模型返回的摘要或章节无法通过校验/)).toBeVisible({ timeout: 15000 });
-  await page.getByRole("button", { name: "重新生成", exact: true }).click();
+  await page.getByRole("button", { name: "重试", exact: true }).click();
   await expect(page.getByText("会议摘要", { exact: true })).toBeVisible({ timeout: 15000 });
   await expect(page.getByText("转写已更改，结果已过期", { exact: true })).toHaveCount(0);
   // Blank timestamps only navigate the text, including on a narrow dark screen.

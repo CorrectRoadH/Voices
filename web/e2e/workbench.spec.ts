@@ -410,6 +410,8 @@ test("新建转写处理 202 JSON 并进入新版本，携带用户授权与幂�
     return route.fallback();
   });
   await page.goto(deepLink);
+  await page.getByRole("tab", { name: "录音信息", exact: true }).click();
+  await page.locator("summary").filter({ hasText: "版本与导出" }).click();
   await page.getByRole("button", { name: "新建转写", exact: true }).click();
   await page.getByLabel("转写服务商").selectOption("soniox");
   await page.getByLabel("模型", { exact: true }).selectOption("test");
@@ -502,7 +504,7 @@ for (const sameField of [false, true]) {
       await route.fulfill({json:latest});
     });
     await page.goto(`recordings/${rid}/transcriptions/${tid}`);
-    await page.getByRole('button',{name:'编辑信息',exact:true}).click();
+    await page.getByRole('button',{name:'编辑标题',exact:true}).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await page.getByLabel('标题',{exact:true}).fill('更新后的标题');
     await page.getByRole('tab',{name:'目录',exact:true}).click();
@@ -659,7 +661,7 @@ test('群聊头像和菜单换人、紧凑编辑与跨日时间校准', async ({
   await page.screenshot({path:'/tmp/voices-chat-edit.png'});
   await page.getByRole('button',{name:'取消编辑'}).click();
   await page.getByRole('tab',{name:'录音信息',exact:true}).click();
-  await page.getByRole('button',{name:'校准时间',exact:true}).click();
+  await page.getByRole('button',{name:'编辑开始时间',exact:true}).click();
   await page.getByLabel('录音开始时间',{exact:true}).fill('2026-10-18T10:20:30');
   await page.getByRole('region',{name:'编辑录音信息'}).getByRole('button',{name:'保存',exact:true}).click();
   await expect(first.locator('.message-time')).toHaveAttribute('title', /10:20:31/);

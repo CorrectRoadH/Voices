@@ -35,7 +35,7 @@ try {
  await page.getByRole('button',{name:'保存文字'}).click();
  await expect(first).toContainText('浏览器校正 [保留]。');
  await page.getByRole('tab',{name:'录音信息',exact:true}).click();
- await page.getByRole('button',{name:'校准时间',exact:true}).click();
+ await page.getByRole('button',{name:'编辑开始时间',exact:true}).click();
  await page.getByLabel('录音开始时间',{exact:true}).fill('2026-10-18T10:20:30');
  await page.getByRole('region',{name:'编辑录音信息'}).getByRole('button',{name:'保存',exact:true}).click();
  await expect(first.locator('.message-time')).toHaveAttribute('title', /10:20:30/);
@@ -90,6 +90,8 @@ try {
  await page.locator('#segment-'+segmentId).locator('.speaker-name-trigger').click();
  await page.getByRole('button',{name:'背景声 · 内置',exact:true}).click();
  await expect(page.locator('#segment-'+segmentId)).toHaveCount(0);
+ await page.getByRole('tab',{name:'录音信息',exact:true}).click();
+ await page.locator('summary').filter({hasText:'说话人与人物'}).click();
  await page.getByRole('switch',{name:'显示背景声等内置人物片段'}).check();
  await expect(page.locator('#segment-'+segmentId)).toContainText('背景声');
  await page.getByRole('switch',{name:'显示背景声等内置人物片段'}).uncheck();
