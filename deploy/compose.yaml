@@ -1,0 +1,38 @@
+# Voices: download this file alone and run `docker compose up -d`.
+# Access from other devices: on first startup, run
+#   PUBLIC_BASE_URL=http://<this machine's IP>:8080 docker compose up -d
+# The address is saved to the database; later changes go through Server settings.
+services:
+  app:
+    image: ${VOICES_IMAGE:-correctroad/voices:latest}
+    environment:
+      # The database is reachable only on the internal Compose network, so a default password is acceptable.
+      DATABASE_URL: postgres://voices:${POSTGRES_PASSWORD:-voices}@db:5432/voices?sslmode=disable
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+    ports:
+      - "${PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=6g,mode=1777
+    mem_limit: 2g
+    restart: unless-stopped
+    stop_grace_period: 30s
+  db:
+    image: postgres:18-bookworm
+    environment:
+      POSTGRES_DB: voices
+      POSTGRES_USER: voices
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-voices}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voices -d voices"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+volumes:
+  postgres_data:

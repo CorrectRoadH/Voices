@@ -2,56 +2,51 @@
 
 [中文](README.md) · English
 
-**Turn everyday recordings into conversations you can read, search and quote.**
+For people who record their day. Drop in audio from your recorder or phone, and Voices transcribes it and sorts out who's speaking. Search for what someone said and when, then click to hear it again. Everything stays on your own server.
 
-Voices is a self-hosted recording workbench. Drop in meetings, interviews or voice notes and it transcribes them with speaker separation, showing every sentence as a chat message. Fix words as you read, mark who said what, and copy any sentence as a linked quote that jumps back to the original audio.
+## Features
 
-Your recordings and transcripts stay on your own server.
-
-## Why Voices
-
-- **Just drop files in**: drag several files at once and transcription starts as soon as they upload. Duplicates are detected and kept only once.
-- **Read recordings like a chat**: your lines on the right, everyone else on the left, with names and avatars. Tap a sentence to play just that sentence, tap the text to edit it.
-- **Know who's talking**: link "Speaker 1" to a person profile and follow that person across recordings, or filter your library by person. Background noise, music and system prompts can be tagged and hidden.
-- **Every sentence is a link**: paste `[Alex: Let's review the plan tomorrow morning](link)` into your notes. Opening it lands on that exact sentence and audio position, even after you edit text or re-transcribe.
-- **Corrections are never overwritten**: re-transcribing creates a new version. Older versions and your edits are kept, and you choose which one is active.
-- **Export anytime**: TXT, JSON or SRT subtitles.
-- **Multilingual**: auto-detect, single language, or mixed-language modes, powered by [Soniox](https://soniox.com) and [AssemblyAI](https://www.assemblyai.com).
-- **Share with family or a small team**: every account's data is fully separate. Even the admin can't see other users' recordings.
-
-## Your data, your server
-
-- Audio, transcripts and people all live in your own PostgreSQL, so backing up one database covers everything.
-- Provider API keys stay on the server and never reach the browser.
-- After a network failure, requests the provider may already have received are never resent automatically, so you aren't charged twice.
-- The app itself is stateless, so containers can be rebuilt or scaled out at any time.
+- Automatic transcription with speaker separation
+- Edit and organize transcripts in the browser
+- Quote sentences with links back to the audio
+- AI summaries (optional)
+- Multiple users
 
 ## Quick start
 
-You need Docker. Create `.env` in the project root:
+You need Docker and an API key from [Soniox](https://soniox.com) or [AssemblyAI](https://www.assemblyai.com).
 
 ```sh
-POSTGRES_PASSWORD=<random hex string>
-# Optional; you can also set it later in the web UI
-SONIOX_API_KEY=
+mkdir voices && cd voices
+curl -fsSLO https://raw.githubusercontent.com/CorrectRoadH/Voices/main/deploy/compose.yaml
+docker compose up -d
 ```
+
+Open <http://localhost:8080> and follow the prompts:
+
+1. Sign up. The first account becomes the administrator.
+2. Set up a model for AI summaries, or skip this step.
+3. Enter your transcription API key under Server management, then start dropping in recordings.
+
+### Access from your phone or another computer
+
+Voices listens on port 8080 on your local network. To use it through this machine's IP, include the address the first time you start it:
 
 ```sh
-docker compose up --build -d
+PUBLIC_BASE_URL=http://192.168.1.10:8080 docker compose up -d
 ```
 
-Open <http://localhost:8080>. The first account to register becomes the admin and can configure transcription providers, close registration and manage accounts under Server management.
+Replace `192.168.1.10` with the IP of the machine running Voices. The address is saved, so later starts don't need it. If you've already started Voices, change the site address under Server management → Server settings, then run `docker compose restart`. Without this address, other devices can load the page but can't sign in.
 
-For public access, put an HTTPS reverse proxy in front and set `PUBLIC_BASE_URL` in `.env` to the real address before the first start; change it later in Server settings.
+Create the administrator account right after startup so no one else on the network signs up first. For public access, put an HTTPS reverse proxy in front. See the [deployment guide](docs/operations.md) (in Chinese).
 
-## Learn more
+### Upgrade
 
-- [Deployment, configuration, backup and restore](docs/operations.md)
-- [CI, image releases and update service](docs/engineering/delivery/README.md)
-- [Local development and testing](docs/development.md)
-- [Product and architecture docs](docs/README.md)
+```sh
+docker compose pull && docker compose up -d
+```
 
-The docs are written in Chinese. The frontend is built with React and shadcn/ui; the backend with Go and PostgreSQL.
+All data lives in the `postgres_data` volume. Back it up before upgrading. See [backup and restore](docs/operations.md).
 
 ## Acknowledgments
 
