@@ -82,6 +82,15 @@ Restore 正式入口在既有恢复事务中将全部 queued/running 变 failed/
 
 错误码只允许 llm_unavailable、llm_rejected、invalid_response、interrupted、configuration_changed、account_disabled。不保存、返回或记录远端错误正文、文本或密钥。
 
+生成失败日志使用 `insight generation failed`，字段为 generation、code、reason。reason 仅来自应用内固定分类：
+
+- 响应：response_too_large、choice_count、model_refusal、output_token_limit、unexpected_finish_reason。
+- 结构：json_schema、trailing_content、summary_length、chapter_count。
+- 章节：unknown_segment、chapter_order、first_chapter_anchor、chapter_title_length。
+- 其他错误：unspecified。
+
+不得直接记录 finish_reason 或错误正文等服务商提供的任意值。该诊断不改变对外错误码、校验规则、输出预算或重试策略。
+
 ## 独立审查与验收
 
 原生 Codex / GPT-6.1 Sol Review 及限定范围复核通过。两项阻塞已收敛：Restore 隔离 queued/running；时间可空，跳转用当前片段有效时间。幂等键回收、SDK环境隔离和输出上限也已明确。

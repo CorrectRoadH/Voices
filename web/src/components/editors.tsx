@@ -2,7 +2,7 @@
 // @concord-implements docs/feature/transcription/README.md
 // @concord-implements docs/feature/people/use-case/link-person.md
 import { personName, labelName } from "@/lib/person-name";
-import { tr } from "@/lib/i18n";
+import { tr, interfaceLocale } from "@/lib/i18n";
 import { Check, X } from "lucide-react";
 import { requestKey } from "@/lib/request-key";
 import { useState } from "react";
@@ -328,13 +328,22 @@ export function LabelsEditor({
     </Modal>
   );
 }
+type RecordingFieldName = "title" | "recorded_at" | "notes";
+export function RecordingField({ recording, field, onSaved }: { recording: Recording; field: RecordingFieldName; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  if (editing) return <RecordingEditor field={field} recording={recording} onSaved={onSaved} onClose={() => setEditing(false)} />;
+  const label = field === "title" ? tr("编辑标题") : field === "recorded_at" ? tr("编辑开始时间") : tr("编辑备注");
+  const value = field === "title" ? recording.title || recording.original_name : field === "recorded_at" ? new Date(recording.recorded_at).toLocaleString(interfaceLocale(), {hour12:false}) : recording.notes || tr("添加备注");
+  const control = <button type="button" className="cursor-text rounded-sm text-left whitespace-pre-wrap break-words hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring" aria-label={label} onClick={() => setEditing(true)}>{value}</button>;
+  return field === "title" ? <h1 aria-label={value}>{control}</h1> : control;
+}
 export function RecordingEditor({
   recording,
   onClose,
   onSaved,
-  timeOnly = false,
+  field,
 }: {
-  timeOnly?: boolean;
+  field: RecordingFieldName;
   recording: Recording;
   onClose: () => void;
   onSaved: () => void;
@@ -351,8 +360,9 @@ export function RecordingEditor({
   const [recordedAt, setRecordedAt] = useState(local);
   const action = useAction();
   return (
-    <section aria-label={tr("编辑录音信息")} className="my-5">
+    <section aria-label={tr("编辑录音信息")} className="recording-field-editor">
       <form
+        onKeyDown={(event) => { if (event.key === "Escape" && !action.busy) { event.preventDefault(); onClose(); } }}
         onSubmit={(e) => {
           e.preventDefault();
           void action.run(async () => {
@@ -377,40 +387,44 @@ export function RecordingEditor({
           }, tr("录音信息已更新"));
         }}
       >
-        <FieldGroup>
+        <FieldGroup className="gap-2">
           <ErrorBox message={action.error} />
-          {!timeOnly && <Field>
+          {field === "title" && <Field>
             <FieldLabel htmlFor="recording-title">{tr("标题")}</FieldLabel>
             <Input
               id="recording-title"
+              autoFocus
               value={title}
               required
               onChange={(e) => setTitle(e.target.value)}
             />
           </Field>}
-          <Field>
+          {field === "recorded_at" && <Field>
             <FieldLabel htmlFor="recorded-at">{tr("录音开始时间")}</FieldLabel>
             <Input
               id="recorded-at"
+              autoFocus
               type="datetime-local"
               step="1"
               required
               value={recordedAt}
               onChange={(e) => setRecordedAt(e.target.value)}
             />
-          </Field>
-          {!timeOnly && <Field>
+            <FieldDescription>{Intl.DateTimeFormat().resolvedOptions().timeZone}</FieldDescription>
+          </Field>}
+          {field === "notes" && <Field>
             <FieldLabel htmlFor="recording-notes">{tr("备注")}</FieldLabel>
             <Textarea
               id="recording-notes"
-              rows={4}
+              autoFocus
+              rows={3}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
           </Field>}
           <div className="flex gap-2">
-            <Button disabled={action.busy} type="submit">{tr("保存")}</Button>
-            <Button disabled={action.busy} variant="outline" onClick={() => { onSaved(); onClose(); }}>{tr("取消")}</Button>
+            <Button size="xs" disabled={action.busy} type="submit">{tr("保存")}</Button>
+            <Button size="xs" disabled={action.busy} variant="outline" onClick={() => { onSaved(); onClose(); }}>{tr("取消")}</Button>
           </div>
         </FieldGroup>
       </form>

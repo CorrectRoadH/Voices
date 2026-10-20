@@ -1,4 +1,12 @@
 {
+  "添加备注": "Add notes",
+  "编辑备注": "Edit notes",
+  "编辑开始时间": "Edit start time",
+  "编辑标题": "Edit title",
+  "摘要": "Summary",
+  "AI 辅助内容，请核对原文": "AI-assisted content. Check against the transcript.",
+  "录音摘要": "Recording summary",
+  "查看完整摘要": "Read full summary",
   "用户名、邮箱或密码不正确，请重试。": "Incorrect username, email, or password. Please try again.",
   "创建管理员账号": "Create administrator account",
   "注册账号": "Register",
@@ -752,5 +760,13 @@
   "账号总数：{{total}} · 已启用：{{active}} · 已停用：{{disabled}}": "Accounts: {{total}} · Enabled: {{active}} · Disabled: {{disabled}}",
   "有效管理员：{{count}}": "Active administrators: {{count}}",
   "新建并关联“{{name}}”": "Create and link “{{name}}”",
-  "已显示 {{count}} 条录音": "Recordings shown: {{count}}"
+  "已显示 {{count}} 条录音": "Recordings shown: {{count}}",
+  "再次生成会发送转写文本并调用模型，可能重复计费。": "Retrying sends the transcript to the model and may incur another charge.",
+  "转写文本将发送给配置的模型，可能产生费用。": "The transcript will be sent to the configured model. Charges may apply.",
+  "重新生成会替换现有结果。": "Regenerating replaces the existing result.",
+  "摘要与目录生成失败": "Summary and outline generation failed",
+  "生成主题目录，快速定位录音内容。": "Generate a topic outline to navigate the recording.",
+  "查看摘要": "View summary",
+  "重试": "Retry",
+  "完成转写后可生成目录。": "Complete a transcription to generate an outline."
 }

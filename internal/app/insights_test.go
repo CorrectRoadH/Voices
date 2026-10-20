@@ -41,11 +41,11 @@ func insightFixture(t *testing.T) (*fixture, string, string, []string) {
 	f.a.Config.LLMModel = "test-model"
 	return f, rid, tid, ids
 }
-func fakeInsightServer(t *testing.T, ids []string, calls *atomic.Int32) *httptest.Server {
+func fakeInsightServer(t *testing.T, calls *atomic.Int32) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
-		content := string(jsonBytes(map[string]any{"summary": "会议摘要", "chapters": []any{map[string]any{"segment_id": ids[0], "title": "开场"}, map[string]any{"segment_id": ids[2], "title": "决定"}}}))
+		content := string(jsonBytes(map[string]any{"summary": "会议摘要", "chapters": []any{map[string]any{"segment_id": "s1", "title": "开场"}, map[string]any{"segment_id": "s3", "title": "决定"}}}))
 		writeJSON(w, 200, map[string]any{"choices": []any{map[string]any{"finish_reason": "stop", "message": map[string]any{"role": "assistant", "content": content}}}})
 	}))
 }
@@ -55,7 +55,7 @@ func TestInsightsGenerationOwnershipAndStale(t *testing.T) {
 	f, rid, tid, ids := insightFixture(t)
 	ctx := context.Background()
 	var calls atomic.Int32
-	remote := fakeInsightServer(t, ids, &calls)
+	remote := fakeInsightServer(t, &calls)
 	defer remote.Close()
 	f.a.Config.LLMBaseURL = remote.URL + "/v1"
 	path := "/api/v1/transcriptions/" + tid + "/insights"

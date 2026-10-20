@@ -16,15 +16,12 @@ import {
   Play,
   Plus,
   RefreshCw,
-  Tags,
   Trash2,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardHeader,
-  CardTitle,
   CardContent,
   CardFooter,
 } from "@/components/ui/card";
@@ -39,11 +36,11 @@ import { Separator } from "@/components/ui/separator";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { SpeakerPicker } from "@/components/speaker-picker";
 import { EmptyState, ErrorBox, Loading, Modal, Status } from "@/components/shared";
-import { InsightSummary, InsightOutline, type InsightsResponse } from "@/components/transcription-insights";
+import { InsightOutline, type InsightsResponse } from "@/components/transcription-insights";
 import { Popover, PopoverTrigger, PopoverContent, PopoverTitle } from "@/components/ui/popover";
 import { MessageBubble } from "@/components/message-bubble";
 import { PersonAvatar } from "@/components/person-avatar";
-import { LabelsEditor, RecordingEditor, SegmentEditor, SegmentText } from "@/components/editors";
+import { LabelsEditor, RecordingField, SegmentEditor, SegmentText } from "@/components/editors";
 import { OptionsFields, blankOptions, optionError } from "@/components/options";
 import { useAction, useApp, useResource } from "@/lib/hooks";
 import { request, write, apiUrl, errorMessage, downloadExport } from "@/lib/api";
@@ -105,10 +102,8 @@ export function DetailPage() {
   const [speakerPicker, setSpeakerPicker] = useState<string | null>(null);
   const [editSegment, setEditSegment] = useState<Segment | null>(null);
   const [outlineOpen, setOutlineOpen] = useState(false);
-  const [calibrateTime, setCalibrateTime] = useState(false);
   const [railTab, setRailTab] = useState<string>("outline");
   const [metadataOpen, setMetadataOpen] = useState(true);
-  const [editRecording, setEditRecording] = useState(false);
   const [labelsOpen, setLabelsOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -140,6 +135,23 @@ export function DetailPage() {
   const pageRequest = useRef<{cursor:string; direction:"next"|"previous"} | null>(null);
   const loadedRange = useRef({start:"", count:0});
   const prependAnchor = useRef<{id:string; top:number} | null>(null);
+  const readingGrid = useRef<HTMLDivElement>(null);
+  const transcriptPanel = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const grid = readingGrid.current;
+    if (!grid) return;
+    const measure = () => {
+      const top = grid.getBoundingClientRect().top + window.scrollY;
+      grid.style.setProperty("--reading-height", `${Math.max(240, window.innerHeight - top - 120)}px`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    const heading = document.querySelector(".detail-heading");
+    if (heading) observer.observe(heading);
+    window.addEventListener("resize", measure);
+    return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
+  }, [recording.data?.id]);
+
   const [paging, setPaging] = useState(false);
   const topSentinel = useRef<HTMLDivElement>(null);
   const bottomSentinel = useRef<HTMLDivElement>(null);
@@ -216,7 +228,12 @@ export function DetailPage() {
     const previous = prependAnchor.current;
     if (previous) {
       const element = document.getElementById(previous.id);
-      if (element) window.scrollBy(0, element.getBoundingClientRect().top - previous.top);
+      if (element) {
+        const delta = element.getBoundingClientRect().top - previous.top;
+        const panel = transcriptPanel.current;
+        if (panel && getComputedStyle(panel).overflowY === "auto") panel.scrollTop += delta;
+        else window.scrollBy(0, delta);
+      }
       prependAnchor.current = null;
     }
   }, [segments]);
@@ -362,13 +379,6 @@ export function DetailPage() {
         <div className="flex gap-1">
           <Button
             variant="ghost"
-            size="sm"
-            disabled={blocked}
-            onClick={() => { setRailTab("info"); setMetadataOpen(true); setCalibrateTime(false); setEditRecording(true); requestAnimationFrame(() => document.getElementById("recording-metadata")?.scrollIntoView({block:"nearest"})); }}
-          >
-            <Pencil data-icon="inline-start" />{tr("编辑信息")}{" "}</Button>
-          <Button
-            variant="ghost"
             size="icon-sm"
             aria-label={tr("删除录音")}
             onClick={() => setDeleteOpen(true)}
@@ -382,7 +392,7 @@ export function DetailPage() {
         <div className="flex flex-wrap items-center gap-3">
           <Status value={r.state} />
         </div>
-        <h1>{r.title || r.original_name}</h1>
+        <RecordingField key={r.id} field="title" recording={r} onSaved={recording.refresh} />
       </header>
       <ErrorBox message={recording.error || versions.error} retry={refresh} />
       <ErrorBox message={people.error} retry={people.refresh} />
@@ -404,7 +414,11 @@ export function DetailPage() {
                 <PopoverTrigger render={<Button variant="ghost" size="xs" />}><List data-icon="inline-start" />{tr("目录")}</PopoverTrigger>
                 <PopoverContent side="top" align="end" finalFocus={false} className="max-h-[55dvh] overflow-y-auto">
                   <PopoverTitle>{tr("录音目录")}</PopoverTitle>
-                  <InsightOutline insight={insights.data?.insight} configured={insights.data?.configured} onJump={(id) => void jumpChapter(id)} />
+                  <Tabs defaultValue="outline">
+                    <TabsList className="w-full"><TabsTrigger value="outline">{tr("目录")}</TabsTrigger><TabsTrigger value="summary">{tr("摘要")}</TabsTrigger></TabsList>
+                    <TabsContent value="outline"><InsightOutline hasTranscription={!!selected} data={insights.data} error={insights.error} busy={action.busy} disabled={!selected || blocked || session.restore_mode || version?.state !== "succeeded"} onGenerate={() => void generateInsights()} onRefresh={insights.refresh} onJump={(id) => void jumpChapter(id)} /></TabsContent>
+                    <TabsContent value="summary"><InsightOutline view="summary" hasTranscription={!!selected} data={insights.data} error={insights.error} busy={action.busy} disabled={!selected || blocked || session.restore_mode || version?.state !== "succeeded"} onGenerate={() => void generateInsights()} onRefresh={insights.refresh} onJump={(id) => void jumpChapter(id)} /></TabsContent>
+                  </Tabs>
                 </PopoverContent>
               </Popover>
             </div>
@@ -432,87 +446,23 @@ export function DetailPage() {
           </div>
         </div>
       )}
-      {selected && !blocked && <InsightSummary data={insights.data} error={insights.error} busy={action.busy} disabled={session.restore_mode || version?.state !== "succeeded"} onGenerate={() => void generateInsights()} onRefresh={insights.refresh} />}
-      <div className="detail-grid">
-        <Card className="transcript-card">
-          <CardHeader>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <CardTitle>{tr("转写文字")}</CardTitle>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!version || blocked}
-                  onClick={() => setLabelsOpen(true)}
-                >
-                  <Tags data-icon="inline-start" />{tr("说话人")}{" "}</Button>
-                <Button
-                  size="sm"
-                  disabled={blocked}
-                  onClick={() => {
-                    setOptions(settings.data?.default_transcription || blankOptions);
-                    setDuplicateConsent(false);
-                    setCreateKey(requestKey());
-                    setNewOpen(true);
-                  }}
-                >
-                  <Plus data-icon="inline-start" />{tr("新建转写")}{" "}</Button>
-              </div>
-            </div>
-          </CardHeader>
+      <div className="detail-grid" ref={readingGrid}>
+        <Card className="transcript-card" ref={transcriptPanel}>
           <CardContent>
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="version">{tr("转写版本")}</FieldLabel>
-                <NativeSelect
-                  id="version"
-                  value={selected || ""}
-                  onChange={(e) => {
-                    if (e.target.value)
-                      navigate(`/recordings/${r.id}/transcriptions/${e.target.value}`);
-                  }}
-                >
-                  <NativeSelectOption value="">{tr("尚无激活版本")}</NativeSelectOption>
-                  {selected && !versions.data?.items.some((t) => t.id === selected) && (
-                    <NativeSelectOption value={selected}>{tr("指定版本")}{" "}{selected}</NativeSelectOption>
-                  )}
-                  {versions.data?.items.map((t) => (
-                    <NativeSelectOption key={t.id} value={t.id}>
-                      {date(t.created_at)} · {t.provider}/{t.model} ·{" "}
-                      {t.id === r.active_transcription_id ? tr("当前激活") : t.state}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-              </Field>
-            </FieldGroup>
             <ErrorBox message={loadError} retry={() => setReload((n) => n + 1)} />
             {loading ? (
               <Loading />
             ) : version && segments ? (
               <>
-                <div className="version-meta">
-                  <Status value={version.state} />
-                  <span>
-                    {version.provider} / {version.model}
-                  </span>
-                  {version.id !== r.active_transcription_id && (
-                    <Badge variant="outline">{tr("独立版本")}</Badge>
-                  )}
-                </div>
-                <Field orientation="horizontal" className="mb-4">
-                  <FieldLabel htmlFor="show-builtin">{tr("显示背景声等内置人物片段")}</FieldLabel>
-                  <Switch id="show-builtin" checked={showBuiltin || !!anchor} disabled={!!anchor} onCheckedChange={(checked) => { setCursor(""); setShowBuiltin(checked); }} />
-                </Field>
                 {version.error_code && (
                   <Alert variant="destructive">
                     <AlertTitle>{tr("转写未完成")}</AlertTitle>
                     <AlertDescription>{tr("错误代码：")}{version.error_code}{tr("。可在任务页查看处理状态。")}{" "}</AlertDescription>
                   </Alert>
                 )}
-                {segments.previous_cursor && <div ref={topSentinel} className="h-6 text-center text-xs text-muted-foreground" aria-live="polite">{paging ? tr("正在加载…") : tr("向上滚动加载更多")}</div>}
                 <div className="segments">
+                  {segments.previous_cursor && <div ref={topSentinel} className="h-px shrink-0" aria-hidden="true" />}
+                  {paging && pageRequest.current?.direction === "previous" && <p role="status" className="text-center text-xs text-muted-foreground">{tr("正在加载…")}</p>}
                   {segments.items.map((segment, index) => {
                     const instant = segment.start_ms === null ? null : new Date(new Date(r.recorded_at).getTime() + segment.start_ms);
                     const previous = segments.items[index - 1];
@@ -579,31 +529,74 @@ export function DetailPage() {
         </Card>
         <aside className="detail-aside">
           <Tabs value={railTab} onValueChange={(value) => setRailTab(String(value))} className="sidebar-tabs">
-            <TabsList className="w-full" aria-label={tr("录音侧栏")}><TabsTrigger value="outline">{tr("目录")}</TabsTrigger><TabsTrigger value="info">{tr("录音信息")}</TabsTrigger></TabsList>
-            <TabsContent value="outline" keepMounted>
-              <div className="desktop-outline"><InsightOutline insight={insights.data?.insight} configured={insights.data?.configured} onJump={(id) => void jumpChapter(id)} /></div>
+            <TabsList className="w-full" aria-label={tr("录音侧栏")}><TabsTrigger value="outline">{tr("目录")}</TabsTrigger><TabsTrigger value="summary">{tr("摘要")}</TabsTrigger><TabsTrigger value="info">{tr("录音信息")}</TabsTrigger></TabsList>
+            <TabsContent value="outline">
+              <div className="desktop-outline"><InsightOutline hasTranscription={!!selected} data={insights.data} error={insights.error} busy={action.busy} disabled={!selected || blocked || session.restore_mode || version?.state !== "succeeded"} onGenerate={() => void generateInsights()} onRefresh={insights.refresh} onJump={(id) => void jumpChapter(id)} /></div>
+            </TabsContent>
+            <TabsContent value="summary">
+              <InsightOutline view="summary" hasTranscription={!!selected} data={insights.data} error={insights.error} busy={action.busy} disabled={!selected || blocked || session.restore_mode || version?.state !== "succeeded"} onGenerate={() => void generateInsights()} onRefresh={insights.refresh} onJump={(id) => void jumpChapter(id)} />
             </TabsContent>
             <TabsContent value="info" keepMounted>
           <details id="recording-metadata" className="recording-tools" open={metadataOpen} onToggle={(event) => setMetadataOpen(event.currentTarget.open)}>
             <summary>{tr("录音信息")}</summary>
-            {editRecording || calibrateTime ? <>
-              <p className="text-xs text-muted-foreground">{tr("时间按")}{" "}{Intl.DateTimeFormat().resolvedOptions().timeZone}{" "}{tr("显示，开始时间对应音频 00:00。")}</p>
-              <RecordingEditor key={calibrateTime ? "time" : "all"} timeOnly={calibrateTime} recording={r} onClose={() => { setEditRecording(false); setCalibrateTime(false); }} onSaved={recording.refresh} />
-            </> : <>
               <dl className="recording-facts">
-                <div><dt>{tr("开始时间")}</dt><dd>{new Date(r.recorded_at).toLocaleString(interfaceLocale(), {hour12:false})}</dd></div>
+                <div><dt>{tr("开始时间")}</dt><dd><RecordingField key={r.id} field="recorded_at" recording={r} onSaved={recording.refresh} /></dd></div>
                 {(r.recorded_at_source === "import" || r.recorded_at_source === "imported") && <div><dd>{tr("暂用导入时间，请校准")}</dd></div>}
                 <div><dt>{tr("时长 / 大小")}</dt><dd>{duration(r.duration_ms)} · {bytes(r.size_bytes)}</dd></div>
                 <div><dt>{tr("原文件")}</dt><dd>{r.original_name}</dd></div>
-                {r.notes && <div><dt>{tr("备注")}</dt><dd className="whitespace-pre-wrap">{r.notes}</dd></div>}
+                <div><dt>{tr("备注")}</dt><dd><RecordingField key={r.id} field="notes" recording={r} onSaved={recording.refresh} /></dd></div>
               </dl>
-              <div className="flex gap-1"><Button variant="ghost" size="xs" onClick={() => setEditRecording(true)}><Pencil data-icon="inline-start" />{tr("编辑录音信息")}</Button><Button variant="ghost" size="xs" onClick={() => setCalibrateTime(true)}>{tr("校准时间")}</Button></div>
-            </>}
           </details>
           <details className="recording-tools">
             <summary>{tr("版本与导出")}</summary>
             <Card>
             <CardContent className="flex flex-col gap-3">
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="version">{tr("转写版本")}</FieldLabel>
+                <NativeSelect
+                  id="version"
+                  value={selected || ""}
+                  onChange={(e) => {
+                    if (e.target.value)
+                      navigate(`/recordings/${r.id}/transcriptions/${e.target.value}`);
+                  }}
+                >
+                  <NativeSelectOption value="">{tr("尚无激活版本")}</NativeSelectOption>
+                  {selected && !versions.data?.items.some((t) => t.id === selected) && (
+                    <NativeSelectOption value={selected}>{tr("指定版本")}{" "}{selected}</NativeSelectOption>
+                  )}
+                  {versions.data?.items.map((t) => (
+                    <NativeSelectOption key={t.id} value={t.id}>
+                      {date(t.created_at)} · {t.provider}/{t.model} ·{" "}
+                      {t.id === r.active_transcription_id ? tr("当前激活") : t.state}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </Field>
+            </FieldGroup>
+                <Button
+                  size="sm"
+                  disabled={blocked}
+                  onClick={() => {
+                    setOptions(settings.data?.default_transcription || blankOptions);
+                    setDuplicateConsent(false);
+                    setCreateKey(requestKey());
+                    setNewOpen(true);
+                  }}
+                >
+                  <Plus data-icon="inline-start" />{tr("新建转写")}{" "}</Button>
+              {version && (
+                <div className="version-meta">
+                  <Status value={version.state} />
+                  <span>
+                    {version.provider} / {version.model}
+                  </span>
+                  {version.id !== r.active_transcription_id && (
+                    <Badge variant="outline">{tr("独立版本")}</Badge>
+                  )}
+                </div>
+              )}
               {version ? (
                 <>
                   <p className="truncate text-xs text-muted-foreground" title={version.id}>{tr("版本：")}{version.provider} / {version.model}</p>
@@ -687,6 +680,10 @@ export function DetailPage() {
               ) : (
                 <p className="text-sm text-muted-foreground">{tr("尚无说话人标签。即使模型未区分说话人，也能创建人工标签。")}{" "}</p>
               )}
+                <Field orientation="horizontal" className="mt-3">
+                  <FieldLabel htmlFor="show-builtin">{tr("显示背景声等内置人物片段")}</FieldLabel>
+                  <Switch id="show-builtin" checked={showBuiltin || !!anchor} disabled={!!anchor} onCheckedChange={(checked) => { setCursor(""); setShowBuiltin(checked); }} />
+                </Field>
             </CardContent>
             <CardFooter>
               <Button

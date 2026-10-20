@@ -228,6 +228,14 @@ func (a *App) executeInsight(ctx context.Context, work insightWork) {
 	} else {
 		result, err = insights.Generate(ctx, a.Config.LLMBaseURL, a.Config.LLMKey, work.Model, work.Input)
 	}
+	if err != nil {
+		code := "llm_unavailable"
+		var safe insights.Error
+		if errors.As(err, &safe) {
+			code = string(safe)
+		}
+		slog.Warn("insight generation failed", "generation", work.Generation, "code", code, "reason", insights.FailureReason(err))
+	}
 	finalCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
 	defer cancel()
 	persistErr := persistence.Transaction(finalCtx, a.DB, func(tx pgx.Tx) error {
