@@ -5,8 +5,16 @@
   "scripts": {
     "dev": "pnpm --dir web dev",
     "build": "pnpm --dir web build",
-    "test": "pnpm --dir web test",
-    "test:e2e": "pnpm --dir web test:e2e",
+    "check": "pnpm test && pnpm check:go && pnpm build && pnpm --dir update-worker check",
+    "check:go": "CGO_ENABLED=0 go vet ./...",
+    "test": "pnpm test:go && pnpm test:web && pnpm test:worker && pnpm test:release",
+    "test:db": "node -e \"if (!process.env.TEST_DATABASE_URL) { console.error('Set TEST_DATABASE_URL to an isolated PostgreSQL test database'); process.exit(1); }\"",
+    "test:go": "pnpm test:db && CGO_ENABLED=0 go test ./... -count=1",
+    "test:web": "pnpm --dir web test --run",
+    "test:worker": "pnpm --dir update-worker test",
+    "test:worker:runtime": "pnpm --dir update-worker test:runtime",
+    "test:release": "python3 scripts/check_release_test.py",
+    "test:e2e": "pnpm test:db && pnpm build && CGO_ENABLED=0 VOICES_BROWSER_TEST=1 E2E_TELEMETRY_DISABLED=1 go test ./internal/app -run '^(TestAdministrationInsightsBrowser|TestBrowserFullStack|TestAccountsBrowserFullStack|TestInterfaceLanguageBrowser|TestLLMModelsBrowser|TestServerSettingsBrowser|TestUpdatesBrowser|TestOnboardingBrowser)$' -count=1 -v -timeout=15m",
     "db:up": "docker compose -f compose.dev.yaml up -d --wait",
     "db:down": "docker compose -f compose.dev.yaml down"
   }

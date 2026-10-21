@@ -16,8 +16,8 @@ export default {
   "runner": {
     "kind": "command",
     "argv": [
-      "sh",
-      "scripts/test.sh"
+      "pnpm",
+      "check"
     ],
     "sourceFiles": [
       "internal/app/admin_events.go",
@@ -115,8 +115,7 @@ export default {
       "internal/providers/soniox.go",
       "internal/providers/types.go",
       "internal/storage/blobs.go",
-      "scripts/test.sh",
-      "scripts/e2e.sh",
+      "package.json",
       "web/e2e.config.ts",
       "web/tests/support/session.ts",
       "web/tests/support/local-browser.ts",

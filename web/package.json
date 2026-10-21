@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.e2e.json",
     "test": "vp test",
     "generate:api": "openapi-typescript ../docs/api/openapi.json -o src/lib/api.generated.ts",
-    "test:e2e": "sh ../scripts/e2e.sh"
+    "test:e2e": "pnpm --dir .. test:e2e"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

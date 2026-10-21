@@ -45,14 +45,14 @@ jobs:
       - run: pnpm --dir web install --frozen-lockfile
       - run: pnpm --dir update-worker install --frozen-lockfile
       - run: pnpm --dir web exec e2e-web install chromium --with-deps
-      - run: sh scripts/test.sh
+      - run: pnpm check
       - name: Verify generated API types
         run: |
           pnpm --dir web generate:api
           git diff --exit-code -- web/src/lib/api.generated.ts
       - name: e2e 真实应用浏览器验收
-        run: pnpm --dir web test:e2e
-      - run: pnpm --dir update-worker test:runtime
+        run: pnpm test:e2e
+      - run: pnpm test:worker:runtime
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

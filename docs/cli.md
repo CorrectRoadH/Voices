@@ -15,6 +15,13 @@
 - `air .`：从根目录 `.env` 加载后端配置，监听 Go / SQL 文件变化并重启后端。
 - `pnpm dev`：启动前端开发服务器，固定端口 5173，API 代理至 18080。
 - `pnpm build`：类型检查并构建前端。
+- `pnpm test`：运行 Go 单元与数据库集成测试、前端单元测试、Worker 单元测试和发布规则测试；要求 `TEST_DATABASE_URL`。
+- `pnpm check`：运行 `pnpm test`，再执行 Go vet、前端类型检查与构建、Worker 类型检查；不包含浏览器、大文件和 Worker runtime 验收。
+- `pnpm test:go` / `pnpm test:web` / `pnpm test:worker` / `pnpm test:release`：分别运行上述常规测试；只有 Go 测试要求数据库。
+- `pnpm test:db`：检查是否提供 `TEST_DATABASE_URL`，不启动数据库，也不验证连接。
+- `pnpm check:go`：执行 Go vet。
+- `pnpm test:e2e`：要求 `TEST_DATABASE_URL`，构建前端并由 Go fixture 启动真实应用、调用浏览器测试和清理资源。
+- `pnpm test:worker:runtime`：构建 Worker 并在 workerd 中验收。
 - `pnpm db:up`：启动 `compose.dev.yaml` 中的 PostgreSQL，等待健康检查通过。
 - `pnpm db:down`：停止开发数据库，保留数据卷。
 

@@ -14,7 +14,7 @@ kind: engineering
 
 ## 机制
 
-`.github/workflows/ci.yml` 也是可复用发布前检查。使用独立 PostgreSQL 服务，执行 `scripts/test.sh`、生成 API 无差异检查、e2e 和真实 Go/数据库浏览器验收。Worker 执行 check、test 和 test:runtime；后者构建发布 bundle，在真实 workerd 中验证更新请求及拒绝重定向。Docker 构建检查不推送。
+`.github/workflows/ci.yml` 也是可复用发布前检查。使用独立 PostgreSQL 服务，执行 `pnpm check`、生成 API 无差异检查和 `pnpm test:e2e` 真实 Go/数据库浏览器验收。`pnpm check` 包含常规测试、Go vet、前端类型检查与构建、Worker 类型检查；`pnpm test:worker:runtime` 单独构建发布 bundle，在真实 workerd 中验证更新请求及拒绝重定向。Docker 构建检查不推送。
 
 ### 测试分工
 

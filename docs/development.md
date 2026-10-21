@@ -27,7 +27,7 @@ pnpm dev          # 终端二：前端 5173，API 代理到 18080
 
 ```sh
 # 独立测试数据库；每个测试使用随机 schema 并清理。
-TEST_DATABASE_URL='postgres://user:password@localhost:5432/voices_test?sslmode=disable' sh scripts/test.sh
+TEST_DATABASE_URL='postgres://user:password@localhost:5432/voices_test?sslmode=disable' pnpm check
 # 大文件验收：约 1 GiB 与接近 2 GiB 的 WAV。
 VOICES_LARGE_TEST=1 TEST_DATABASE_URL=... CGO_ENABLED=0 go test ./internal/app -run TestLargeHTTPUploadsBoundedMemory -v
 # e2e：自动构建前端，启动真实 Go/隔离 PostgreSQL fixture。
