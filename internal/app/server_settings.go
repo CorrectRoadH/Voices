@@ -222,6 +222,7 @@ func (a *App) adminServerSettings(w http.ResponseWriter, r *http.Request) error 
 			if err := json.Unmarshal(raw, &saved); err != nil {
 				return err
 			}
+			oldURL, oldKey := saved.LLMBaseURL, saved.LLMKey
 			patch, _ := json.Marshal(fields)
 			if err := json.Unmarshal(patch, &saved); err != nil {
 				return bad("invalid_request", "配置字段类型不正确")
@@ -229,8 +230,11 @@ func (a *App) adminServerSettings(w http.ResponseWriter, r *http.Request) error 
 			if err := saved.validate(); err != nil {
 				return err
 			}
+			if _, explicit := fields["llm_api_key"]; oldKey != "" && oldURL != saved.LLMBaseURL && !explicit {
+				return bad("saved_key_target_changed", "LLM 地址已更改，请输入新密钥或明确清除原密钥")
+			}
 			revision++
-			if _, err := tx.Exec(r.Context(), "UPDATE server_settings SET value_json=$1,revision=$2,updated_at=clock_timestamp() WHERE id=1", jsonBytes(saved), revision); err != nil {
+			if _, err := tx.Exec(r.Context(), "UPDATE server_settings SET value_json=$1,revision=$2,llm_test_revision=NULL,updated_at=clock_timestamp() WHERE id=1", jsonBytes(saved), revision); err != nil {
 				return err
 			}
 			changed := make([]string, 0, len(fields))
@@ -253,6 +257,11 @@ func (a *App) adminServerSettings(w http.ResponseWriter, r *http.Request) error 
 		}
 	}
 	active := settingsFromConfig(a.Config)
-	writeJSON(w, 200, map[string]any{"revision": revision, "saved": saved.view(), "active": active.view(), "restart_required": !reflect.DeepEqual(saved, active)})
+	active.LLMBaseURL, active.LLMModel, active.LLMKey = saved.LLMBaseURL, saved.LLMModel, saved.LLMKey
+	var tested bool
+	if err := a.DB.QueryRow(r.Context(), "SELECT COALESCE(llm_test_revision=$1 AND revision=$1,false) FROM server_settings WHERE id=1", revision).Scan(&tested); err != nil {
+		return err
+	}
+	writeJSON(w, 200, map[string]any{"llm_tested": tested, "revision": revision, "saved": saved.view(), "active": active.view(), "restart_required": !reflect.DeepEqual(saved, active)})
 	return nil
 }

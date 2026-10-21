@@ -33,3 +33,5 @@ kind: feature
 [服务器配置](use-case/manage-server.md)管理站点、STT 与 LLM，数据库优先于 .env。
 
 账号保存独立的[界面语言](../interface-language/README.md)偏好，支持简体中文与英文，不改变录音或转写内容。
+
+首次管理员创建账号后完成独立的[站点初始化](use-case/setup-site.md)。普通用户注册不包含站点配置；初始化期间暂停后续注册。

@@ -45,6 +45,7 @@ import { PeoplePage, PersonPage } from "@/pages/people";
 import { JobsPage } from "@/pages/jobs";
 import { AccountPage, AdminAccountsPage } from "@/pages/accounts";
 import { AdminOverviewPage, AdminLogsPage } from "@/pages/administration";
+import { SiteSetupGate } from "@/pages/onboarding";
 import { ServerSettingsPage } from "@/pages/server-settings";
 import { SettingsPage } from "@/pages/settings";
 import { request, write, configureSession, errorMessage, HttpError } from "@/lib/api";
@@ -67,7 +68,7 @@ function Login({
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [registering, setRegistering] = useState(false);
-  const status = useResource<{ initialized: boolean; registration_open: boolean }>("/auth/status");
+  const status = useResource<{ initialized: boolean; registration_open: boolean; site_setup_completed: boolean }>("/auth/status");
   const first = status.data?.initialized === false;
   const register = first || registering;
   const [busy, setBusy] = useState(false);
@@ -221,7 +222,7 @@ function Login({
               </Button>
             )}
             {status.data && !status.data.registration_open && (
-              <p className="text-sm text-muted-foreground">{tr("注册已关闭，请使用已有账号登录。")}</p>
+              <p className="text-sm text-muted-foreground">{status.data.initialized && !status.data.site_setup_completed ? tr("站点初始化尚未完成，请等待管理员完成配置") : tr("注册已关闭，请使用已有账号登录。")}</p>
             )}
             <p className="text-center text-xs text-muted-foreground">{tr("录音与句子引用都需要登录后访问。")}{" "}</p>
           </CardFooter>
@@ -412,7 +413,7 @@ function AppContent() {
       notify={notify}
       updateUser={(user) => setSession((current) => current?.user.id === user.id ? { ...current, user } : current)}
     >
-      <Shell session={session} onLogout={() => setSession(null)} />
+      <SiteSetupGate onLogout={() => setSession(null)}><Shell session={session} onLogout={() => setSession(null)} /></SiteSetupGate>
     </SessionProvider>
   );
 }

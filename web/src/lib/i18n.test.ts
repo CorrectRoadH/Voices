@@ -12,8 +12,8 @@ import { personName, segmentSpeakerName } from "./person-name";
 
 afterEach(() => changeInterfaceLanguage("zh-CN"));
 // @use-case docs/feature/interface-language/use-case/choose-language.md
-describe("interface language resources", () => {
-  it("has matching keys and interpolation parameters, with English translations", () => {
+describe("界面语言资源", () => {
+  it("中英文键和插值参数一致，英文翻译完整", () => {
     expect(Object.keys(en).sort()).toEqual(Object.keys(zh).sort());
     const parameters = (text: string) => [...text.matchAll(/{{\s*(\w+)\s*}}/g)].map((match) => match[1]).sort();
     for (const [key, value] of Object.entries(en)) {
@@ -22,7 +22,7 @@ describe("interface language resources", () => {
       expect(parameters(value), key).toEqual(parameters(zh[key as keyof typeof zh]));
     }
   });
-  it("includes all static translation calls and all source Chinese strings", () => {
+  it("静态翻译调用和源码中文均有资源定义", () => {
     const missing = new Set<string>();
     function scan(folder: string) {
       for (const entry of readdirSync(folder, { withFileTypes: true })) {
@@ -48,7 +48,7 @@ describe("interface language resources", () => {
     scan(join(dirname(fileURLToPath(import.meta.url)), ".."));
     expect([...missing]).toEqual([]);
   });
-  it("switches labels, dates, and errors without translating user names", async () => {
+  it("切换标签日期和错误文案，保留用户姓名", async () => {
     expect(stateName("running")).toBe("处理中");
     await i18n.changeLanguage("en");
     expect(stateName("running")).toBe("Processing");

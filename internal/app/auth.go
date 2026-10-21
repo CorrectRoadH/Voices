@@ -94,11 +94,11 @@ func (a *App) rateLimit(r *http.Request, scope, key string, max int) error {
 }
 func clientIP(r *http.Request) string { ip, _, _ := net.SplitHostPort(r.RemoteAddr); return ip }
 func (a *App) authStatus(w http.ResponseWriter, r *http.Request) error {
-	var initialized, open bool
-	if err := a.DB.QueryRow(r.Context(), "SELECT bootstrap_completed,registration_open FROM instance_settings WHERE id=1").Scan(&initialized, &open); err != nil {
+	var initialized, open, completed bool
+	if err := a.DB.QueryRow(r.Context(), "SELECT bootstrap_completed,registration_open,site_setup_completed FROM instance_settings WHERE id=1").Scan(&initialized, &open, &completed); err != nil {
 		return err
 	}
-	writeJSON(w, 200, map[string]bool{"initialized": initialized, "registration_open": open && !a.Config.RestoreMode})
+	writeJSON(w, 200, map[string]bool{"initialized": initialized, "site_setup_completed": completed, "registration_open": open && (!initialized || completed) && !a.Config.RestoreMode})
 	return nil
 }
 func (a *App) register(w http.ResponseWriter, r *http.Request) error {
@@ -151,9 +151,12 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) error {
 	u := User{ID: uuid.NewString(), Email: in.Email, Username: in.Username, DisplayName: in.DisplayName, Role: "user", Status: "active", UILanguage: language}
 	sid, csrf := token(), token()
 	err = persistence.Transaction(r.Context(), a.DB, func(tx pgx.Tx) error {
-		var initialized, open bool
-		if err := tx.QueryRow(r.Context(), "SELECT bootstrap_completed,registration_open FROM instance_settings WHERE id=1 FOR UPDATE").Scan(&initialized, &open); err != nil {
+		var initialized, open, completed bool
+		if err := tx.QueryRow(r.Context(), "SELECT bootstrap_completed,registration_open,site_setup_completed FROM instance_settings WHERE id=1 FOR UPDATE").Scan(&initialized, &open, &completed); err != nil {
 			return err
+		}
+		if initialized && !completed {
+			return &apiError{409, "site_setup_pending", "站点初始化尚未完成，请等待管理员完成配置"}
 		}
 		if !open {
 			return &apiError{403, "registration_closed", "注册已关闭，请联系管理员"}

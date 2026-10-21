@@ -6,6 +6,7 @@
     "dev": "pnpm --dir web dev",
     "build": "pnpm --dir web build",
     "test": "pnpm --dir web test",
+    "test:e2e": "pnpm --dir web test:e2e",
     "db:up": "docker compose -f compose.dev.yaml up -d --wait",
     "db:down": "docker compose -f compose.dev.yaml down"
   }

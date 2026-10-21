@@ -14,7 +14,19 @@ kind: engineering
 
 ## 机制
 
-`.github/workflows/ci.yml` 也是可复用发布前检查。使用独立 PostgreSQL 服务，执行 `scripts/test.sh`、生成 API 无差异检查、Playwright 和真实 Go/数据库浏览器验收。Worker 执行 check、test 和 test:runtime；后者构建发布 bundle，在真实 workerd 中验证更新请求及拒绝重定向。Docker 构建检查不推送。
+`.github/workflows/ci.yml` 也是可复用发布前检查。使用独立 PostgreSQL 服务，执行 `scripts/test.sh`、生成 API 无差异检查、e2e 和真实 Go/数据库浏览器验收。Worker 执行 check、test 和 test:runtime；后者构建发布 bundle，在真实 workerd 中验证更新请求及拒绝重定向。Docker 构建检查不推送。
+
+### 测试分工
+
+浏览器统一使用 [tester-army/e2e](https://github.com/tester-army/e2e)，固定 SDK 与 web engine 版本。用例位于 `web/tests/*.e2e.ts`，名称、步骤注释和诊断说明用中文。通过真实页面、Go HTTP 和隔离 PostgreSQL 验证操作结果；仅外部 STT、LLM、更新服务使用 fake。网络故障可在浏览器 HTTP 边界注入。
+
+Go fixture 创建隔离 schema、测试账号与外部服务，启动应用任务循环，再调用 e2e runner 执行对应文件。浏览器由 engine 负责关闭，Go 在 runner 结束后回收服务、任务和 schema。测试失败须返回非零状态并保留 e2e 报告；无数据库或零测试不得作为验收通过。
+
+验收流程覆盖录音上传与转写、编辑与人物归属、导出和深链接、账号隔离与密码、服务器自动保存与冲突、模型目录、界面语言、版本更新，以及目录中的生成、失败重试和移动端操作。旧 Playwright runner、独立脚本和整套伪造业务 API 的页面测试移除，以真实流程替代。
+
+保留 Go 的权限、事务、幂等、取消、租约和外部协议测试，以及前端的安全跳转、请求边界、模型能力与翻译完整性检查。仅删除已有实际入口测试完整覆盖的重复直接调用断言；不按测试数量或“单元测试”标签删除独有行为覆盖。发布校验和 workerd 验收保留。
+
+默认用精确定位器与断言运行，不配置测试代理模型，不触发付费调用。自然语言代理步骤需要另外配置模型。e2e 产物位于 `web/.e2e/`，CI 失败时上传；本地可指定 `E2E_CHROMIUM_EXECUTABLE_PATH` 使用系统 Chromium。
 
 正式 tag `vX.Y.Z` 通过 CI 后构建 amd64/arm64 镜像，注入应用版本，推送 Docker Hub，最后生成 GitHub Release。版本日志由 `cliff.toml` 从提交生成。CI 仅只读权限，发布 job 单独获取 Docker Hub secrets/contents 写入权限。发布与部署命令须由操作者主动执行；本地实现或测试不构成发布授权。
 

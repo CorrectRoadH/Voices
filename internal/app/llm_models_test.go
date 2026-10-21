@@ -134,13 +134,17 @@ func TestLLMModelsBrowser(t *testing.T) {
 	}))
 	defer remote.Close()
 	f := setupAccountFixture(t, false)
+	if _, err := f.db.Exec(context.Background(), "UPDATE instance_settings SET site_setup_completed=true WHERE id=1"); err != nil {
+		t.Fatal(err)
+	}
 	f.a.Config.LLMBaseURL, f.a.Config.LLMKey = remote.URL+"/v1", "browser-model-key"
 	seedFixtureSettings(t, f)
 	f.a.Config.WebDir = "../../web/dist"
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "node", "../../web/scripts/llm-models-stack.mjs")
-	cmd.Env = append(os.Environ(), "VOICES_TEST_URL="+f.server.URL, "VOICES_MODEL_TEST_URL="+remote.URL)
+	cmd := exec.CommandContext(ctx, "pnpm", "exec", "e2e", "run", "tests/models.e2e.ts")
+	cmd.Dir = "../../web"
+	cmd.Env = append(os.Environ(), "E2E_TELEMETRY_DISABLED=1", "VOICES_E2E_OUTPUT=.e2e/models", "VOICES_TEST_URL="+f.server.URL, "VOICES_MODEL_TEST_URL="+remote.URL)
 	output, err := cmd.CombinedOutput()
 	t.Log(string(output))
 	if err != nil {

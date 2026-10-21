@@ -30,7 +30,7 @@ func (a *App) Restore(ctx context.Context) error {
 		}
 		for _, sql := range []string{
 			"DELETE FROM blob_read_leases",
-			"UPDATE transcription_insights SET state='failed',error_code='interrupted',input_json=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE state IN ('queued','running')",
+			"UPDATE transcription_insights SET state='failed',error_code='interrupted',input_json=NULL,llm_config_json=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE state IN ('queued','running')",
 			"UPDATE blobs SET write_generation=write_generation+1,write_lease_until=NULL,writer_id=NULL WHERE state='writing'",
 			"UPDATE jobs SET lease_generation=lease_generation+1,lease_owner=NULL,lease_until=NULL,state=CASE WHEN kind='transcribe' THEN 'restore_hold' WHEN state IN ('running','retry_wait') THEN 'queued' ELSE state END,error_code=CASE WHEN kind='transcribe' THEN 'restore_hold' ELSE error_code END WHERE state<>'succeeded' OR EXISTS(SELECT 1 FROM provider_operations o WHERE o.job_id=jobs.id AND o.state IN ('prepared','sent','uncertain'))",
 			"UPDATE transcriptions t SET state='restore_hold',error_code='restore_hold',revision=revision+1 WHERE EXISTS(SELECT 1 FROM jobs j WHERE j.transcription_id=t.id AND j.state='restore_hold')",

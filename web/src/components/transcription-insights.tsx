@@ -109,7 +109,7 @@ export function InsightOutline({
                 {!data
                   ? null
                   : !data.configured
-                    ? tr("请管理员在服务器设置中配置 LLM 地址和模型，并重启服务使其生效。")
+                    ? tr("请管理员在服务器设置中配置 LLM 地址和模型。")
                     : failed
                       ? tr(failures[insight.error_code || ""] || "生成失败")
                       : pending

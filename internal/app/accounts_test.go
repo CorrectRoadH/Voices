@@ -57,6 +57,10 @@ func TestConcurrentFirstRegistrationAcrossInstances(t *testing.T) {
 				return
 			}
 			defer res.Body.Close()
+			if res.StatusCode == 409 {
+				results <- "pending"
+				return
+			}
 			if res.StatusCode != 201 {
 				raw, _ := io.ReadAll(res.Body)
 				results <- fmt.Sprintf("status %d %s", res.StatusCode, raw)
@@ -78,7 +82,7 @@ func TestConcurrentFirstRegistrationAcrossInstances(t *testing.T) {
 	for role := range results {
 		if role == "admin" {
 			admins++
-		} else if role != "user" {
+		} else if role != "pending" {
 			t.Error(role)
 		}
 	}
@@ -92,7 +96,7 @@ func TestConcurrentFirstRegistrationAcrossInstances(t *testing.T) {
 	f.json(t, "POST", "/api/v1/users", map[string]any{"email": "person0@example.test", "display_name": "Duplicate", "password": "acceptance-password"}, 409, "")
 	var count int
 	f.db.QueryRow(context.Background(), "SELECT count(*) FROM users").Scan(&count)
-	if count != 4 {
+	if count != 1 {
 		t.Fatalf("users=%d", count)
 	}
 }

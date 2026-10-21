@@ -38,7 +38,7 @@ function SecretField({ id, label, configured, active, secret, onChange }: {
         {secret.clear ? tr("取消清除 {{v0}} 密钥", { v0: label }) : tr("清除 {{v0}} 密钥", { v0: label })}
       </Button>}
     </div>
-    {secret.clear && <FieldDescription>{tr("保存后清除密钥，重启后停止使用；不会回退到 .env。")}</FieldDescription>}
+    {secret.clear && <FieldDescription>{tr("清除后不会回退到环境配置；LLM 对新任务立即生效，STT 需重启。")}</FieldDescription>}
   </Field>;
 }
 
@@ -61,7 +61,7 @@ function settingsPatch(draft: Draft, data: Response): Schema["ServerSettingsPatc
   return Object.keys(patch).length > 1 ? patch : null;
 }
 
-function ServerSettingsForm({ data: initial }: { data: Response }) {
+export function ServerSettingsForm({ data: initial, onboarding = false, onComplete }: { data: Response; onboarding?: boolean; onComplete?: () => void }) {
   const { session, notify } = useApp();
   const [data, setData] = useState(initial);
   const [draft, setDraft] = useState<Draft>(() => ({
@@ -84,7 +84,11 @@ function ServerSettingsForm({ data: initial }: { data: Response }) {
   const mounted = useRef(true);
   const restore = useRef(session.restore_mode);
   restore.current = session.restore_mode;
-  const locked = session.restore_mode;
+  const [testing, setTesting] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [testedRevision, setTestedRevision] = useState<number | null>(initial.llm_tested ? initial.revision : null);
+  const locked = session.restore_mode || testing || finishing;
   const dirty = settingsPatch(draft, data) !== null;
 
   const save = useCallback(async () => {
@@ -126,6 +130,7 @@ function ServerSettingsForm({ data: initial }: { data: Response }) {
   }, []);
 
   function update<K extends keyof Draft>(key: K, value: Draft[K]) {
+    setTestedRevision(null); setActionError("");
     latest.current = { ...latest.current, [key]: value };
     setDraft(latest.current);
     setInvalid(false);
@@ -139,6 +144,29 @@ function ServerSettingsForm({ data: initial }: { data: Response }) {
     mounted.current = true;
     return () => { mounted.current = false; void save(); };
   }, [save]);
+  const ready = !locked && !dirty && !saving && !error && !invalid;
+  const tested = testedRevision === data.revision && !dirty;
+  const emptyLLM = !data.saved.llm_base_url && !data.saved.llm_model && !data.saved.llm_configured;
+  async function testLLM() {
+    if (!ready) return;
+    setTesting(true); setActionError(""); setTestedRevision(null);
+    try {
+      const result = await request<{ revision: number; tested: boolean }>("/admin/llm-test", {
+        method: "POST", body: JSON.stringify({ revision: data.revision }),
+      });
+      setTestedRevision(result.revision);
+    } catch (cause) { const message = errorMessage(cause); setActionError(message); notify(message, true); }
+    finally { setTesting(false); }
+  }
+  async function complete(skipLLM: boolean) {
+    if (!ready) return;
+    setFinishing(true); setActionError("");
+    try {
+      await request("/admin/onboarding", { method: "POST", body: JSON.stringify({ revision: data.revision, skip_llm: skipLLM }) });
+      onComplete?.();
+    } catch (cause) { const message = errorMessage(cause); setActionError(message); notify(message, true); }
+    finally { setFinishing(false); }
+  }
   return <form ref={form} onSubmit={(event) => { event.preventDefault(); void save(); }}
     onCompositionStartCapture={() => { composing.current = true; }}
     onCompositionEndCapture={() => { composing.current = false; setDraft({ ...latest.current }); }}
@@ -147,7 +175,7 @@ function ServerSettingsForm({ data: initial }: { data: Response }) {
     <Alert>
       <Server />
       <AlertTitle>{data.restart_required ? tr("已保存，等待重启生效") : tr("数据库配置已在当前实例生效")}</AlertTitle>
-      <AlertDescription>{tr("数据库配置优先于 .env；.env 仅用于首次导入。保存后请重启所有应用实例。 此状态仅代表当前实例，不代表其它副本。")}{" "}</AlertDescription>
+      <AlertDescription>{tr("LLM 保存后对新任务立即生效。站点和 STT 修改后需重启所有应用实例；当前状态仅代表本实例。")}{" "}</AlertDescription>
     </Alert>
     {session.restore_mode && <Alert><AlertTitle>{tr("恢复核对模式")}</AlertTitle><AlertDescription>{tr("当前仅可查看服务器配置。")}</AlertDescription></Alert>}
     <FieldSet disabled={locked}>
@@ -192,6 +220,19 @@ function ServerSettingsForm({ data: initial }: { data: Response }) {
         </Card>
       </div>
     </FieldSet>
+    <div className="flex flex-col gap-3">
+      <p className="text-sm text-muted-foreground">{tr("测试会发送一段固定示例，产生一次模型调用，可能产生费用。不会发送你的录音。")}</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" variant="outline" disabled={!ready || !data.saved.llm_base_url || !data.saved.llm_model} onClick={() => void testLLM()}>{testing ? tr("正在测试…") : tr("测试 LLM 连接")}</Button>
+        <p role="status">{tested ? tr("当前配置测试通过") : tr("当前配置尚未通过测试")}</p>
+      </div>
+      {onboarding && <div className="flex flex-wrap gap-3">
+        <Button type="button" disabled={!ready || !tested} onClick={() => void complete(false)}>{finishing ? tr("正在完成…") : tr("完成站点初始化")}</Button>
+        <Button type="button" variant="outline" disabled={!ready || !emptyLLM} onClick={() => void complete(true)}>{tr("暂不启用 LLM")}</Button>
+        {!emptyLLM && <p className="text-sm text-muted-foreground">{tr("暂不启用前，请清空 LLM 地址、模型和密钥。")}</p>}
+      </div>}
+    </div>
+    <ErrorBox message={actionError} />
     <ErrorBox message={error} />
     {error && !conflict && <Button type="button" variant="outline" disabled={saving || locked} onClick={() => { failed.current = false; void save(); }}>{tr("重试自动保存")}</Button>}
     <div className="flex flex-wrap items-center gap-3">

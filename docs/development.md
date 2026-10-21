@@ -30,11 +30,14 @@ pnpm dev          # 终端二：前端 5173，API 代理到 18080
 TEST_DATABASE_URL='postgres://user:password@localhost:5432/voices_test?sslmode=disable' sh scripts/test.sh
 # 大文件验收：约 1 GiB 与接近 2 GiB 的 WAV。
 VOICES_LARGE_TEST=1 TEST_DATABASE_URL=... CGO_ENABLED=0 go test ./internal/app -run TestLargeHTTPUploadsBoundedMemory -v
-# 真实浏览器端到端：先构建 web；只替换外部 STT HTTP。
-# 可用 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH 指定 Chromium。
-VOICES_BROWSER_TEST=1 TEST_DATABASE_URL=... CGO_ENABLED=0 go test ./internal/app -run TestBrowserFullStack -v
+# e2e：自动构建前端，启动真实 Go/隔离 PostgreSQL fixture。
+pnpm --dir web exec e2e-web install chromium
+TEST_DATABASE_URL=... pnpm test:e2e
+# NixOS 等环境可设置 E2E_CHROMIUM_EXECUTABLE_PATH 指定系统 Chromium。
 concord check --json
 concord doctor --json
 ```
 
 未设置 `TEST_DATABASE_URL` 时 Go 集成测试会跳过，这不算数据库验收通过。服务商测试只替换外部 HTTP 边界，不调用真实付费 API。
+
+浏览器用例统一位于 `web/tests/*.e2e.ts`，用中文描述操作与验收，使用 tester-army/e2e。默认不配置代理模型、不调用付费 API。失败报告与截图位于 `web/.e2e/<流程>/`。测试分工见 [交付机制](engineering/delivery/README.md#测试分工)。

@@ -110,6 +110,7 @@ const actions: Record<string, string> = {
   account_updated: "修改账号",
   registration_updated: "修改注册开关",
   server_settings_updated: "修改服务器设置",
+  site_setup_completed: "完成站点初始化记录",
   password_reset: "重置密码",
   job_reconciled: "核对任务",
 };

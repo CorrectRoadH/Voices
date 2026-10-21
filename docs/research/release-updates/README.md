@@ -17,7 +17,7 @@ sources: []
 
 ## 发布与 CI
 
-CI 对 PR、main push 和手动触发执行 Go test/vet、独立 PostgreSQL 集成测试、前端 typecheck/test/build、Playwright 和真实应用浏览器验收。
+CI 对 PR、main push 和手动触发执行 Go test/vet、独立 PostgreSQL 集成测试、前端 typecheck/test/build、e2e 真实应用浏览器验收。
 
 Worker 独立执行 check/test 和 cf build。依赖使用锁文件，Docker 构建检查不推送镜像。
 

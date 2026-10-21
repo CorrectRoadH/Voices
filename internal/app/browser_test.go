@@ -27,8 +27,9 @@ func TestBrowserFullStack(t *testing.T) {
 	defer func() { cancel(); <-done }()
 	cmdCtx, cmdCancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cmdCancel()
-	cmd := exec.CommandContext(cmdCtx, "node", "../../web/scripts/full-stack.mjs")
-	cmd.Env = append(os.Environ(), "VOICES_TEST_URL="+f.server.URL, "VOICES_TEST_AUDIO="+path)
+	cmd := exec.CommandContext(cmdCtx, "pnpm", "exec", "e2e", "run", "tests/workbench.e2e.ts")
+	cmd.Dir = "../../web"
+	cmd.Env = append(os.Environ(), "E2E_TELEMETRY_DISABLED=1", "VOICES_E2E_OUTPUT=.e2e/workbench", "VOICES_TEST_URL="+f.server.URL, "VOICES_TEST_AUDIO="+path)
 	output, err := cmd.CombinedOutput()
 	t.Log(string(output))
 	if err != nil {
@@ -58,8 +59,9 @@ func TestAccountsBrowserFullStack(t *testing.T) {
 	defer func() { cancel(); <-done }()
 	cmdCtx, stop := context.WithTimeout(context.Background(), 90*time.Second)
 	defer stop()
-	cmd := exec.CommandContext(cmdCtx, "node", "../../web/scripts/accounts-stack.mjs")
-	cmd.Env = append(os.Environ(), "VOICES_TEST_URL="+f.server.URL, "VOICES_TEST_AUDIO="+path)
+	cmd := exec.CommandContext(cmdCtx, "pnpm", "exec", "e2e", "run", "tests/accounts.e2e.ts")
+	cmd.Dir = "../../web"
+	cmd.Env = append(os.Environ(), "E2E_TELEMETRY_DISABLED=1", "VOICES_E2E_OUTPUT=.e2e/accounts", "VOICES_TEST_URL="+f.server.URL, "VOICES_TEST_AUDIO="+path)
 	output, err := cmd.CombinedOutput()
 	t.Log(string(output))
 	if err != nil {

@@ -11,6 +11,5 @@ dist/
 # Worker local runtime and browser artifacts
 .cloudflare/
 .dev.vars*
-web/test-results/
-web/playwright-report/
+web/.e2e/
 __pycache__/

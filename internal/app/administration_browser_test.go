@@ -65,20 +65,22 @@ func TestAdministrationInsightsBrowser(t *testing.T) {
 	}))
 	defer remote.Close()
 	f.a.Config.LLMBaseURL = remote.URL
+ seedFixtureSettings(t, f)
 	runCtx, cancel := context.WithCancel(ctx)
 	done := make(chan struct{})
 	go func() { defer close(done); f.a.Run(runCtx) }()
 	defer func() { cancel(); <-done }()
 	cmdCtx, stop := context.WithTimeout(ctx, 90*time.Second)
 	defer stop()
-	cmd := exec.CommandContext(cmdCtx, "node", "../../web/scripts/administration-insights-stack.mjs")
-	cmd.Env = append(os.Environ(), "VOICES_TEST_URL="+f.server.URL, "VOICES_TEST_RECORDING="+rid, "VOICES_TEST_TRANSCRIPTION="+tid, "VOICES_TEST_LAST_SEGMENT="+ids[len(ids)-1])
+	cmd := exec.CommandContext(cmdCtx, "pnpm", "exec", "e2e", "run", "tests/insights.e2e.ts")
+	cmd.Dir = "../../web"
+	cmd.Env = append(os.Environ(), "E2E_TELEMETRY_DISABLED=1", "VOICES_E2E_OUTPUT=.e2e/insights", "VOICES_TEST_URL="+f.server.URL, "VOICES_TEST_RECORDING="+rid, "VOICES_TEST_TRANSCRIPTION="+tid, "VOICES_TEST_LAST_SEGMENT="+ids[len(ids)-1])
 	out, err := cmd.CombinedOutput()
 	t.Log(string(out))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if calls.Load() != 3 {
+	if calls.Load() != 4 {
 		t.Fatal("unexpected model calls", calls.Load())
 	}
 }

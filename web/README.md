@@ -10,7 +10,7 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-需要 Node 22.18+ 或 24.11+。开发服务器将 `/api` 代理至 `http://localhost:8080`；登录密码、数据库与服务商凭据由 Go 服务配置。浏览器仅接收会话、CSRF 和非秘密偏好，不接收服务商密钥。
+需要 Node 22.22.3+ 或 24.11+。开发服务器将 `/api` 代理至 `http://localhost:18080`；登录密码、数据库与服务商凭据由 Go 服务配置。浏览器仅接收会话、CSRF 和非秘密偏好，不接收服务商密钥。
 
 ```sh
 pnpm generate:api   # 从 ../docs/api/openapi.json 生成 src/lib/api.generated.ts
@@ -36,12 +36,14 @@ Go 服务的 `PUBLIC_BASE_URL` 应使用同一部署路径；它通过 `/session
 ## 浏览器验证
 
 ```sh
-pnpm exec playwright install chromium
-pnpm test:e2e
+pnpm exec e2e-web install chromium
+TEST_DATABASE_URL='postgres://user:password@localhost:5432/voices_test?sslmode=disable' pnpm test:e2e
 # NixOS 等环境可以指定已安装且带有运行库的 Chromium：
-PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/run/current-system/sw/bin/chromium pnpm test:e2e
+E2E_CHROMIUM_EXECUTABLE_PATH=/run/current-system/sw/bin/chromium TEST_DATABASE_URL=... pnpm test:e2e
 ```
 
-Playwright 启动并回收独立 Vite+ 开发服务器，使用 `/voices/` 前缀。测试只拦截 HTTP 外部边界；页面、路由、XHR、播放器、剪贴板 fallback 和编辑表单均运行真实实现。音频测试响应提供真实 WAV 与 Range 头。测试不连接付费服务商。
+浏览器测试统一使用 [tester-army/e2e](https://github.com/tester-army/e2e)。中文用例位于 `tests/*.e2e.ts`；`test:e2e` 构建前端并通过 Go fixture 启动真实 HTTP、隔离 PostgreSQL 和后台任务。仅外部 STT、LLM、更新服务使用 fake；不配置测试代理模型，不调用真实付费服务。
 
-单元测试覆盖 Markdown、稳定归属、登录返回路径、能力限制和 HTTP 故障；浏览器覆盖历史版本分页锚点、登录后返回、无时间戳、revision 冲突、上传顺序、uncertain 核对和移动布局。Go API 与 PostgreSQL 的真实集成及服务商样本验收由主 agent 完成。
+engine 管理浏览器生命周期，Go fixture 清理服务器、任务和 schema。失败报告与截图位于 `.e2e/<流程>/`。`pnpm typecheck` 同时检查应用和 e2e 用例。未设置测试数据库时入口直接失败，不把跳过当作通过。
+
+保留安全返回路径、稳定引用、模型能力、HTTP 故障和翻译完整性单元测试；权限、幂等、并发和资源回收由真实 Go/PostgreSQL 测试验证。完整分工见 [交付机制](../docs/engineering/delivery/README.md#测试分工)。

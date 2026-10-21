@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -19,6 +18,9 @@ import (
 
 func seedFixtureSettings(t *testing.T, f *fixture) {
 	t.Helper()
+	if _, err := f.db.Exec(context.Background(), `INSERT INTO server_settings(id,value_json) VALUES(1,$1) ON CONFLICT(id) DO UPDATE SET value_json=EXCLUDED.value_json,llm_test_revision=NULL`, jsonBytes(settingsFromConfig(f.a.Config))); err != nil {
+		t.Fatal(err)
+	}
 	c, err := LoadServerConfig(context.Background(), f.db, f.a.Config)
 	if err != nil {
 		t.Fatal(err)
@@ -29,6 +31,9 @@ func seedFixtureSettings(t *testing.T, f *fixture) {
 // @use-case docs/feature/accounts/use-case/manage-server.md
 func TestServerSettingsDatabasePriority(t *testing.T) {
 	f := setup(t)
+	if _, err := f.db.Exec(context.Background(), "DELETE FROM server_settings"); err != nil {
+		t.Fatal(err)
+	}
 	t.Chdir(t.TempDir())
 	if err := os.WriteFile(".env", []byte("DATABASE_URL=postgres://localhost/example\nPUBLIC_BASE_URL=https://seed.example/voices/\nSONIOX_API_KEY=dotenv-secret\nLLM_BASE_URL=http://localhost:11434/v1\nLLM_MODEL=local-model\n"), 0600); err != nil {
 		t.Fatal(err)
@@ -70,6 +75,9 @@ func TestServerSettingsDatabasePriority(t *testing.T) {
 // @use-case docs/feature/accounts/use-case/manage-server.md
 func TestServerSettingsConcurrentBootstrap(t *testing.T) {
 	f := setup(t)
+	if _, err := f.db.Exec(context.Background(), "DELETE FROM server_settings"); err != nil {
+		t.Fatal(err)
+	}
 	var wg sync.WaitGroup
 	results := make(chan Config, 4)
 	errs := make(chan error, 4)
@@ -234,12 +242,9 @@ func TestServerSettingsBrowser(t *testing.T) {
 	f.a.Config.WebDir = "../../web/dist"
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "node", "../../web/scripts/server-settings-stack.mjs")
-	screenshot := filepath.Join(t.TempDir(), "server-settings.png")
-	if path := os.Getenv("VOICES_SETTINGS_SCREENSHOT"); path != "" {
-		screenshot = path
-	}
-	cmd.Env = append(os.Environ(), "VOICES_TEST_URL="+f.server.URL, "VOICES_SETTINGS_SCREENSHOT="+screenshot)
+	cmd := exec.CommandContext(ctx, "pnpm", "exec", "e2e", "run", "tests/settings.e2e.ts")
+	cmd.Dir = "../../web"
+	cmd.Env = append(os.Environ(), "E2E_TELEMETRY_DISABLED=1", "VOICES_E2E_OUTPUT=.e2e/settings", "VOICES_TEST_URL="+f.server.URL)
 	output, err := cmd.CombinedOutput()
 	t.Log(string(output))
 	if err != nil {

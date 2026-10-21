@@ -5,3 +5,5 @@
 - [账号及会话管理](manage-access.md)
 
 - [服务器配置](manage-server.md)
+
+- [初始化站点](setup-site.md)

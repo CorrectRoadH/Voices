@@ -76,11 +76,15 @@ func setupAccountFixture(t *testing.T, registered bool) *fixture {
 	t.Cleanup(server.Close)
 	jar, _ := cookiejar.New(nil)
 	f := &fixture{a: a, server: server, client: &http.Client{Jar: jar}, db: db}
+	seedFixtureSettings(t, f)
 	if !registered {
 		return f
 	}
 	_, result := f.json(t, "POST", "/api/v1/users", map[string]any{"email": "tester@example.test", "display_name": "Tester", "password": "acceptance-password"}, 201, "")
 	f.csrf = result["csrf_token"].(string)
+	if _, err := f.db.Exec(ctx, "UPDATE instance_settings SET site_setup_completed=true WHERE id=1"); err != nil {
+		t.Fatal(err)
+	}
 	return f
 }
 func (f *fixture) request(t *testing.T, method, path string, body io.Reader, ctype string, status int, key string) (*http.Response, []byte) {

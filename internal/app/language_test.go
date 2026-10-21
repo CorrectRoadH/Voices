@@ -27,6 +27,8 @@ func TestRegistrationLanguageValidation(t *testing.T) {
 	if english["user"].(map[string]any)["ui_language"] != "en" {
 		t.Fatal(english)
 	}
+	f.csrf = english["csrf_token"].(string)
+	f.json(t, "POST", "/api/v1/admin/onboarding", map[string]any{"revision": 1, "skip_llm": true}, 200, "")
 	_, defaults := f.json(t, "POST", "/api/v1/users", map[string]any{"email": "default@example.test", "display_name": "Default", "password": "acceptance-password"}, 201, "")
 	if defaults["user"].(map[string]any)["ui_language"] != "zh-CN" {
 		t.Fatal(defaults)
@@ -149,8 +151,9 @@ func TestInterfaceLanguageBrowser(t *testing.T) {
 	defer models.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "node", "../../web/scripts/language-stack.mjs")
-	cmd.Env = append(os.Environ(), "VOICES_TEST_URL="+f.server.URL, "VOICES_MODEL_TEST_URL="+models.URL)
+	cmd := exec.CommandContext(ctx, "pnpm", "exec", "e2e", "run", "tests/language.e2e.ts")
+	cmd.Dir = "../../web"
+	cmd.Env = append(os.Environ(), "E2E_TELEMETRY_DISABLED=1", "VOICES_E2E_OUTPUT=.e2e/language", "VOICES_TEST_URL="+f.server.URL, "VOICES_MODEL_TEST_URL="+models.URL)
 	output, err := cmd.CombinedOutput()
 	t.Log(string(output))
 	if err != nil {

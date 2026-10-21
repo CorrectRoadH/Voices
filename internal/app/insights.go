@@ -15,7 +15,6 @@ import (
 	"voices/internal/persistence"
 )
 
-func (a *App) insightsConfigured() bool { return a.Config.LLMBaseURL != "" && a.Config.LLMModel != "" }
 func transcriptSnapshot(ctx context.Context, q querier, tid string) ([]insights.Segment, string, error) {
 	rows, err := q.Query(ctx, `SELECT id,start_ms,end_ms,COALESCE(edited_text,source_text) FROM segments WHERE transcription_id=$1 ORDER BY ordinal,id LIMIT 5001`, tid)
 	if err != nil {
@@ -65,11 +64,15 @@ func (a *App) insightResponse(ctx context.Context, tid string) (map[string]any, 
 	if !exists {
 		return nil, notFound()
 	}
-	out := map[string]any{"configured": a.insightsConfigured(), "insight": nil}
+	config, err := readLLMConfig(ctx, a.DB)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]any{"configured": config.configured(), "insight": nil}
 	var v insightView
 	var hash string
 	var raw []byte
-	err := a.DB.QueryRow(ctx, `SELECT generation,state,model,created_at,updated_at,error_code,source_hash,result_json FROM transcription_insights WHERE transcription_id=$1`, tid).Scan(&v.Generation, &v.State, &v.Model, &v.CreatedAt, &v.UpdatedAt, &v.ErrorCode, &hash, &raw)
+	err = a.DB.QueryRow(ctx, `SELECT generation,state,model,created_at,updated_at,error_code,source_hash,result_json FROM transcription_insights WHERE transcription_id=$1`, tid).Scan(&v.Generation, &v.State, &v.Model, &v.CreatedAt, &v.UpdatedAt, &v.ErrorCode, &hash, &raw)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return out, nil
 	}
@@ -135,8 +138,12 @@ func (a *App) createInsights(w http.ResponseWriter, r *http.Request) error {
 		if state == "queued" || state == "running" {
 			return &apiError{409, "generation_in_progress", "当前版本正在生成摘要"}
 		}
-		if !a.insightsConfigured() {
-			return &apiError{409, "llm_not_configured", "请管理员配置 LLM 地址和模型并重启服务"}
+		config, err := readLLMConfig(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if !config.configured() {
+			return &apiError{409, "llm_not_configured", "请管理员配置 LLM 地址和模型"}
 		}
 		if err = tx.QueryRow(ctx, "SELECT state FROM transcriptions WHERE id=$1", tid).Scan(&state); err != nil {
 			return err
@@ -149,7 +156,7 @@ func (a *App) createInsights(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 		generation = uuid.NewString()
-		_, err = tx.Exec(ctx, `INSERT INTO transcription_insights(transcription_id,generation,state,source_hash,input_json,model) VALUES($1,$2,'queued',$3,$4,$5) ON CONFLICT(transcription_id) DO UPDATE SET generation=EXCLUDED.generation,state='queued',source_hash=EXCLUDED.source_hash,input_json=EXCLUDED.input_json,result_json=NULL,model=EXCLUDED.model,error_code=NULL,lease_until=NULL,created_at=clock_timestamp(),updated_at=clock_timestamp()`, tid, generation, hash, jsonBytes(snapshot), a.Config.LLMModel)
+		_, err = tx.Exec(ctx, `INSERT INTO transcription_insights(transcription_id,generation,state,source_hash,input_json,model,llm_config_json) VALUES($1,$2,'queued',$3,$4,$5,$6) ON CONFLICT(transcription_id) DO UPDATE SET generation=EXCLUDED.generation,state='queued',source_hash=EXCLUDED.source_hash,input_json=EXCLUDED.input_json,result_json=NULL,model=EXCLUDED.model,llm_config_json=EXCLUDED.llm_config_json,error_code=NULL,lease_until=NULL,created_at=clock_timestamp(),updated_at=clock_timestamp()`, tid, generation, hash, jsonBytes(snapshot), config.Model, jsonBytes(config))
 		if err != nil {
 			return err
 		}
@@ -169,6 +176,7 @@ func (a *App) createInsights(w http.ResponseWriter, r *http.Request) error {
 type insightWork struct {
 	TID, Generation, Model string
 	Input                  []insights.Segment
+	Config                 llmConfig
 }
 
 func (a *App) claimInsight(ctx context.Context) (insightWork, error) {
@@ -180,7 +188,7 @@ func (a *App) claimInsight(ctx context.Context) (insightWork, error) {
 		if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(771940005)"); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `UPDATE transcription_insights SET state='failed',error_code='interrupted',input_json=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE state='running' AND lease_until<=clock_timestamp()`); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE transcription_insights SET state='failed',error_code='interrupted',input_json=NULL,llm_config_json=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE state='running' AND lease_until<=clock_timestamp()`); err != nil {
 			return err
 		}
 		var running bool
@@ -190,17 +198,20 @@ func (a *App) claimInsight(ctx context.Context) (insightWork, error) {
 		if running {
 			return nil
 		}
-		var raw []byte
+		var raw, configRaw []byte
 		var status string
-		if err := tx.QueryRow(ctx, `SELECT i.transcription_id,i.generation,i.model,i.input_json,u.status FROM transcription_insights i JOIN transcriptions t ON t.id=i.transcription_id JOIN recordings r ON r.id=t.recording_id JOIN users u ON u.id=r.owner_id WHERE i.state='queued' AND r.state<>'deleting' AND t.state='succeeded' ORDER BY i.created_at,i.transcription_id LIMIT 1 FOR UPDATE OF r SKIP LOCKED`).Scan(&work.TID, &work.Generation, &work.Model, &raw, &status); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT i.transcription_id,i.generation,i.model,i.input_json,u.status,i.llm_config_json FROM transcription_insights i JOIN transcriptions t ON t.id=i.transcription_id JOIN recordings r ON r.id=t.recording_id JOIN users u ON u.id=r.owner_id WHERE i.state='queued' AND r.state<>'deleting' AND t.state='succeeded' ORDER BY i.created_at,i.transcription_id LIMIT 1 FOR UPDATE OF r SKIP LOCKED`).Scan(&work.TID, &work.Generation, &work.Model, &raw, &status, &configRaw); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return nil
 			}
 			return err
 		}
 		if status != "active" {
-			_, err := tx.Exec(ctx, `UPDATE transcription_insights SET state='failed',error_code='account_disabled',input_json=NULL,updated_at=clock_timestamp() WHERE transcription_id=$1`, work.TID)
+			_, err := tx.Exec(ctx, `UPDATE transcription_insights SET state='failed',error_code='account_disabled',input_json=NULL,llm_config_json=NULL,updated_at=clock_timestamp() WHERE transcription_id=$1`, work.TID)
 			work.TID = ""
+			return err
+		}
+		if err := json.Unmarshal(configRaw, &work.Config); err != nil {
 			return err
 		}
 		if err := json.Unmarshal(raw, &work.Input); err != nil {
@@ -223,10 +234,10 @@ func (a *App) claimInsight(ctx context.Context) (insightWork, error) {
 func (a *App) executeInsight(ctx context.Context, work insightWork) {
 	var result insights.Result
 	var err error
-	if !a.insightsConfigured() || work.Model != a.Config.LLMModel {
+	if !work.Config.configured() || work.Model != work.Config.Model {
 		err = insights.Error("configuration_changed")
 	} else {
-		result, err = insights.Generate(ctx, a.Config.LLMBaseURL, a.Config.LLMKey, work.Model, work.Input)
+		result, err = insights.Generate(ctx, work.Config.BaseURL, work.Config.APIKey, work.Model, work.Input)
 	}
 	if err != nil {
 		code := "llm_unavailable"
@@ -254,7 +265,7 @@ func (a *App) executeInsight(ctx context.Context, work insightWork) {
 				code = string(safe)
 			}
 		}
-		_, e := tx.Exec(finalCtx, `UPDATE transcription_insights SET state=$3,result_json=$4,error_code=$5,input_json=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE transcription_id=$1 AND generation=$2 AND state='running' AND lease_until>clock_timestamp()`, work.TID, work.Generation, state, raw, code)
+		_, e := tx.Exec(finalCtx, `UPDATE transcription_insights SET state=$3,result_json=$4,error_code=$5,input_json=NULL,llm_config_json=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE transcription_id=$1 AND generation=$2 AND state='running' AND lease_until>clock_timestamp()`, work.TID, work.Generation, state, raw, code)
 		return e
 	})
 	if persistErr != nil && !errors.Is(persistErr, pgx.ErrNoRows) {

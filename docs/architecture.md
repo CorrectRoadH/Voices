@@ -35,7 +35,7 @@ flowchart LR
 - `internal/storage/`：PostgreSQL 音频块、原子发布、范围读取和回收；临时路径由服务生成。
 - `internal/persistence/`：Go pgx/pgxpool、PostgreSQL 查询与迁移；仓储接口按业务操作定义。
 - `internal/app/app.go`、`auth.go` 与 `queries.go`：HTTP、鉴权和 DTO；OpenAPI 生成客户端类型。
-- `internal/app/accounts.go`、`server_settings.go` 与 `settings.go`：账号与注册开关管理、实例服务器配置、个人转写偏好。
+- `internal/app/accounts.go`、`server_settings.go`、`onboarding.go` 与 `settings.go`：账号与注册开关管理、实例服务器配置、个人转写偏好。
 - `internal/app/avatars.go`：人物头像校验与读取。
 
 生产镜像包含编译好的前端、Go 服务和 FFmpeg/ffprobe。部署需要应用容器与 PostgreSQL；仅数据库需要持久化卷。应用可用有容量限制的临时盘。
@@ -76,11 +76,11 @@ JSON 快照使用 JSONB，应用校验结构；关系和唯一性使用独立字
 | provider_resources | id PK, transcription_id FK, provider, kind, remote_id, cleanup_state, next_cleanup_at?, last_error? | UNIQUE(provider,kind,remote_id)；cleanup_state/next_cleanup_at；远端文件和任务均独立记录 |
 | provider_operations | id PK, job_id FK, transcription_id FK, kind, lease_generation, state, remote_id?, resolution_note?, terminal_evidence JSONB? | kind 为 upload/submit；state 为 prepared/sent/known/uncertain/confirmed_absent；每次远端创建操作先持久化意图 |
 | idempotency_keys | owner_id, scope, key, request_hash, resource_id, created_at | PK(owner_id,scope,key)；转写请求键保留至关联录音删除，重用不同请求体返回冲突 |
-| server_settings | id, revision, value_json, updated_at | 实例单行配置，id=1；包含服务商凭据，仅管理员可管理 |
+| server_settings | id, revision, value_json, llm_test_revision, updated_at | 实例单行配置，id=1；包含服务商凭据，仅管理员可管理 |
 | settings | owner_id, key, value_json | PK(owner_id,key)； 仅白名单非秘密设置；默认语言和模型等 |
 | sessions | id_hash PK, user_id FK users, csrf_hash, expires_at, created_at | expires_at；仅保存会话 token 哈希 |
 | users | id PK, email UNIQUE, username? UNIQUE, display_name, password_hash, role, status | email 小写去空白；username 为小写登录别名，2–32 字符且不含 @；role 为 admin/user，status 为 active/disabled |
-| instance_settings | id=1, bootstrap_completed BOOLEAN, registration_open BOOLEAN | 首位管理员资格与注册开关，单行 |
+| instance_settings | id=1, bootstrap_completed BOOLEAN, site_setup_completed BOOLEAN, registration_open BOOLEAN | 首位管理员资格、独立站点初始化状态与注册开关，单行 |
 | admin_audit_events | id PK, actor_id? FK users, target_user_id? FK users, action, details JSONB | created_at/id、target_user_id/created_at；记录角色、启停、注册开关与服务器设置字段名，不含秘密 |
 
 业务表均含不可变 owner_id（触发器禁止修改）；子表由父资源推导归属，跨表引用使用 (owner_id,id) 复合 FK，拒绝跨账号关联。
@@ -304,3 +304,5 @@ restore_hold 禁止普通 retry、自动提交与硬删除；恢复模式不得�
 [管理设计](research/administration/README.md)定义只读 Repeatable Read 概览和 keyset 日志读取。runtime_events 保存结构化安全异常，最近7天可见，独立有界清理不受恢复模式影响；admin_audit_events 长期保留且不经尽力写入器。新表可由旧二进制忽略，不修改历史表含义。
 
 模块：internal/insights 负责 SDK 调用及输出验证；internal/app/insights.go 负责所有权内的任务与结果；admin_overview.go/admin_events.go/runtime_events.go 分别负责统计、脱敏读取及尽力记录。
+
+站点初始化与注册分离；LLM 测试绑定已保存的配置修订。新摘要任务读取数据库配置并持久化秘密快照，完成或失败时清除；站点与 STT 仍在启动时加载。见[站点初始化设计](research/site-onboarding/README.md)。

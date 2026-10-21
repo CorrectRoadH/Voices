@@ -38,7 +38,9 @@ func insightFixture(t *testing.T) (*fixture, string, string, []string) {
 		}
 	}
 	f.a.Config.LLMBaseURL = "http://127.0.0.1:1/v1"
+	seedFixtureSettings(t, f)
 	f.a.Config.LLMModel = "test-model"
+	seedFixtureSettings(t, f)
 	return f, rid, tid, ids
 }
 func fakeInsightServer(t *testing.T, calls *atomic.Int32) *httptest.Server {
@@ -58,6 +60,7 @@ func TestInsightsGenerationOwnershipAndStale(t *testing.T) {
 	remote := fakeInsightServer(t, &calls)
 	defer remote.Close()
 	f.a.Config.LLMBaseURL = remote.URL + "/v1"
+	seedFixtureSettings(t, f)
 	path := "/api/v1/transcriptions/" + tid + "/insights"
 	other := anotherAccount(t, f, "insight_other")
 	other.json(t, "GET", path, nil, 404, "")
@@ -117,8 +120,10 @@ func TestInsightsRestoreExpiryAndLimits(t *testing.T) {
 	ctx := context.Background()
 	path := "/api/v1/transcriptions/" + tid + "/insights"
 	f.a.Config.LLMModel = ""
+	seedFixtureSettings(t, f)
 	f.json(t, "POST", path, map[string]any{}, 409, uuid.NewString())
 	f.a.Config.LLMModel = "test-model"
+	seedFixtureSettings(t, f)
 	f.json(t, "POST", path, map[string]any{}, 202, uuid.NewString())
 	f.a.Config.RestoreMode = true
 	if err := f.a.Restore(ctx); err != nil {
@@ -152,6 +157,7 @@ func TestInsightsRestoreExpiryAndLimits(t *testing.T) {
 	// Old generation completion cannot overwrite an explicitly new request.
 	f.json(t, "POST", path, map[string]any{}, 202, uuid.NewString())
 	f.a.Config.LLMModel = "different"
+	seedFixtureSettings(t, f)
 	f.a.executeInsight(ctx, work)
 	_, result = f.json(t, "GET", path, nil, 200, "")
 	if result["insight"].(map[string]any)["state"] != "queued" {
@@ -186,6 +192,7 @@ func TestInsightsRunCancellationAndConcurrency(t *testing.T) {
 	}))
 	defer remote.Close()
 	f.a.Config.LLMBaseURL = remote.URL
+	seedFixtureSettings(t, f)
 	f.json(t, "POST", path, map[string]any{}, 202, uuid.NewString())
 	runCtx, cancel := context.WithCancel(ctx)
 	done := make(chan struct{})
