@@ -41,7 +41,7 @@ test("真实上传转写、编辑与人物归属、导出及登录后恢复句�
   await screen.getByRole("button", { name: "编辑标题", exact: true }).click();
   await screen.getByLabel("标题", { exact: true }).fill("原位编辑标题");
   await screen
-    .getByRole("region", { name: "编辑录音信息" })
+    .getByRole("form", { name: "编辑标题", exact: true })
     .getByRole("button", { name: "保存", exact: true })
     .click();
   await expect(screen.getByRole("heading", { name: "原位编辑标题", exact: true })).toBeVisible();
@@ -52,7 +52,7 @@ test("真实上传转写、编辑与人物归属、导出及登录后恢复句�
   await screen.getByRole("tab", { name: "录音信息", exact: true }).click();
   await expect(screen.getByLabel("备注", { exact: true })).toHaveValue("备注草稿");
   await screen
-    .getByRole("region", { name: "编辑录音信息" })
+    .getByRole("form", { name: "编辑备注", exact: true })
     .getByRole("button", { name: "保存", exact: true })
     .click();
   await expect(screen.getByRole("button", { name: "编辑备注", exact: true })).toHaveText(
@@ -61,7 +61,7 @@ test("真实上传转写、编辑与人物归属、导出及登录后恢复句�
   await screen.getByRole("button", { name: "编辑开始时间" }).click();
   await screen.getByLabel("录音开始时间").fill("2026-10-18T10:20:30");
   await screen
-    .getByRole("region", { name: "编辑录音信息" })
+    .getByRole("form", { name: "编辑开始时间", exact: true })
     .getByRole("button", { name: "保存" })
     .click();
   await expect(browser.locator(`#segment-${segmentId} .message-time`)).toHaveAttribute(

@@ -138,7 +138,8 @@ test("访客和账号语言隔离、失败回滚、保留中文内容与移动�
   await expect(
     screen.getByRole("tab", { name: "Recording information", exact: true }),
   ).toBeVisible();
-  await expect(screen.getByText("No transcript yet", { exact: true })).toBeVisible();
+  // 此 fixture 未启动准备 worker，上传后应明确展示准备状态。
+  await expect(screen.getByText("Preparing audio", { exact: true })).toBeVisible();
   await expect(screen.getByText("Complete a transcription to generate an outline.")).toBeVisible();
   await browser.setViewport({ width: 390, height: 844 });
   await app.screenshot("英文手机界面");
