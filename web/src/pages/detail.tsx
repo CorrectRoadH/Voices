@@ -32,6 +32,7 @@ import { Separator } from "@/components/ui/separator";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { SpeakerPicker } from "@/components/speaker-picker";
 import { EmptyState, ErrorBox, Loading, Modal, Status } from "@/components/shared";
+import { RecordingProgress } from "@/components/recording-progress";
 import { InsightOutline, type InsightsResponse } from "@/components/transcription-insights";
 import { Popover, PopoverTrigger, PopoverContent, PopoverTitle } from "@/components/ui/popover";
 import { MessageBubble } from "@/components/message-bubble";
@@ -56,6 +57,20 @@ import type {
   Schema,
   Job,
 } from "@/lib/types";
+function isSpeakerContinuation(
+  previous: Segment | undefined,
+  current: Segment | undefined,
+  recordedAt: string,
+) {
+  if (!previous || !current || current.ordinal !== previous.ordinal + 1) return false;
+  const identity = (segment: Segment) => segment.person_id || segment.speaker_label_id || "unknown";
+  const localDay = (segment: Segment) =>
+    segment.start_ms === null
+      ? null
+      : new Date(new Date(recordedAt).getTime() + segment.start_ms).toDateString();
+  return identity(previous) === identity(current) && localDay(previous) === localDay(current);
+}
+
 export function DetailPage() {
   const { recordingId = "", transcriptionId } = useParams();
   const [search] = useSearchParams();
@@ -112,6 +127,7 @@ export function DetailPage() {
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [railTab, setRailTab] = useState<string>("outline");
   const [metadataOpen, setMetadataOpen] = useState(true);
+  const [versionsOpen, setVersionsOpen] = useState(false);
   const [labelsOpen, setLabelsOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -368,17 +384,21 @@ export function DetailPage() {
   }, [segments, anchor, cursor]);
   async function generateInsights() {
     if (!selected) return;
-    await action.run(async () => {
-      const result = await write<InsightsResponse>(
-        `/transcriptions/${selected}/insights`,
-        "POST",
-        {},
-        insightKey.current,
-      );
-      insights.setData(result);
-      insightKey.current = requestKey();
-      insights.refresh();
-    });
+    await action.run(
+      async () => {
+        const result = await write<InsightsResponse>(
+          `/transcriptions/${selected}/insights`,
+          "POST",
+          {},
+          insightKey.current,
+        );
+        insights.setData(result);
+        insightKey.current = requestKey();
+        insights.refresh();
+      },
+      undefined,
+      "insights",
+    );
   }
   async function jumpChapter(id: string) {
     try {
@@ -514,7 +534,7 @@ export function DetailPage() {
                         hasTranscription={!!selected}
                         data={insights.data}
                         error={insights.error}
-                        busy={action.busy}
+                        busy={action.pendingKey === "insights"}
                         disabled={
                           !selected ||
                           blocked ||
@@ -532,7 +552,7 @@ export function DetailPage() {
                         hasTranscription={!!selected}
                         data={insights.data}
                         error={insights.error}
-                        busy={action.busy}
+                        busy={action.pendingKey === "insights"}
                         disabled={
                           !selected ||
                           blocked ||
@@ -591,6 +611,31 @@ export function DetailPage() {
             <ErrorBox message={loadError} retry={() => setReload((n) => n + 1)} />
             {loading ? (
               <Loading />
+            ) : (!selected || (version && version.state !== "succeeded")) && !loadError ? (
+              <>
+                <ErrorBox message={jobs.error} retry={jobs.refresh} />
+                <RecordingProgress
+                  recording={r}
+                  transcription={
+                    selected
+                      ? version
+                      : versions.data?.items.find(
+                          (item) => !["succeeded", "failed", "cancelled"].includes(item.state),
+                        ) || versions.data?.items[0]
+                  }
+                  jobs={jobs.data?.items || []}
+                  loading={versions.loading}
+                  onManage={() => {
+                    setRailTab("info");
+                    setVersionsOpen(true);
+                    requestAnimationFrame(() =>
+                      document
+                        .getElementById("recording-versions")
+                        ?.scrollIntoView({ block: "nearest" }),
+                    );
+                  }}
+                />
+              </>
             ) : version && segments ? (
               <>
                 {version.error_code && (
@@ -637,18 +682,13 @@ export function DetailPage() {
                           key={segment.id}
                           className={cn(
                             "segment",
-                            index > 0 &&
-                              (segments.items[index - 1].person_id ||
-                                segments.items[index - 1].speaker_label_id ||
-                                "unknown") ===
-                                (segment.person_id || segment.speaker_label_id || "unknown") &&
+                            isSpeakerContinuation(previous, segment, r.recorded_at) &&
                               "segment-continuation",
-                            index < segments.items.length - 1 &&
-                              (segments.items[index + 1].person_id ||
-                                segments.items[index + 1].speaker_label_id ||
-                                "unknown") ===
-                                (segment.person_id || segment.speaker_label_id || "unknown") &&
-                              "segment-has-next",
+                            isSpeakerContinuation(
+                              segment,
+                              segments.items[index + 1],
+                              r.recorded_at,
+                            ) && "segment-has-next",
                             people.data?.items.some(
                               (p) => p.id === segment.person_id && p.is_self,
                             ) && "segment-self",
@@ -755,7 +795,7 @@ export function DetailPage() {
                                   onClick={() => setEditSegment(segment)}
                                 >
                                   <Pencil />
-                                  {tr("编辑")}
+                                  {tr("编辑当前片段")}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   disabled={
@@ -767,7 +807,7 @@ export function DetailPage() {
                                   onClick={() => setSpeakerPicker(segment.id)}
                                 >
                                   <Users />
-                                  {tr("更换人物")}
+                                  {tr("批量关联说话人")}
                                 </DropdownMenuItem>
                               </>
                             }
@@ -838,23 +878,15 @@ export function DetailPage() {
                   </div>
                 )}
               </>
-            ) : (
-              !loadError &&
-              !selected && (
-                <EmptyState
-                  title={tr("暂无转写")}
-                  description={tr(
-                    "选择语言与模型，生成第一份转写。没有成功版本时，可在版本列表查看处理中版本。",
-                  )}
-                />
-              )
-            )}
+            ) : null}
           </CardContent>
-          <CardFooter>
-            <span className="text-xs text-muted-foreground">
-              {tr("引用绑定当前版本，人工修改后链接保持有效。")}{" "}
-            </span>
-          </CardFooter>
+          {version?.state === "succeeded" && (
+            <CardFooter>
+              <span className="text-xs text-muted-foreground">
+                {tr("引用绑定当前版本，人工修改后链接保持有效。")}{" "}
+              </span>
+            </CardFooter>
+          )}
         </Card>
         <aside className="detail-aside">
           <Tabs
@@ -873,7 +905,7 @@ export function DetailPage() {
                   hasTranscription={!!selected}
                   data={insights.data}
                   error={insights.error}
-                  busy={action.busy}
+                  busy={action.pendingKey === "insights"}
                   disabled={
                     !selected || blocked || session.restore_mode || version?.state !== "succeeded"
                   }
@@ -889,7 +921,7 @@ export function DetailPage() {
                 hasTranscription={!!selected}
                 data={insights.data}
                 error={insights.error}
-                busy={action.busy}
+                busy={action.pendingKey === "insights"}
                 disabled={
                   !selected || blocked || session.restore_mode || version?.state !== "succeeded"
                 }
@@ -946,7 +978,12 @@ export function DetailPage() {
                   </div>
                 </dl>
               </details>
-              <details className="recording-tools">
+              <details
+                className="recording-tools"
+                id="recording-versions"
+                open={versionsOpen}
+                onToggle={(event) => setVersionsOpen(event.currentTarget.open)}
+              >
                 <summary>{tr("版本与导出")}</summary>
                 <Card>
                   <CardContent className="flex flex-col gap-3">
@@ -1013,6 +1050,7 @@ export function DetailPage() {
                           </Badge>
                         ) : (
                           <Button
+                            loading={action.pendingKey === "activate"}
                             variant="outline"
                             size="sm"
                             disabled={
@@ -1022,12 +1060,16 @@ export function DetailPage() {
                               blocked
                             }
                             onClick={() =>
-                              void action.run(async () => {
-                                await write(`/transcriptions/${version.id}/activate`, "POST", {
-                                  revision: version.revision,
-                                });
-                                recording.refresh();
-                              }, tr("已设为激活版本"))
+                              void action.run(
+                                async () => {
+                                  await write(`/transcriptions/${version.id}/activate`, "POST", {
+                                    revision: version.revision,
+                                  });
+                                  recording.refresh();
+                                },
+                                tr("已设为激活版本"),
+                                "activate",
+                              )
                             }
                           >
                             {tr("设为激活版本")}{" "}
@@ -1038,6 +1080,7 @@ export function DetailPage() {
                         <div className="flex flex-wrap gap-2">
                           {["txt", "srt", "json"].map((format) => (
                             <Button
+                              loading={action.pendingKey === `export-${format}`}
                               variant="outline"
                               size="sm"
                               key={format}
@@ -1051,7 +1094,11 @@ export function DetailPage() {
                                   ))
                               }
                               onClick={() =>
-                                void action.run(() => downloadExport(version.id, format))
+                                void action.run(
+                                  () => downloadExport(version.id, format),
+                                  undefined,
+                                  `export-${format}`,
+                                )
                               }
                             >
                               {format.toUpperCase()}
@@ -1208,6 +1255,7 @@ export function DetailPage() {
             </>
           )}
           <Button
+            loading={action.pendingKey === "transcribe"}
             disabled={
               action.busy ||
               !!createError ||
@@ -1216,21 +1264,25 @@ export function DetailPage() {
               (uncertain && !duplicateConsent)
             }
             onClick={() =>
-              void action.run(async () => {
-                const result = await write<Schema["TranscriptionCreated"]>(
-                  `/recordings/${r.id}/transcriptions`,
-                  "POST",
-                  {
-                    ...options,
-                    diarization: true,
-                    ...(uncertain ? { acknowledge_duplicate_risk: duplicateConsent } : {}),
-                  },
-                  createKey,
-                );
-                setNewOpen(false);
-                versions.refresh();
-                navigate(`/recordings/${r.id}/transcriptions/${result.transcription.id}`);
-              }, tr("转写已加入后台任务"))
+              void action.run(
+                async () => {
+                  const result = await write<Schema["TranscriptionCreated"]>(
+                    `/recordings/${r.id}/transcriptions`,
+                    "POST",
+                    {
+                      ...options,
+                      diarization: true,
+                      ...(uncertain ? { acknowledge_duplicate_risk: duplicateConsent } : {}),
+                    },
+                    createKey,
+                  );
+                  setNewOpen(false);
+                  versions.refresh();
+                  navigate(`/recordings/${r.id}/transcriptions/${result.transcription.id}`);
+                },
+                tr("转写已加入后台任务"),
+                "transcribe",
+              )
             }
           >
             {tr("开始转写")}{" "}
@@ -1251,14 +1303,19 @@ export function DetailPage() {
             {tr("保留录音")}{" "}
           </Button>
           <Button
+            loading={action.pendingKey === "delete"}
             variant="destructive"
             disabled={action.busy}
             onClick={() =>
-              void action.run(async () => {
-                await write(`/recordings/${r.id}`, "DELETE");
-                setDeleteOpen(false);
-                navigate("/recordings");
-              }, tr("已请求删除，后台正在清理"))
+              void action.run(
+                async () => {
+                  await write(`/recordings/${r.id}`, "DELETE");
+                  setDeleteOpen(false);
+                  navigate("/recordings");
+                },
+                tr("已请求删除，后台正在清理"),
+                "delete",
+              )
             }
           >
             {tr("确认删除")}{" "}
@@ -1279,14 +1336,19 @@ export function DetailPage() {
             {tr("返回")}{" "}
           </Button>
           <Button
+            loading={action.pendingKey === "cancel"}
             disabled={action.busy}
             onClick={() =>
               version &&
-              void action.run(async () => {
-                await write(`/transcriptions/${version.id}/cancel`, "POST", {});
-                setCancelOpen(false);
-                refresh();
-              }, tr("取消请求已接受"))
+              void action.run(
+                async () => {
+                  await write(`/transcriptions/${version.id}/cancel`, "POST", {});
+                  setCancelOpen(false);
+                  refresh();
+                },
+                tr("取消请求已接受"),
+                "cancel",
+              )
             }
           >
             {tr("确认取消")}{" "}

@@ -1,4 +1,7 @@
+// @concord-file
+// @concord-implements docs/feature/appearance/README.md
 import { tr } from "@/lib/i18n";
+import { Spinner } from "./ui/spinner";
 import { AlertCircle, AudioLines, CheckCircle2, RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "./ui/button";
@@ -26,6 +29,15 @@ export function Status({ value }: { value: string }) {
             : "outline"
       }
     >
+      {[
+        "preparing",
+        "queued",
+        "running",
+        "uploading",
+        "submitting",
+        "polling",
+        "normalizing",
+      ].includes(value) && <Spinner data-icon="inline-start" />}
       {value === "ready" || value === "succeeded" ? (
         <CheckCircle2 data-icon="inline-start" />
       ) : null}
@@ -51,12 +63,29 @@ export function ErrorBox({ message, retry }: { message: string; retry?: () => vo
     </Alert>
   );
 }
-export function Loading() {
+export function Loading({
+  title = tr("正在加载"),
+  description,
+  compact = false,
+}: {
+  title?: string;
+  description?: string;
+  compact?: boolean;
+}) {
   return (
-    <div className="flex flex-col gap-4" role="status" aria-label={tr("正在加载")}>
-      <Skeleton className="h-8 w-1/3" />
-      <Skeleton className="h-28 w-full" />
-      <Skeleton className="h-28 w-full" />
+    <div className="flex flex-col gap-4" role="status" aria-live="polite" aria-label={title}>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Spinner />
+        <span>{title}</span>
+      </div>
+      {description && <p className="text-sm text-muted-foreground">{description}</p>}
+      {!compact && (
+        <div className="flex flex-col gap-3" aria-hidden="true">
+          <Skeleton className="h-4 w-1/3" />
+          <Skeleton className="h-16 w-4/5" />
+          <Skeleton className="h-16 w-3/5 self-end" />
+        </div>
+      )}
     </div>
   );
 }
@@ -137,7 +166,7 @@ export function More({
 }) {
   return cursor ? (
     <div className="flex justify-center py-4">
-      <Button variant="outline" disabled={loading} onClick={() => onLoad(cursor)}>
+      <Button variant="outline" loading={loading} onClick={() => onLoad(cursor)}>
         {tr("加载更多")}{" "}
       </Button>
     </div>

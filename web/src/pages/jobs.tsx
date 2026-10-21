@@ -175,13 +175,18 @@ export function JobsPage() {
                 </Button>
                 {canRetry(job) && (
                   <Button
+                    loading={action.pendingKey === job.id}
                     size="sm"
                     disabled={action.busy}
                     onClick={() =>
-                      void action.run(async () => {
-                        await write(`/jobs/${job.id}/retry`, "POST", {});
-                        data.refresh();
-                      }, tr("已请求恢复安全阶段"))
+                      void action.run(
+                        async () => {
+                          await write(`/jobs/${job.id}/retry`, "POST", {});
+                          data.refresh();
+                        },
+                        tr("已请求恢复安全阶段"),
+                        job.id,
+                      )
                     }
                   >
                     {tr("恢复安全阶段")}{" "}
@@ -314,6 +319,7 @@ export function JobsPage() {
               />
             </Field>
             <Button
+              loading={action.busy}
               disabled={
                 action.busy || !note.trim() || (!!resolve?.operations?.length && !operationId)
               }

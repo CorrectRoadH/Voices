@@ -792,5 +792,18 @@
   "暂不启用前请清空 LLM 地址、模型和密钥": "Clear the LLM URL, model, and key before continuing without LLM.",
   "完成站点初始化记录": "Site setup completed",
   "数据库已连接。请确认站点配置；语音转写和 LLM 可分别配置，也可稍后在服务器设置中调整。": "The database is connected. Review your site settings. Configure speech recognition and LLM separately, or adjust them later in Server settings.",
-  "请管理员配置 LLM 地址和模型": "Ask an administrator to configure the LLM URL and model."
+  "请管理员配置 LLM 地址和模型": "Ask an administrator to configure the LLM URL and model.",
+  "正在准备音频": "Preparing audio",
+  "转写排队中": "Transcription queued",
+  "正在转写": "Transcribing",
+  "正在生成播放副本，完成后将继续转写。你可以离开此页，后台会继续处理。": "Preparing playable audio. Transcription will continue automatically. You can leave this page while processing continues.",
+  "完成后会自动显示转写结果，你可以先处理其他录音。": "The transcript will appear automatically when ready. You can work on other recordings meanwhile.",
+  "当前阶段：": "Current stage:",
+  "处理失败，请查看任务详情后重试。": "Processing failed. Check the task details before retrying.",
+  "任务需要核对，请查看任务详情；确认前不会重复提交。": "This task needs verification. Check the task details; it will not be resubmitted before confirmation.",
+  "查看任务": "View tasks",
+  "在版本与导出中选择转写版本以阅读结果。": "Choose a transcription version under Versions and exports to read the result.",
+  "编辑当前片段": "Edit this segment",
+  "批量关联说话人": "Link all segments of this speaker",
+  "仅修改当前片段，不影响同一说话人的其他片段。": "Only changes this segment. Other segments from the same speaker are unaffected."
 }

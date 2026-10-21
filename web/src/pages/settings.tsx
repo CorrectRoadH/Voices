@@ -65,6 +65,7 @@ export function SettingsPage() {
             </CardContent>
             <CardFooter>
               <Button
+                loading={action.busy}
                 disabled={action.busy || !!invalid || !settings.data || !!providers.error}
                 onClick={() =>
                   void action.run(async () => {

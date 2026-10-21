@@ -5,7 +5,7 @@ import { useState } from "react";
 import { tr, interfaceLocale } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ErrorBox, Modal } from "@/components/shared";
+import { ErrorBox, Loading, Modal } from "@/components/shared";
 import {
   Empty,
   EmptyHeader,
@@ -59,8 +59,17 @@ export function InsightOutline({
   const pending = insight?.state === "queued" || insight?.state === "running";
   const failed = insight?.state === "failed";
   const succeeded = data?.configured && insight?.state === "succeeded";
+  if (!data && !error) return <Loading />;
+  if (pending && !error)
+    return (
+      <Loading
+        title={insight.state === "queued" ? tr("等待生成…") : tr("主题目录生成中…")}
+        description={tr("生成完成后将在这里显示主题目录。")}
+      />
+    );
   const generate = (
     <Button
+      loading={busy || pending}
       size="sm"
       variant={succeeded ? "outline" : "default"}
       disabled={disabled || busy || pending || !data?.configured || !!error}

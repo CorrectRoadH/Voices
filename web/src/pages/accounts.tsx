@@ -37,10 +37,14 @@ export function AccountPage() {
   async function changePassword(e: FormEvent) {
     e.preventDefault();
     if (password !== confirm) return;
-    await action.run(async () => {
-      await write("/me/password", "PUT", { current_password: current, new_password: password });
-      window.dispatchEvent(new Event("voices:unauthorized"));
-    }, tr("密码已修改，请重新登录"));
+    await action.run(
+      async () => {
+        await write("/me/password", "PUT", { current_password: current, new_password: password });
+        window.dispatchEvent(new Event("voices:unauthorized"));
+      },
+      tr("密码已修改，请重新登录"),
+      "password",
+    );
   }
   return (
     <>
@@ -101,12 +105,17 @@ export function AccountPage() {
           </CardContent>
           <CardFooter>
             <Button
+              loading={action.pendingKey === "profile"}
               disabled={action.busy || session.restore_mode || !name.trim()}
               onClick={() =>
-                void action.run(async () => {
-                  await write("/me", "PATCH", { display_name: name, username });
-                  refreshSession();
-                }, tr("个人资料已保存"))
+                void action.run(
+                  async () => {
+                    await write("/me", "PATCH", { display_name: name, username });
+                    refreshSession();
+                  },
+                  tr("个人资料已保存"),
+                  "profile",
+                )
               }
             >
               {tr("保存个人资料")}{" "}
@@ -166,6 +175,7 @@ export function AccountPage() {
           </CardContent>
           <CardFooter>
             <Button
+              loading={action.pendingKey === "password"}
               type="submit"
               form="change-password"
               disabled={

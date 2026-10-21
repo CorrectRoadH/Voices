@@ -4,6 +4,7 @@ import { useState } from "react";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { ErrorBox } from "@/components/shared";
+import { Spinner } from "@/components/ui/spinner";
 import { useAction, useApp } from "@/lib/hooks";
 import { write } from "@/lib/api";
 import { chooseGuestLanguage, interfaceLocale, normalizeLanguage, tr } from "@/lib/i18n";
@@ -58,7 +59,8 @@ export function AccountLanguageSelect() {
         <Languages />
       </NativeSelect>
       <FieldDescription>{tr("语言随账号保存，不影响转写语言。")}</FieldDescription>
-      <p role="status" className="text-sm text-muted-foreground">
+      <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
+        {action.busy && <Spinner />}
         {action.busy ? tr("正在保存语言…") : saved ? tr("界面语言已保存") : ""}
       </p>
       <ErrorBox message={action.error} />

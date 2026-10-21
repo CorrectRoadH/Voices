@@ -222,6 +222,7 @@ function Login({
           </CardContent>
           <CardFooter className="flex-col items-stretch gap-4">
             <Button
+              loading={busy}
               type="submit"
               form="login-form"
               disabled={

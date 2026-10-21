@@ -51,27 +51,31 @@ export function SpeakerPicker({
   async function assign(personId: string | null, create = false) {
     if (submitting.current) return;
     submitting.current = true;
-    const ok = await action.run(async () => {
-      if (create) {
-        const name = query.trim();
-        if (!name) return;
-        if (!pending.current || pending.current.name !== name)
-          pending.current = { name, key: requestKey() };
-        const attempt = pending.current;
-        attempt.person ||= await write<Person>(
-          "/people",
-          "POST",
-          { display_name: name, notes: "" },
-          attempt.key,
-        );
-        personId = attempt.person.id;
-      }
-      await write(`/speaker-labels/${label.id}`, "PATCH", {
-        revision: label.revision,
-        person_id: personId,
-      });
-      onSaved();
-    }, tr("该说话人的所有片段已更新"));
+    const ok = await action.run(
+      async () => {
+        if (create) {
+          const name = query.trim();
+          if (!name) return;
+          if (!pending.current || pending.current.name !== name)
+            pending.current = { name, key: requestKey() };
+          const attempt = pending.current;
+          attempt.person ||= await write<Person>(
+            "/people",
+            "POST",
+            { display_name: name, notes: "" },
+            attempt.key,
+          );
+          personId = attempt.person.id;
+        }
+        await write(`/speaker-labels/${label.id}`, "PATCH", {
+          revision: label.revision,
+          person_id: personId,
+        });
+        onSaved();
+      },
+      tr("该说话人的所有片段已更新"),
+      create ? "new" : personId || "unlink",
+    );
     submitting.current = false;
     if (ok) setOpen(false);
   }
@@ -130,6 +134,7 @@ export function SpeakerPicker({
                 title={personName(p)}
                 aria-label={`${personName(p)}${p.builtin_key ? tr(" · 内置") : ""}`}
                 key={p.id}
+                loading={action.pendingKey === p.id}
                 variant={label.person_id === p.id ? "secondary" : "ghost"}
                 disabled={action.busy}
                 onClick={() => void assign(p.id)}
@@ -143,12 +148,21 @@ export function SpeakerPicker({
             ))}
         </div>
         {query.trim() && (
-          <Button disabled={action.busy} onClick={() => void assign(null, true)}>
+          <Button
+            loading={action.pendingKey === "new"}
+            disabled={action.busy}
+            onClick={() => void assign(null, true)}
+          >
             {tr("新建并关联“{{name}}”", { name: query.trim() })}
           </Button>
         )}
         {label.person_id && (
-          <Button variant="ghost" disabled={action.busy} onClick={() => void assign(null)}>
+          <Button
+            loading={action.pendingKey === "unlink"}
+            variant="ghost"
+            disabled={action.busy}
+            onClick={() => void assign(null)}
+          >
             {tr("解除人物关联")}
           </Button>
         )}

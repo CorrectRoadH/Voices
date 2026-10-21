@@ -130,7 +130,7 @@ function PersonEditor({
               <Switch id="person-archive" checked={archived} onCheckedChange={setArchived} />
             </Field>
           )}
-          <Button type="submit" disabled={action.busy || preparing}>
+          <Button loading={action.busy} type="submit" disabled={action.busy || preparing}>
             {tr("保存人物")}{" "}
           </Button>
         </FieldGroup>
@@ -294,6 +294,7 @@ export function PersonPage() {
             )}
             {!person.data.builtin_key && (
               <Button
+                loading={selfAction.busy}
                 variant="ghost"
                 disabled={selfAction.busy}
                 onClick={() =>

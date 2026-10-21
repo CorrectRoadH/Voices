@@ -20,6 +20,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ErrorBox, Loading, PageHeading } from "@/components/shared";
+import { Spinner } from "@/components/ui/spinner";
 import { useApp, useResource } from "@/lib/hooks";
 import { errorMessage, HttpError, request } from "@/lib/api";
 import type { Schema } from "@/lib/types";
@@ -460,6 +461,7 @@ export function ServerSettingsForm({
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <Button
+            loading={testing}
             type="button"
             variant="outline"
             disabled={!ready || !data.saved.llm_base_url || !data.saved.llm_model}
@@ -471,10 +473,16 @@ export function ServerSettingsForm({
         </div>
         {onboarding && (
           <div className="flex flex-wrap gap-3">
-            <Button type="button" disabled={!ready || !tested} onClick={() => void complete(false)}>
+            <Button
+              loading={finishing}
+              type="button"
+              disabled={!ready || !tested}
+              onClick={() => void complete(false)}
+            >
               {finishing ? tr("正在完成…") : tr("完成站点初始化")}
             </Button>
             <Button
+              loading={finishing}
               type="button"
               variant="outline"
               disabled={!ready || !emptyLLM}
@@ -510,8 +518,9 @@ export function ServerSettingsForm({
           role="status"
           aria-live="polite"
           data-testid="settings-save-status"
-          className="text-sm text-muted-foreground"
+          className="flex items-center gap-2 text-sm text-muted-foreground"
         >
+          {saving && <Spinner />}
           {locked
             ? tr("恢复模式下仅可查看配置")
             : error

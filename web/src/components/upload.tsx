@@ -292,6 +292,7 @@ export function UploadDialog({
           {tr("关闭")}{" "}
         </Button>
         <Button
+          loading={busy}
           disabled={busy || !entries.some((e) => e.status === "waiting")}
           onClick={() => void start()}
         >

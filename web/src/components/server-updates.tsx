@@ -126,6 +126,7 @@ export function ServerUpdates() {
       </CardContent>
       <CardFooter className="flex flex-wrap gap-3">
         <Button
+          loading={action.busy}
           type="button"
           variant="outline"
           disabled={!data || data.status === "disabled" || action.busy || session.restore_mode}

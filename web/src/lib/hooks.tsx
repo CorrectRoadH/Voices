@@ -13,12 +13,16 @@ export function useResource<T>(path: string | null, revision = 0, poll = 0, allP
   const [loading, setLoading] = useState(!!path);
   const [reload, setReload] = useState(0);
   const currentPath = useRef<string | null | undefined>(undefined);
+  const hasData = useRef(false);
   useEffect(() => {
     const changed = currentPath.current !== path;
     currentPath.current = path;
-    if (changed) setData(null);
+    if (changed) {
+      setData(null);
+      hasData.current = false;
+    }
     setError("");
-    if (changed) setLoading(!!path);
+    if (changed || !hasData.current) setLoading(!!path);
     if (!path) return;
     const controller = new AbortController();
     let busy = false;
@@ -30,6 +34,7 @@ export function useResource<T>(path: string | null, revision = 0, poll = 0, allP
           ? (requestAll(path, controller.signal) as Promise<T>)
           : request<T>(path, { signal: controller.signal }));
         if (!controller.signal.aborted) {
+          hasData.current = true;
           setData(result);
           setError("");
         }
@@ -51,10 +56,14 @@ export function useResource<T>(path: string | null, revision = 0, poll = 0, allP
 }
 export function useAction() {
   const [busy, setBusy] = useState(false);
+  const [pendingKey, setPendingKey] = useState<string>();
+  const running = useRef(false);
   const [error, setError] = useState("");
   const { notify } = useApp();
-  async function run(work: () => Promise<unknown>, success?: string) {
-    if (busy) return false;
+  async function run(work: () => Promise<unknown>, success?: string, key?: string) {
+    if (running.current) return false;
+    running.current = true;
+    setPendingKey(key);
     setBusy(true);
     setError("");
     try {
@@ -67,10 +76,12 @@ export function useAction() {
       notify(message, true);
       return false;
     } finally {
+      running.current = false;
+      setPendingKey(undefined);
       setBusy(false);
     }
   }
-  return { busy, run, error };
+  return { busy, pendingKey, run, error };
 }
 export function SessionProvider({
   session,

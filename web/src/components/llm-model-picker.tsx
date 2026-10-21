@@ -109,6 +109,7 @@ export function LLMModelPicker({
         </Autocomplete.Root>
         <div className="flex flex-wrap items-center gap-2">
           <Button
+            loading={busy}
             type="button"
             variant="outline"
             disabled={disabled || fetchDisabled || busy || !baseURL.trim()}
