@@ -1,6 +1,6 @@
 # 开发与测试
 
-需要 Python 3、Go 1.26、Air、Node.js 24.11+、pnpm、Docker、FFmpeg/ffprobe。命令均在仓库根目录执行，命令说明见 [命令](cli.md)。
+需要 Python 3、Go 1.26、Air、Node.js 24.11+、Vite+ 1.3.0（`vp`，使用 pnpm）、Docker、FFmpeg/ffprobe。命令均在仓库根目录执行，命令说明见 [命令](cli.md)。
 
 ## 本地运行
 
@@ -14,25 +14,25 @@ PUBLIC_BASE_URL=http://<本机局域网 IP>:5173
 ```
 
 ```sh
-pnpm --dir web install --frozen-lockfile
-pnpm --dir update-worker install --frozen-lockfile
-pnpm db:up        # 开发 PostgreSQL，仅绑定 127.0.0.1:54329
+vp -C web install --frozen-lockfile
+vp -C update-worker install --frozen-lockfile
+vp run db:up        # 开发 PostgreSQL，仅绑定 127.0.0.1:54329
 air .             # 终端一：后端热重启
-pnpm dev          # 终端二：前端 5173，API 代理到 18080
+vp run dev          # 终端二：前端 5173，API 代理到 18080
 ```
 
-访问 `PUBLIC_BASE_URL` 指定的地址；登录来源须与它一致，更换 IP 或主机名时同步修改并重启。`pnpm db:down` 停止数据库并保留数据卷。前端只暴露 `VITE_` 前缀的环境变量。业务配置的数据库优先规则见 [运维](operations.md#配置)。
+访问 `PUBLIC_BASE_URL` 指定的地址；登录来源须与它一致，更换 IP 或主机名时同步修改并重启。`vp run db:down` 停止数据库并保留数据卷。前端只暴露 `VITE_` 前缀的环境变量。业务配置的数据库优先规则见 [运维](operations.md#配置)。
 
 ## 测试
 
 ```sh
 # 独立测试数据库；每个测试使用随机 schema 并清理。
-TEST_DATABASE_URL='postgres://user:password@localhost:5432/voices_test?sslmode=disable' pnpm check
+TEST_DATABASE_URL='postgres://user:password@localhost:5432/voices_test?sslmode=disable' vp run check
 # 大文件验收：约 1 GiB 与接近 2 GiB 的 WAV。
 VOICES_LARGE_TEST=1 TEST_DATABASE_URL=... CGO_ENABLED=0 go test ./internal/app -run TestLargeHTTPUploadsBoundedMemory -v
 # e2e：自动构建前端，启动真实 Go/隔离 PostgreSQL fixture。
-pnpm --dir web exec e2e-web install chromium
-TEST_DATABASE_URL=... pnpm test:e2e
+vp -C web exec e2e-web install chromium
+TEST_DATABASE_URL=... vp run test:e2e
 # NixOS 等环境可设置 E2E_CHROMIUM_EXECUTABLE_PATH 指定系统 Chromium。
 concord check --json
 concord doctor --json

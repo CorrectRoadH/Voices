@@ -44,8 +44,7 @@ export function optionError(
     (options.languages.length !== 2 || !options.languages.includes("en"))
   )
     return tr("AssemblyAI Universal-2 多语言仅支持 en 加一种其他语言，请调整语言或切换模型。");
-  if (!model.diarization)
-    return tr("该模型不支持说话人区分，请切换模型。");
+  if (!model.diarization) return tr("该模型不支持说话人区分，请切换模型。");
   if (
     limits?.duration_ms &&
     model.max_duration_ms > 0 &&
@@ -82,8 +81,12 @@ export function OptionsFields({
   const provider = providers.find((p) => p.id === value.provider);
   const model = provider?.models.find((m) => m.id === value.model);
   useEffect(() => {
-    if (!value.diarization) { onChange({ ...value, diarization: true }); return; }
-    const selectedProvider = provider || (!value.provider ? providers.find((p) => p.configured) : undefined);
+    if (!value.diarization) {
+      onChange({ ...value, diarization: true });
+      return;
+    }
+    const selectedProvider =
+      provider || (!value.provider ? providers.find((p) => p.configured) : undefined);
     const selectedModel = selectedProvider?.models[0];
     if (selectedProvider && selectedModel && (!value.provider || !value.model)) {
       onChange({ ...value, provider: selectedProvider.id, model: selectedModel.id });
@@ -97,7 +100,15 @@ export function OptionsFields({
           <NativeSelect
             id={`${id}-provider`}
             value={value.provider}
-            onChange={(e) => onChange({ ...value, provider: e.target.value, model: "", language_mode: "auto", languages: [] })}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                provider: e.target.value,
+                model: "",
+                language_mode: "auto",
+                languages: [],
+              })
+            }
           >
             <NativeSelectOption value="">{tr("选择服务商")}</NativeSelectOption>
             {providers.map((p) => (
@@ -129,7 +140,13 @@ export function OptionsFields({
         <NativeSelect
           id={`${id}-mode`}
           value={value.language_mode}
-            onChange={(e) => onChange({ ...value, language_mode: e.target.value as Options["language_mode"], languages: [] })}
+          onChange={(e) =>
+            onChange({
+              ...value,
+              language_mode: e.target.value as Options["language_mode"],
+              languages: [],
+            })
+          }
         >
           <NativeSelectOption value="auto">{tr("自动检测")}</NativeSelectOption>
           <NativeSelectOption value="single">{tr("单语言")}</NativeSelectOption>
@@ -139,42 +156,57 @@ export function OptionsFields({
       {value.provider === "assemblyai" &&
         value.model === "universal-2" &&
         value.language_mode === "multi" && (
-          <FieldDescription>{tr("Universal-2 多语言仅支持英语（en）加一种其他语言。")}</FieldDescription>
+          <FieldDescription>
+            {tr("Universal-2 多语言仅支持英语（en）加一种其他语言。")}
+          </FieldDescription>
         )}
-      {value.language_mode !== "auto" && <Field>
-        <FieldLabel htmlFor={`${id}-languages`}>{tr("语言代码")}</FieldLabel>
-        <Input
-          id={`${id}-languages`}
-          placeholder={tr("例如 zh,en，用英文逗号分隔")}
-          value={languageText}
-          onChange={(e) => {
-            setLanguageText(e.target.value);
-            onChange({
-              ...value,
-              languages: e.target.value
-                .split(",")
-                .map((l) => l.trim())
-                .filter(Boolean),
-            });
-          }}
-        />
-        <FieldDescription>
-          {value.language_mode === "single" ? tr("填写一种语言，例如 zh（中文）。") : tr("用英文逗号分隔，例如 zh,en（中英混合）。")}
-        </FieldDescription>
-      </Field>}
+      {value.language_mode !== "auto" && (
+        <Field>
+          <FieldLabel htmlFor={`${id}-languages`}>{tr("语言代码")}</FieldLabel>
+          <Input
+            id={`${id}-languages`}
+            placeholder={tr("例如 zh,en，用英文逗号分隔")}
+            value={languageText}
+            onChange={(e) => {
+              setLanguageText(e.target.value);
+              onChange({
+                ...value,
+                languages: e.target.value
+                  .split(",")
+                  .map((l) => l.trim())
+                  .filter(Boolean),
+              });
+            }}
+          />
+          <FieldDescription>
+            {value.language_mode === "single"
+              ? tr("填写一种语言，例如 zh（中文）。")
+              : tr("用英文逗号分隔，例如 zh,en（中英混合）。")}
+          </FieldDescription>
+        </Field>
+      )}
       {model && (!model.timestamps || !model.diarization) && (
         <Alert>
           <AlertTitle>{tr("模型能力提示")}</AlertTitle>
           <AlertDescription>
             {!model.timestamps && tr("此模型无时间戳，不能跳转音频或导出 SRT。")}
-            {!model.diarization && tr("此模型不区分说话人，可在转写后手动创建标签。")}{tr("文字编辑与人物关联始终可用。")}{" "}</AlertDescription>
+            {!model.diarization && tr("此模型不区分说话人，可在转写后手动创建标签。")}
+            {tr("文字编辑与人物关联始终可用。")}{" "}
+          </AlertDescription>
         </Alert>
       )}
     </FieldGroup>
   );
   if (!compact) return fields;
-  return <details className="rounded-lg border p-3">
-    <summary className="cursor-pointer text-sm">{tr("转写选项 ·")}{" "}{model?.name || tr("未配置服务商")} · {value.language_mode === "auto" ? tr("自动检测语言") : value.languages.join(", ") || tr("指定语言")}</summary>
-    <div className="pt-4">{fields}</div>
-  </details>;
+  return (
+    <details className="rounded-lg border p-3">
+      <summary className="cursor-pointer text-sm">
+        {tr("转写选项 ·")} {model?.name || tr("未配置服务商")} ·{" "}
+        {value.language_mode === "auto"
+          ? tr("自动检测语言")
+          : value.languages.join(", ") || tr("指定语言")}
+      </summary>
+      <div className="pt-4">{fields}</div>
+    </details>
+  );
 }

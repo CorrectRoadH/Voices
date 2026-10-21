@@ -64,7 +64,7 @@ function PersonEditor({
               {
                 display_name: name,
                 notes,
-                ...(avatar !== undefined ? {avatar_data:avatar} : {}),
+                ...(avatar !== undefined ? { avatar_data: avatar } : {}),
                 ...(person ? { revision: person.revision, archived } : {}),
               },
               person ? undefined : key,
@@ -79,15 +79,32 @@ function PersonEditor({
           <Field>
             <FieldLabel htmlFor="person-avatar">{tr("头像")}</FieldLabel>
             <PersonAvatar id={person?.id || name} name={name} person={person} preview={avatar} />
-            <Input id="person-avatar" type="file" accept="image/png,image/jpeg,image/webp" disabled={action.busy || preparing} onChange={(event) => {
-              const file = event.target.files?.[0]; event.target.value = ""; if (!file) return;
-              setPreparing(true); setAvatarError(""); void prepareAvatar(file).then(setAvatar).catch((error: unknown) => {
-                const message = errorMessage(error);
-                setAvatarError(message);
-                notify(message, true);
-              }).finally(() => setPreparing(false));
-            }} />
-            {(avatar || (avatar === undefined && person?.has_avatar)) && <Button type="button" variant="ghost" size="sm" onClick={() => setAvatar(null)}>{tr("移除头像")}</Button>}
+            <Input
+              id="person-avatar"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              disabled={action.busy || preparing}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (!file) return;
+                setPreparing(true);
+                setAvatarError("");
+                void prepareAvatar(file)
+                  .then(setAvatar)
+                  .catch((error: unknown) => {
+                    const message = errorMessage(error);
+                    setAvatarError(message);
+                    notify(message, true);
+                  })
+                  .finally(() => setPreparing(false));
+              }}
+            />
+            {(avatar || (avatar === undefined && person?.has_avatar)) && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setAvatar(null)}>
+                {tr("移除头像")}
+              </Button>
+            )}
           </Field>
           <Field>
             <FieldLabel htmlFor="person-name">{tr("显示名")}</FieldLabel>
@@ -113,7 +130,9 @@ function PersonEditor({
               <Switch id="person-archive" checked={archived} onCheckedChange={setArchived} />
             </Field>
           )}
-          <Button type="submit" disabled={action.busy || preparing}>{tr("保存人物")}{" "}</Button>
+          <Button type="submit" disabled={action.busy || preparing}>
+            {tr("保存人物")}{" "}
+          </Button>
         </FieldGroup>
       </form>
     </Modal>
@@ -149,15 +168,17 @@ export function PeoplePage() {
   };
   return (
     <>
-      <PageHeading
-        title={tr("人物")}
-      >
+      <PageHeading title={tr("人物")}>
         <Button onClick={() => setEditing("new")}>
-          <Plus data-icon="inline-start" />{tr("新建人物")}{" "}</Button>
+          <Plus data-icon="inline-start" />
+          {tr("新建人物")}{" "}
+        </Button>
       </PageHeading>
       <FieldGroup className="people-filters">
         <Field>
-          <FieldLabel className="sr-only" htmlFor="people-search">{tr("搜索人物")}{" "}</FieldLabel>
+          <FieldLabel className="sr-only" htmlFor="people-search">
+            {tr("搜索人物")}{" "}
+          </FieldLabel>
           <Input
             id="people-search"
             value={params.get("q") || ""}
@@ -166,7 +187,9 @@ export function PeoplePage() {
           />
         </Field>
         <Field>
-          <FieldLabel className="sr-only" htmlFor="people-archived">{tr("归档状态")}{" "}</FieldLabel>
+          <FieldLabel className="sr-only" htmlFor="people-archived">
+            {tr("归档状态")}{" "}
+          </FieldLabel>
           <NativeSelect
             id="people-archived"
             value={params.get("archived") || "false"}
@@ -187,18 +210,32 @@ export function PeoplePage() {
               <Card>
                 <CardHeader>
                   <PersonAvatar id={p.id} name={personName(p)} person={p} />
-                  <CardTitle>{personName(p)} {p.builtin_key && <Badge variant="outline">{tr("内置")}</Badge>} {p.is_self && <Badge>{tr("本人")}</Badge>}</CardTitle>
+                  <CardTitle>
+                    {personName(p)} {p.builtin_key && <Badge variant="outline">{tr("内置")}</Badge>}{" "}
+                    {p.is_self && <Badge>{tr("本人")}</Badge>}
+                  </CardTitle>
                 </CardHeader>
-                <CardContent><p className="line-clamp-2 text-sm text-muted-foreground">{p.archived_at ? tr("已归档") : p.notes || (p.builtin_key ? tr("内置人物") : tr("暂无备注"))}</p></CardContent>
+                <CardContent>
+                  <p className="line-clamp-2 text-sm text-muted-foreground">
+                    {p.archived_at
+                      ? tr("已归档")
+                      : p.notes || (p.builtin_key ? tr("内置人物") : tr("暂无备注"))}
+                  </p>
+                </CardContent>
               </Card>
             </Link>
           ))}
         </div>
       ) : (
         !data.error && (
-          <EmptyState title={tr("暂无人物")} description={tr("新建人物后，在录音详情里关联说话人标签。")}>
+          <EmptyState
+            title={tr("暂无人物")}
+            description={tr("新建人物后，在录音详情里关联说话人标签。")}
+          >
             <Button onClick={() => setEditing("new")}>
-              <Users data-icon="inline-start" />{tr("新建人物")}{" "}</Button>
+              <Users data-icon="inline-start" />
+              {tr("新建人物")}{" "}
+            </Button>
           </EmptyState>
         )
       )}
@@ -240,22 +277,41 @@ export function PersonPage() {
   return (
     <>
       <Button variant="ghost" nativeButton={false} render={<Link to="/people" />}>
-        <ArrowLeft data-icon="inline-start" />{tr("返回人物")}{" "}</Button>
+        <ArrowLeft data-icon="inline-start" />
+        {tr("返回人物")}{" "}
+      </Button>
       {person.loading ? (
         <Loading />
       ) : person.data ? (
         <>
           <PersonAvatar id={person.data.id} name={personName(person.data)} person={person.data} />
           <ErrorBox message={selfAction.error} />
-          <PageHeading
-            title={personName(person.data)}
-            description={person.data.notes || undefined}
-          >
-            {!person.data.builtin_key && <Button variant="outline" onClick={() => setEditing(true)}>{tr("编辑人物")}{" "}</Button>}
-            {!person.data.builtin_key && <Button variant="ghost" disabled={selfAction.busy} onClick={() => void selfAction.run(async () => {
-              const saved = await write<Person>(`/people/${person.data!.id}`, "PATCH", {revision:person.data!.revision,is_self:!person.data!.is_self});
-              person.setData(saved);
-            }, person.data!.is_self ? tr("已取消本人标记") : tr("已标记为本人"))}>{person.data.is_self ? tr("取消本人") : tr("标记为本人")}</Button>}
+          <PageHeading title={personName(person.data)} description={person.data.notes || undefined}>
+            {!person.data.builtin_key && (
+              <Button variant="outline" onClick={() => setEditing(true)}>
+                {tr("编辑人物")}{" "}
+              </Button>
+            )}
+            {!person.data.builtin_key && (
+              <Button
+                variant="ghost"
+                disabled={selfAction.busy}
+                onClick={() =>
+                  void selfAction.run(
+                    async () => {
+                      const saved = await write<Person>(`/people/${person.data!.id}`, "PATCH", {
+                        revision: person.data!.revision,
+                        is_self: !person.data!.is_self,
+                      });
+                      person.setData(saved);
+                    },
+                    person.data!.is_self ? tr("已取消本人标记") : tr("已标记为本人"),
+                  )
+                }
+              >
+                {person.data.is_self ? tr("取消本人") : tr("标记为本人")}
+              </Button>
+            )}
             {person.data.is_self && <Badge>{tr("本人")}</Badge>}
             {person.data.builtin_key && <Badge variant="outline">{tr("内置")}</Badge>}
             {person.data.archived_at && <Badge variant="secondary">{tr("已归档")}</Badge>}

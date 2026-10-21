@@ -128,7 +128,11 @@ export function InsightOutline({
       </div>
     );
   const chapters = (
-    <nav aria-label={tr("AI 主题目录")} className="flex flex-col gap-1" title={tr("点击定位当前正文与有效音频时间，不自动播放。")}>
+    <nav
+      aria-label={tr("AI 主题目录")}
+      className="flex flex-col gap-1"
+      title={tr("点击定位当前正文与有效音频时间，不自动播放。")}
+    >
       <p className="text-xs font-medium">
         {tr("主题目录")}
         {insight.stale ? tr(" · 已过期") : ""}
@@ -156,23 +160,43 @@ export function InsightOutline({
     <div className="flex flex-col gap-4">
       <ErrorBox message={error} retry={onRefresh} />
       {insight.stale && <Badge variant="outline">{tr("转写已更改，结果已过期")}</Badge>}
-      {view === "outline" ? chapters : <>
-        <div className="flex flex-col gap-3">
-          <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{insight.summary}</p>
-          <Button variant="link" size="sm" className="h-auto justify-start self-start p-0" onClick={() => setSummaryOpen(true)}>{tr("查看完整摘要")}</Button>
-          <p className="text-xs text-muted-foreground">
-            {tr("AI 辅助内容，请核对原文 ·")} {insight.model} ·{" "}
-            {new Date(insight.updated_at).toLocaleString(interfaceLocale())}
-          </p>
-          <div className="flex flex-col items-start gap-2">
-            {generate}
-            {notice}
+      {view === "outline" ? (
+        chapters
+      ) : (
+        <>
+          <div className="flex flex-col gap-3">
+            <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+              {insight.summary}
+            </p>
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto justify-start self-start p-0"
+              onClick={() => setSummaryOpen(true)}
+            >
+              {tr("查看完整摘要")}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              {tr("AI 辅助内容，请核对原文 ·")} {insight.model} ·{" "}
+              {new Date(insight.updated_at).toLocaleString(interfaceLocale())}
+            </p>
+            <div className="flex flex-col items-start gap-2">
+              {generate}
+              {notice}
+            </div>
           </div>
-        </div>
-      </> }
-      <Modal title={tr("录音摘要")} description={tr("AI 辅助内容，请核对原文")} open={summaryOpen} onOpenChange={setSummaryOpen}>
+        </>
+      )}
+      <Modal
+        title={tr("录音摘要")}
+        description={tr("AI 辅助内容，请核对原文")}
+        open={summaryOpen}
+        onOpenChange={setSummaryOpen}
+      >
         <p className="whitespace-pre-wrap break-words text-sm leading-7">{insight.summary}</p>
-        <p className="text-xs text-muted-foreground">{insight.model} · {new Date(insight.updated_at).toLocaleString(interfaceLocale())}</p>
+        <p className="text-xs text-muted-foreground">
+          {insight.model} · {new Date(insight.updated_at).toLocaleString(interfaceLocale())}
+        </p>
       </Modal>
     </div>
   );

@@ -14,7 +14,11 @@ kind: engineering
 
 ## 机制
 
-`.github/workflows/ci.yml` 也是可复用发布前检查。使用独立 PostgreSQL 服务，执行 `pnpm check`、生成 API 无差异检查和 `pnpm test:e2e` 真实 Go/数据库浏览器验收。`pnpm check` 包含常规测试、Go vet、前端类型检查与构建、Worker 类型检查；`pnpm test:worker:runtime` 单独构建发布 bundle，在真实 workerd 中验证更新请求及拒绝重定向。Docker 构建检查不推送。
+`.github/workflows/ci.yml` 也是可复用发布前检查。使用独立 PostgreSQL 服务，执行 `vp run check`、生成 API 无差异检查和 `vp run test:e2e` 真实 Go/数据库浏览器验收。`vp run check` 包含前端与 Worker 的格式、lint、类型检查、常规测试、Go vet、前端类型检查与构建、Worker 类型检查；`vp run test:worker:runtime` 单独构建发布 bundle，在真实 workerd 中验证更新请求及拒绝重定向。Docker 构建检查不推送。
+
+### 工具链入口
+
+JS/TS 命令统一通过 Vite+ 1.3.0；pnpm 仍为底层包管理器，根目录、web 与 update-worker 保持独立安装边界。CI 使用固定版本 setup-vp，安装必须使用 frozen lockfile。`vp run check` 为项目完整门禁，`vp check` 仅为内置静态检查；浏览器、数据库和 workerd 验收不缓存。生成 API 文件由生成结果无差异检查负责，不由 Oxfmt 重写。
 
 ### 测试分工
 

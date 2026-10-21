@@ -17,3 +17,11 @@ Before planning, implementing, or reviewing governed work:
 
 Follow the returned instructions and the repository's current `docs/constitution.md`. A gap result means an explicit Concord relationship is absent; it is not code coverage, and undocumented CLI commands require the product's own inventory. Do not infer completion or test coverage from document structure or command receipts alone.
 <!-- END CONCORD AGENT INSTRUCTIONS -->
+
+## JavaScript / TypeScript toolchain
+
+- Use Vite+ 1.3.0 (`vp`) for JS/TS commands: `vp install`, `vp run <script>`, `vp exec <tool>`, and `vp exec node <file>`. pnpm remains the underlying package manager.
+- Root, `web`, and `update-worker` remain separate installation roots; install with `vp -C web install --frozen-lockfile` and `vp -C update-worker install --frozen-lockfile`.
+- From the repository root, run `vp run check` for the full gate; it requires an isolated `TEST_DATABASE_URL`. `vp check` is only the built-in static checker, not the full project gate.
+- Use `vp run test:e2e` for real Go/PostgreSQL/browser acceptance and `vp run test:worker:runtime` for workerd. Keep these uncached; they depend on runtime state.
+- Keep framework builds and Go tests behind their existing scripts. Do not replace them with bare `vp build` or `vp test`.

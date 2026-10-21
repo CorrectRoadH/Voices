@@ -34,9 +34,7 @@ export function SettingsPage() {
   const invalid = optionError(options, providers.data?.items || []);
   return (
     <>
-      <PageHeading
-        title={tr("设置")}
-      />
+      <PageHeading title={tr("设置")} />
       {settings.loading || providers.loading ? (
         <Loading />
       ) : (
@@ -44,7 +42,9 @@ export function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle>{tr("转写偏好")}</CardTitle>
-              <CardDescription>{tr("新设置只用于未来的导入，不改变已接受任务的选项快照。")}{" "}</CardDescription>
+              <CardDescription>
+                {tr("新设置只用于未来的导入，不改变已接受任务的选项快照。")}{" "}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <ErrorBox
@@ -55,18 +55,17 @@ export function SettingsPage() {
                 }}
               />
               <FieldGroup>
-                <OptionsFields value={options} onChange={setOptions} providers={providers.data?.items || []} />
+                <OptionsFields
+                  value={options}
+                  onChange={setOptions}
+                  providers={providers.data?.items || []}
+                />
                 {invalid && <p className="text-sm text-destructive">{invalid}</p>}
               </FieldGroup>
             </CardContent>
             <CardFooter>
               <Button
-                disabled={
-                  action.busy ||
-                  !!invalid ||
-                  !settings.data ||
-                  !!providers.error
-                }
+                disabled={action.busy || !!invalid || !settings.data || !!providers.error}
                 onClick={() =>
                   void action.run(async () => {
                     await write("/settings", "PATCH", {
@@ -77,14 +76,18 @@ export function SettingsPage() {
                   }, tr("偏好设置已保存"))
                 }
               >
-                <Save data-icon="inline-start" />{tr("保存设置")}{" "}</Button>
+                <Save data-icon="inline-start" />
+                {tr("保存设置")}{" "}
+              </Button>
             </CardFooter>
           </Card>
           <div className="flex flex-col gap-5">
             <Card>
               <CardHeader>
                 <CardTitle>{tr("服务商连接")}</CardTitle>
-                <CardDescription>{tr("密钥由管理员在服务器设置中管理，浏览器仅显示当前实例的配置状态。")}</CardDescription>
+                <CardDescription>
+                  {tr("密钥由管理员在服务器设置中管理，浏览器仅显示当前实例的配置状态。")}
+                </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 {providers.data?.items.map((p) => (
@@ -97,16 +100,20 @@ export function SettingsPage() {
                 ))}
               </CardContent>
               <CardFooter>
-                <p className="text-xs text-muted-foreground">{tr("已配置表示存在服务端凭据，实际可用性由转写响应确认。")}{" "}</p>
+                <p className="text-xs text-muted-foreground">
+                  {tr("已配置表示存在服务端凭据，实际可用性由转写响应确认。")}{" "}
+                </p>
               </CardFooter>
             </Card>
-            {session.restore_mode && <Alert>
-              <LockKeyhole />
-              <AlertTitle>{tr("数据库恢复核对模式")}</AlertTitle>
-              <AlertDescription>
-                {session.restore_mode && tr("当前处于数据库恢复核对模式，历史任务需逐项核实。")}
-              </AlertDescription>
-            </Alert>}
+            {session.restore_mode && (
+              <Alert>
+                <LockKeyhole />
+                <AlertTitle>{tr("数据库恢复核对模式")}</AlertTitle>
+                <AlertDescription>
+                  {session.restore_mode && tr("当前处于数据库恢复核对模式，历史任务需逐项核实。")}
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
         </div>
       )}

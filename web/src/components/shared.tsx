@@ -43,7 +43,9 @@ export function ErrorBox({ message, retry }: { message: string; retry?: () => vo
         <p>{message}</p>
         {retry && (
           <Button variant="outline" size="sm" onClick={retry}>
-            <RefreshCw data-icon="inline-start" />{tr("重新加载")}{" "}</Button>
+            <RefreshCw data-icon="inline-start" />
+            {tr("重新加载")}{" "}
+          </Button>
         )}
       </AlertDescription>
     </Alert>
@@ -135,7 +137,9 @@ export function More({
 }) {
   return cursor ? (
     <div className="flex justify-center py-4">
-      <Button variant="outline" disabled={loading} onClick={() => onLoad(cursor)}>{tr("加载更多")}{" "}</Button>
+      <Button variant="outline" disabled={loading} onClick={() => onLoad(cursor)}>
+        {tr("加载更多")}{" "}
+      </Button>
     </div>
   ) : null;
 }

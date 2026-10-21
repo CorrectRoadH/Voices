@@ -85,7 +85,11 @@ export default {
     if (url.pathname !== "/") return json({ error: "not_found" }, 404);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
-    ctx.waitUntil(Promise.resolve().then(() => recordUpdateRequest(env.UPDATE_REQUESTS, url.searchParams, request)));
+    ctx.waitUntil(
+      Promise.resolve().then(() =>
+        recordUpdateRequest(env.UPDATE_REQUESTS, url.searchParams, request),
+      ),
+    );
     // Cache only the release snapshot; announcements are filtered at request time.
     const key = new Request(`${url.origin}/__release_cache/${encodeURIComponent(env.GITHUB_REPO)}`);
     let releaseManifest: Manifest | undefined;

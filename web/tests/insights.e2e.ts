@@ -77,13 +77,23 @@ test("目录内生成、失败重试、章节定位及手机深色操作", async
   expect(await browser.evaluate(() => document.querySelector("audio")!.paused)).toBe(true);
   const initialCount = await browser.locator(".segments > article").count();
   await browser.locator(".segments > article").first().scrollIntoView();
-  await expect.poll(() => browser.locator(".segments > article").count()).toBeGreaterThan(initialCount);
+  await expect
+    .poll(() => browser.locator(".segments > article").count())
+    .toBeGreaterThan(initialCount);
   await expect(screen.getByText("向上滚动加载更多", { exact: true })).toHaveCount(0);
-  await browser.evaluate(() => { window.scrollTo(0, 0); document.querySelector(".transcript-card")!.scrollTop = 0; return null; });
-  expect(await browser.evaluate(() => Math.abs(
-    document.querySelector(".segments")!.getBoundingClientRect().top -
-    document.querySelector(".sidebar-tabs")!.getBoundingClientRect().top,
-  ))).toBeLessThan(2);
+  await browser.evaluate(() => {
+    window.scrollTo(0, 0);
+    document.querySelector(".transcript-card")!.scrollTop = 0;
+    return null;
+  });
+  expect(
+    await browser.evaluate(() =>
+      Math.abs(
+        document.querySelector(".segments")!.getBoundingClientRect().top -
+          document.querySelector(".sidebar-tabs")!.getBoundingClientRect().top,
+      ),
+    ),
+  ).toBeLessThan(2);
 
   // 编辑正文后摘要过期，在目录内直接重新生成和重试。
   const target = browser.locator(`#segment-${last}`);
@@ -108,13 +118,21 @@ test("目录内生成、失败重试、章节定位及手机深色操作", async
   await browser.goto(`${base}/recordings/${rid}/transcriptions/${tid}`);
   await browser.setViewport({ width: 390, height: 844 });
   await screen.getByRole("button", { name: "目录", exact: true }).click();
-  await browser.locator("[data-slot=popover-content]").getByRole("tab", { name: "摘要", exact: true }).click();
+  await browser
+    .locator("[data-slot=popover-content]")
+    .getByRole("tab", { name: "摘要", exact: true })
+    .click();
   await browser
     .locator("[data-slot=popover-content]")
     .getByRole("button", { name: "重新生成" })
     .click();
-  await expect(browser.locator("[data-slot=popover-content]").getByRole("button", { name: "查看完整摘要" })).toBeVisible();
-  await browser.locator("[data-slot=popover-content]").getByRole("tab", { name: "目录", exact: true }).click();
+  await expect(
+    browser.locator("[data-slot=popover-content]").getByRole("button", { name: "查看完整摘要" }),
+  ).toBeVisible();
+  await browser
+    .locator("[data-slot=popover-content]")
+    .getByRole("tab", { name: "目录", exact: true })
+    .click();
   await expect(
     browser.locator("[data-slot=popover-content]").getByRole("navigation", { name: "AI 主题目录" }),
   ).toBeVisible();

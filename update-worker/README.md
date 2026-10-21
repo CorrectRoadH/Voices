@@ -7,16 +7,16 @@ Cloudflare Worker serving `GET /`: latest stable GitHub release plus bundled ann
 From the repository root:
 
 ```sh
-pnpm --dir update-worker install --frozen-lockfile
-pnpm --dir update-worker check
-pnpm --dir update-worker test
-pnpm --dir update-worker test:runtime # cf build + real workerd tests; does not publish
-pnpm --dir update-worker dev
+vp -C update-worker install --frozen-lockfile
+vp -C update-worker run check
+vp -C update-worker run test
+vp -C update-worker run test:runtime # cf build + real workerd tests; does not publish
+vp -C update-worker run dev
 ```
 
 ## Deployment
 
-After review and authorization, use the `Deploy update worker` GitHub workflow on `main`. Configure the `update-worker-production` environment with `CLOUDFLARE_API_TOKEN` (limit to the target account/Worker) and `CLOUDFLARE_ACCOUNT_ID`. A manual CLI alternative is `pnpm --dir update-worker deploy` with those environment variables. The custom domain voices.niceeval.com and Analytics Engine dataset voices_update_requests are declared in cloudflare.config.ts; no account ID or credentials are embedded.
+After review and authorization, use the `Deploy update worker` GitHub workflow on `main`. Configure the `update-worker-production` environment with `CLOUDFLARE_API_TOKEN` (limit to the target account/Worker) and `CLOUDFLARE_ACCOUNT_ID`. A manual CLI alternative is `vp -C update-worker run deploy` with those environment variables. The custom domain voices.niceeval.com and Analytics Engine dataset voices_update_requests are declared in cloudflare.config.ts; no account ID or credentials are embedded.
 
 The application defaults to `UPDATE_URL=https://voices.niceeval.com/`. An explicitly empty `UPDATE_URL` disables checks and statistics. Restart after changing deployment settings. Trust the endpoint operator: they control the notices and HTTPS links shown to administrators. Optional Worker secret `GITHUB_TOKEN` raises GitHub API rate limits; it is never an application/browser setting.
 
@@ -50,4 +50,4 @@ The release lookup covers at most 1000 GitHub releases and refuses an incomplete
 
 Statistics accompany actual update checks only. Missing/malformed IDs and versions are ignored; Analytics Engine failures never fail the manifest. The dataset maps index1 to installation UUID and blob1..6 to version, Go version, OS, architecture, locale and country. Grafana's Voices dashboard reuses `cf-ae`; sampled distinct installations are observations, not exact users. Version/environment buckets cover values observed during the period, so an installation may occupy several buckets. Multiple replicas increase request counts. Version `smoke` is reserved for acceptance probes and excluded from the dashboard.
 
-The project uses pinned `cf` plus the Cloudflare Vite plugin for dev/build/deploy. `pnpm --dir update-worker exec cf deploy --prebuilt` publishes an already checked build. OAuth credentials stay in the CLI profile; CI uses its existing Cloudflare environment secrets.
+The project uses pinned `cf` plus the Cloudflare Vite plugin for dev/build/deploy. `vp -C update-worker exec cf deploy --prebuilt` publishes an already checked build. OAuth credentials stay in the CLI profile; CI uses its existing Cloudflare environment secrets.

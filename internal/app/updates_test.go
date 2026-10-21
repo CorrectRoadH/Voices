@@ -62,7 +62,7 @@ func TestUpdatesBrowser(t *testing.T) {
 	defer f.a.Updates.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "pnpm", "exec", "e2e", "run", "tests/updates.e2e.ts")
+	cmd := exec.CommandContext(ctx, "vp", "exec", "e2e", "run", "tests/updates.e2e.ts")
 	cmd.Dir = "../../web"
 	cmd.Env = append(os.Environ(), "E2E_TELEMETRY_DISABLED=1", "VOICES_E2E_OUTPUT=.e2e/updates", "VOICES_TEST_URL="+f.server.URL)
 	output, err := cmd.CombinedOutput()

@@ -40,7 +40,10 @@ test("真实上传转写、编辑与人物归属、导出及登录后恢复句�
   await expect(target).toContainText("浏览器校正 [保留]。");
   await screen.getByRole("button", { name: "编辑标题", exact: true }).click();
   await screen.getByLabel("标题", { exact: true }).fill("原位编辑标题");
-  await screen.getByRole("region", { name: "编辑录音信息" }).getByRole("button", { name: "保存", exact: true }).click();
+  await screen
+    .getByRole("region", { name: "编辑录音信息" })
+    .getByRole("button", { name: "保存", exact: true })
+    .click();
   await expect(screen.getByRole("heading", { name: "原位编辑标题", exact: true })).toBeVisible();
   await screen.getByRole("tab", { name: "录音信息" }).click();
   await screen.getByRole("button", { name: "编辑备注", exact: true }).click();
@@ -48,8 +51,13 @@ test("真实上传转写、编辑与人物归属、导出及登录后恢复句�
   await screen.getByRole("tab", { name: "摘要", exact: true }).click();
   await screen.getByRole("tab", { name: "录音信息", exact: true }).click();
   await expect(screen.getByLabel("备注", { exact: true })).toHaveValue("备注草稿");
-  await screen.getByRole("region", { name: "编辑录音信息" }).getByRole("button", { name: "保存", exact: true }).click();
-  await expect(screen.getByRole("button", { name: "编辑备注", exact: true })).toHaveText("备注草稿");
+  await screen
+    .getByRole("region", { name: "编辑录音信息" })
+    .getByRole("button", { name: "保存", exact: true })
+    .click();
+  await expect(screen.getByRole("button", { name: "编辑备注", exact: true })).toHaveText(
+    "备注草稿",
+  );
   await screen.getByRole("button", { name: "编辑开始时间" }).click();
   await screen.getByLabel("录音开始时间").fill("2026-10-18T10:20:30");
   await screen
@@ -128,12 +136,17 @@ test("真实上传转写、编辑与人物归属、导出及登录后恢复句�
   await browser.goto(detailUrl);
   await expect(target).toHaveAttribute("class", /segment-self/);
   await expect(browser.locator(`#segment-${segmentId} [data-slot=avatar-image]`)).toBeVisible();
-  const railTop = await browser.evaluate(() => document.querySelector(".sidebar-tabs")!.getBoundingClientRect().top);
+  const railTop = await browser.evaluate(
+    () => document.querySelector(".sidebar-tabs")!.getBoundingClientRect().top,
+  );
   await browser.locator(".segments > article").last().scrollIntoView();
   await expect.poll(() => browser.locator(".segments > article").count()).toBeGreaterThan(50);
   await expect(target).toHaveCount(1);
-  expect(await browser.evaluate(() => document.querySelector(".sidebar-tabs")!.getBoundingClientRect().top)).toBe(railTop);
-
+  expect(
+    await browser.evaluate(
+      () => document.querySelector(".sidebar-tabs")!.getBoundingClientRect().top,
+    ),
+  ).toBe(railTop);
 
   // 背景声过滤和带锚点链接均使用真实片段。
   await browser.goto(detailUrl);

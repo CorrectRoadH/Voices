@@ -16,7 +16,8 @@ export default {
   "runner": {
     "kind": "command",
     "argv": [
-      "pnpm",
+      "vp",
+      "run",
       "check"
     ],
     "sourceFiles": [

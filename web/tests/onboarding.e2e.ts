@@ -3,7 +3,11 @@ import { expect } from "e2e";
 import { api, fixture, login, logout, noOverflow, register } from "./support/session";
 
 // @use-case docs/feature/accounts/use-case/setup-site.md
-test("管理员注册后独立初始化、恢复草稿、测试失败修正和普通用户分流", async ({ app, browser, screen }) => {
+test("管理员注册后独立初始化、恢复草稿、测试失败修正和普通用户分流", async ({
+  app,
+  browser,
+  screen,
+}) => {
   await browser.emulateMedia({ colorScheme: "dark" });
   await app.open();
   await screen.getByLabel("邮箱", { exact: true }).fill("setup@example.test");

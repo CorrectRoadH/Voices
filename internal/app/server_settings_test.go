@@ -242,7 +242,7 @@ func TestServerSettingsBrowser(t *testing.T) {
 	f.a.Config.WebDir = "../../web/dist"
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "pnpm", "exec", "e2e", "run", "tests/settings.e2e.ts")
+	cmd := exec.CommandContext(ctx, "vp", "exec", "e2e", "run", "tests/settings.e2e.ts")
 	cmd.Dir = "../../web"
 	cmd.Env = append(os.Environ(), "E2E_TELEMETRY_DISABLED=1", "VOICES_E2E_OUTPUT=.e2e/settings", "VOICES_TEST_URL="+f.server.URL)
 	output, err := cmd.CombinedOutput()

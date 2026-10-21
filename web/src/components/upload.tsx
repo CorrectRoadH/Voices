@@ -64,7 +64,11 @@ export function UploadDialog({
   const { notify } = useApp();
   const completed = useRef(false);
   useEffect(() => {
-    if (!completed.current && entries.length > 0 && entries.every((entry) => entry.status === "done")) {
+    if (
+      !completed.current &&
+      entries.length > 0 &&
+      entries.every((entry) => entry.status === "done")
+    ) {
       completed.current = true;
       notify(tr("已导入 {{v0}} 个文件", { v0: entries.length }));
       onOpenChange(false);
@@ -162,7 +166,9 @@ export function UploadDialog({
         <strong>{tr("将音频拖到这里")}</strong>
         <span className="text-sm text-muted-foreground">MP3、M4A、WAV、FLAC、OGG、WebM</span>
         <Button variant="outline" onClick={() => input.current?.click()}>
-          <Plus data-icon="inline-start" />{tr("选择文件")}{" "}</Button>
+          <Plus data-icon="inline-start" />
+          {tr("选择文件")}{" "}
+        </Button>
         <input
           ref={input}
           type="file"
@@ -202,7 +208,10 @@ export function UploadDialog({
               {entry.status === "done" ? <CheckCircle2 className="size-5 text-primary" /> : null}
             </div>
             {entry.status === "uploading" && (
-              <Progress value={entry.progress} aria-label={tr("{{v0}} 上传进度", { v0: entry.file.name })} />
+              <Progress
+                value={entry.progress}
+                aria-label={tr("{{v0}} 上传进度", { v0: entry.file.name })}
+              />
             )}
             {entry.error && (
               <p className="text-sm text-destructive" role="alert">
@@ -217,13 +226,17 @@ export function UploadDialog({
                     size="sm"
                     disabled={busy}
                     onClick={() => setEditing(editing === entry.id ? null : entry.id)}
-                  >{tr("录音标题与选项")}{" "}</Button>
+                  >
+                    {tr("录音标题与选项")}{" "}
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     disabled={busy}
                     onClick={() => setEntries((old) => old.filter((e) => e.id !== entry.id))}
-                  >{tr("移除")}{" "}</Button>
+                  >
+                    {tr("移除")}{" "}
+                  </Button>
                 </>
               )}
               {entry.status === "error" && (
@@ -232,7 +245,9 @@ export function UploadDialog({
                   size="sm"
                   disabled={busy}
                   onClick={() => void send(entry)}
-                >{tr("重新上传")}{" "}</Button>
+                >
+                  {tr("重新上传")}{" "}
+                </Button>
               )}
               {entry.recordingId && (
                 <Button
@@ -245,7 +260,9 @@ export function UploadDialog({
                       onClick={() => onOpenChange(false)}
                     />
                   }
-                >{tr("查看录音")}{" "}</Button>
+                >
+                  {tr("查看录音")}{" "}
+                </Button>
               )}
             </div>
             {editing === entry.id && entry.status === "waiting" && (
@@ -258,20 +275,22 @@ export function UploadDialog({
                     onChange={(e) => patch(entry.id, { title: e.target.value })}
                   />
                 </Field>
-                {(
+                {
                   <OptionsFields
                     providers={providers}
                     value={entry.options || options}
                     onChange={(value) => patch(entry.id, { options: value })}
                   />
-                )}
+                }
               </FieldGroup>
             )}
           </section>
         ))}
       </div>
       <div className="flex justify-end gap-2">
-        <Button variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>{tr("关闭")}{" "}</Button>
+        <Button variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>
+          {tr("关闭")}{" "}
+        </Button>
         <Button
           disabled={busy || !entries.some((e) => e.status === "waiting")}
           onClick={() => void start()}

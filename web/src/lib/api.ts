@@ -31,9 +31,12 @@ export function errorMessage(error: unknown): string {
     if (error.status === 403 && error.code === "csrf_rejected")
       return tr("请求未获授权，请刷新会话后重试。");
     if (error.status === 404) return tr("目标不存在、已删除或不属于当前录音。");
-    const message = interfaceLocale() === "en"
-      ? Object.hasOwn(english, error.message) ? tr(error.message) : `${tr("服务器拒绝请求。")} (${error.code})`
-      : error.message;
+    const message =
+      interfaceLocale() === "en"
+        ? Object.hasOwn(english, error.message)
+          ? tr(error.message)
+          : `${tr("服务器拒绝请求。")} (${error.code})`
+        : error.message;
     return `${message}${error.requestId ? tr("（请求 {{v0}}）", { v0: error.requestId }) : ""}`;
   }
   return error instanceof Error ? error.message : tr("操作失败，请稍后重试。");

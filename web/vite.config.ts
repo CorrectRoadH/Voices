@@ -8,6 +8,8 @@ export default defineConfig(({ mode }) => {
   const pathname = new URL(env.PUBLIC_BASE_URL || "/", "http://localhost").pathname;
   const base = `${pathname.replace(/\/$/, "")}/`;
   return {
+    lint: { options: { typeAware: true, typeCheck: true } },
+    fmt: { ignorePatterns: ["src/lib/api.generated.ts"] },
     base,
     envDir,
     plugins: [react(), tailwindcss()],

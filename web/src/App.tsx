@@ -1,6 +1,12 @@
 // @concord-file
 // @concord-implements docs/feature/accounts/README.md
-import { tr, changeInterfaceLanguage, guestLanguage, normalizeLanguage, interfaceLocale } from "@/lib/i18n";
+import {
+  tr,
+  changeInterfaceLanguage,
+  guestLanguage,
+  normalizeLanguage,
+  interfaceLocale,
+} from "@/lib/i18n";
 import { useTranslation } from "react-i18next";
 import { GuestLanguageSelect } from "@/components/language-select";
 import { useEffect, useLayoutEffect, useState, type FormEvent } from "react";
@@ -68,7 +74,11 @@ function Login({
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [registering, setRegistering] = useState(false);
-  const status = useResource<{ initialized: boolean; registration_open: boolean; site_setup_completed: boolean }>("/auth/status");
+  const status = useResource<{
+    initialized: boolean;
+    registration_open: boolean;
+    site_setup_completed: boolean;
+  }>("/auth/status");
   const first = status.data?.initialized === false;
   const register = first || registering;
   const [busy, setBusy] = useState(false);
@@ -89,7 +99,15 @@ function Login({
       const session = await write<Session>(
         register ? "/users" : "/session",
         "POST",
-        register ? { email, password, username: displayName, display_name: displayName, ui_language: interfaceLocale() } : { identifier: email, password },
+        register
+          ? {
+              email,
+              password,
+              username: displayName,
+              display_name: displayName,
+              ui_language: interfaceLocale(),
+            }
+          : { identifier: email, password },
       );
       const base = basePath(import.meta.env.BASE_URL);
       const requested = new URLSearchParams(location.search).get("return_to");
@@ -101,7 +119,10 @@ function Login({
       navigate(target.slice(base.length) || "/recordings", { replace: true });
     } catch (e) {
       setErrorCode(e instanceof HttpError ? e.code : "");
-      const message = e instanceof HttpError && e.status === 401 ? tr("用户名、邮箱或密码不正确，请重试。") : errorMessage(e);
+      const message =
+        e instanceof HttpError && e.status === 401
+          ? tr("用户名、邮箱或密码不正确，请重试。")
+          : errorMessage(e);
       setError(message);
       notify(message, true);
     } finally {
@@ -126,11 +147,15 @@ function Login({
             <span className="login-lock">
               <LockKeyhole />
             </span>
-            <CardTitle>{first ? tr("创建管理员账号") : register ? tr("注册账号") : tr("欢迎回来")}</CardTitle>
+            <CardTitle>
+              {first ? tr("创建管理员账号") : register ? tr("注册账号") : tr("欢迎回来")}
+            </CardTitle>
             {first && <CardDescription>{tr("首个注册账号将成为管理员。")}</CardDescription>}
           </CardHeader>
           <CardContent>
-            <div className="mb-5"><GuestLanguageSelect /></div>
+            <div className="mb-5">
+              <GuestLanguageSelect />
+            </div>
             <ErrorBox
               message={initialError || status.error}
               retry={() => {
@@ -141,7 +166,9 @@ function Login({
             <form id="login-form" onSubmit={login}>
               <FieldGroup>
                 <Field data-invalid={emailError}>
-                  <FieldLabel htmlFor="email">{register ? tr("邮箱") : tr("用户名或邮箱")}</FieldLabel>
+                  <FieldLabel htmlFor="email">
+                    {register ? tr("邮箱") : tr("用户名或邮箱")}
+                  </FieldLabel>
                   <Input
                     id="email"
                     name={register ? "email" : "username"}
@@ -180,7 +207,9 @@ function Login({
                     aria-invalid={passwordError}
                   />
                   {register && (
-                    <p className="text-sm text-muted-foreground">{tr("至少 6 个字符，不要求字母、数字或符号组合。")}{" "}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {tr("至少 6 个字符，不要求字母、数字或符号组合。")}{" "}
+                    </p>
                   )}
                   {error && (
                     <p className="text-sm text-destructive" role="alert">
@@ -222,9 +251,15 @@ function Login({
               </Button>
             )}
             {status.data && !status.data.registration_open && (
-              <p className="text-sm text-muted-foreground">{status.data.initialized && !status.data.site_setup_completed ? tr("站点初始化尚未完成，请等待管理员完成配置") : tr("注册已关闭，请使用已有账号登录。")}</p>
+              <p className="text-sm text-muted-foreground">
+                {status.data.initialized && !status.data.site_setup_completed
+                  ? tr("站点初始化尚未完成，请等待管理员完成配置")
+                  : tr("注册已关闭，请使用已有账号登录。")}
+              </p>
             )}
-            <p className="text-center text-xs text-muted-foreground">{tr("录音与句子引用都需要登录后访问。")}{" "}</p>
+            <p className="text-center text-xs text-muted-foreground">
+              {tr("录音与句子引用都需要登录后访问。")}{" "}
+            </p>
           </CardFooter>
         </Card>
       </div>
@@ -266,19 +301,44 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
         {session.user.role === "admin" && (
           <nav aria-label={tr("服务器管理")} className="admin-nav max-md:flex-wrap">
             <p className="nav-group-label">{tr("服务器管理")}</p>
-<NavLink to="/admin/overview" className={({ isActive }) => cn("nav-item", isActive && "nav-active")}><Server/><span>{tr("站点概览")}</span></NavLink>
-<NavLink to="/admin/logs" className={({ isActive }) => cn("nav-item", isActive && "nav-active")}><ListTodo/><span>{tr("系统日志")}</span></NavLink>
-            <NavLink to="/admin/accounts" className={({ isActive }) => cn("nav-item", isActive && "nav-active")}>
+            <NavLink
+              to="/admin/overview"
+              className={({ isActive }) => cn("nav-item", isActive && "nav-active")}
+            >
+              <Server />
+              <span>{tr("站点概览")}</span>
+            </NavLink>
+            <NavLink
+              to="/admin/logs"
+              className={({ isActive }) => cn("nav-item", isActive && "nav-active")}
+            >
+              <ListTodo />
+              <span>{tr("系统日志")}</span>
+            </NavLink>
+            <NavLink
+              to="/admin/accounts"
+              className={({ isActive }) => cn("nav-item", isActive && "nav-active")}
+            >
               <Users />
               <span>{tr("账号管理")}</span>
             </NavLink>
-            <NavLink to="/admin/server" className={({ isActive }) => cn("nav-item", isActive && "nav-active")}><Server /><span>{tr("服务器设置")}</span></NavLink>
+            <NavLink
+              to="/admin/server"
+              className={({ isActive }) => cn("nav-item", isActive && "nav-active")}
+            >
+              <Server />
+              <span>{tr("服务器设置")}</span>
+            </NavLink>
           </nav>
         )}
         <div className="sidebar-bottom">
           <Separator />
           <div className="account-row">
-            <NavLink to="/account" aria-label={tr("我的账号")} className={({ isActive }) => cn("account-profile", isActive && "nav-active")}>
+            <NavLink
+              to="/account"
+              aria-label={tr("我的账号")}
+              className={({ isActive }) => cn("account-profile", isActive && "nav-active")}
+            >
               <span className="account-avatar">{Array.from(session.user.display_name)[0]}</span>
               <span className="account-identity">
                 <span className="truncate">{session.user.display_name}</span>
@@ -314,7 +374,9 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
           {session.restore_mode && (
             <Alert className="mb-5">
               <AlertTitle>{tr("数据库恢复核对模式")}</AlertTitle>
-              <AlertDescription>{tr("历史任务已隔离，请在任务页核实远端受理情况。不会自动重新提交付费任务。")}{" "}</AlertDescription>
+              <AlertDescription>
+                {tr("历史任务已隔离，请在任务页核实远端受理情况。不会自动重新提交付费任务。")}{" "}
+              </AlertDescription>
             </Alert>
           )}
           <Routes>
@@ -331,9 +393,36 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
             <Route path="/jobs" element={<JobsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/account" element={<AccountPage />} />
-            <Route path="/admin/overview" element={session.user.role === "admin" ? <AdminOverviewPage /> : <Navigate to="/recordings" replace />} />
-<Route path="/admin/logs" element={session.user.role === "admin" ? <AdminLogsPage /> : <Navigate to="/recordings" replace />} />
-<Route path="/admin/server" element={session.user.role === "admin" ? <ServerSettingsPage /> : <Navigate to="/recordings" replace />} />
+            <Route
+              path="/admin/overview"
+              element={
+                session.user.role === "admin" ? (
+                  <AdminOverviewPage />
+                ) : (
+                  <Navigate to="/recordings" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/logs"
+              element={
+                session.user.role === "admin" ? (
+                  <AdminLogsPage />
+                ) : (
+                  <Navigate to="/recordings" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/server"
+              element={
+                session.user.role === "admin" ? (
+                  <ServerSettingsPage />
+                ) : (
+                  <Navigate to="/recordings" replace />
+                )
+              }
+            />
             <Route
               path="/admin/accounts"
               element={
@@ -346,7 +435,9 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
             />
             <Route
               path="*"
-              element={<EmptyState title={tr("页面不存在")} description={tr("请从左侧导航返回工作台。")} />}
+              element={
+                <EmptyState title={tr("页面不存在")} description={tr("请从左侧导航返回工作台。")} />
+              }
             />
           </Routes>
         </main>
@@ -357,7 +448,9 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
 function AppContent() {
   const [session, setSession] = useState<Session | null>(null);
   useLayoutEffect(() => {
-    changeInterfaceLanguage(session ? normalizeLanguage(session.user.ui_language) : guestLanguage());
+    changeInterfaceLanguage(
+      session ? normalizeLanguage(session.user.ui_language) : guestLanguage(),
+    );
   }, [session?.user.id, session?.user.ui_language]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -411,9 +504,13 @@ function AppContent() {
     <SessionProvider
       session={session}
       notify={notify}
-      updateUser={(user) => setSession((current) => current?.user.id === user.id ? { ...current, user } : current)}
+      updateUser={(user) =>
+        setSession((current) => (current?.user.id === user.id ? { ...current, user } : current))
+      }
     >
-      <SiteSetupGate onLogout={() => setSession(null)}><Shell session={session} onLogout={() => setSession(null)} /></SiteSetupGate>
+      <SiteSetupGate onLogout={() => setSession(null)}>
+        <Shell session={session} onLogout={() => setSession(null)} />
+      </SiteSetupGate>
     </SessionProvider>
   );
 }
@@ -431,11 +528,11 @@ export default function App() {
   useTranslation();
   return (
     <ThemeProvider>
-    <BrowserRouter basename={basePath(import.meta.env.BASE_URL) || "/"}>
-      <Toaster>
-        <AppContent />
-      </Toaster>
-    </BrowserRouter>
+      <BrowserRouter basename={basePath(import.meta.env.BASE_URL) || "/"}>
+        <Toaster>
+          <AppContent />
+        </Toaster>
+      </BrowserRouter>
     </ThemeProvider>
   );
 }

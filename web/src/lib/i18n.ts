@@ -11,8 +11,11 @@ export function normalizeLanguage(value: unknown): UILanguage {
 }
 
 export function guestLanguage(): UILanguage {
-  try { return normalizeLanguage(localStorage.getItem("voices.guest-language")); }
-  catch { return "zh-CN"; }
+  try {
+    return normalizeLanguage(localStorage.getItem("voices.guest-language"));
+  } catch {
+    return "zh-CN";
+  }
 }
 
 void i18n.use(initReactI18next).init({
@@ -41,7 +44,11 @@ export function changeInterfaceLanguage(language: UILanguage) {
 }
 
 export function chooseGuestLanguage(language: UILanguage) {
-  try { localStorage.setItem("voices.guest-language", language); } catch { /* Remain usable without storage. */ }
+  try {
+    localStorage.setItem("voices.guest-language", language);
+  } catch {
+    /* Remain usable without storage. */
+  }
   changeInterfaceLanguage(language);
 }
 

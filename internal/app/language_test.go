@@ -151,7 +151,7 @@ func TestInterfaceLanguageBrowser(t *testing.T) {
 	defer models.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "pnpm", "exec", "e2e", "run", "tests/language.e2e.ts")
+	cmd := exec.CommandContext(ctx, "vp", "exec", "e2e", "run", "tests/language.e2e.ts")
 	cmd.Dir = "../../web"
 	cmd.Env = append(os.Environ(), "E2E_TELEMETRY_DISABLED=1", "VOICES_E2E_OUTPUT=.e2e/language", "VOICES_TEST_URL="+f.server.URL, "VOICES_MODEL_TEST_URL="+models.URL)
 	output, err := cmd.CombinedOutput()

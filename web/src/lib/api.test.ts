@@ -100,14 +100,12 @@ it("202 带 JSON 的转写创建响应保留新版本与任务", async () => {
   const accepted = { transcription: { id: "new-version" }, job: { id: "job-1" } };
   vi.stubGlobal(
     "fetch",
-    vi
-      .fn()
-      .mockResolvedValue(
-        new Response(JSON.stringify(accepted), {
-          status: 202,
-          headers: { "Content-Type": "application/json" },
-        }),
-      ),
+    vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(accepted), {
+        status: 202,
+        headers: { "Content-Type": "application/json" },
+      }),
+    ),
   );
   expect(await write("/recordings/r/transcriptions", "POST", {}, "key")).toEqual(accepted);
 });

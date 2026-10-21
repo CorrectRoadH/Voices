@@ -83,5 +83,7 @@ export function SessionProvider({
   updateUser: (user: User) => void;
   children: ReactNode;
 }) {
-  return <AppContext.Provider value={{ session, notify, updateUser }}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={{ session, notify, updateUser }}>{children}</AppContext.Provider>
+  );
 }

@@ -39,7 +39,13 @@ export async function logout(browser: Browser) {
   await browser.goto(fixture("VOICES_TEST_URL"));
 }
 
-export async function register(screen: Screen, email: string, username: string, password: string, first = false) {
+export async function register(
+  screen: Screen,
+  email: string,
+  username: string,
+  password: string,
+  first = false,
+) {
   await screen.getByLabel("邮箱").fill(email);
   await screen.getByLabel("用户名").fill(username);
   await screen.getByLabel("密码").fill(password);

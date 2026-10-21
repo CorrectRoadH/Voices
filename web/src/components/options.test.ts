@@ -35,7 +35,11 @@ describe("提交前的模型能力验证", () => {
       "语言模式",
     );
     expect(optionError({ ...options, languages: ["ja"] }, providers)).toContain("支持范围");
-    expect(optionError(options, [{ ...providers[0], models: [{ ...providers[0].models[0], diarization: false }] }])).toContain("说话人");
+    expect(
+      optionError(options, [
+        { ...providers[0], models: [{ ...providers[0].models[0], diarization: false }] },
+      ]),
+    ).toContain("说话人");
     expect(options.languages).toEqual(["zh"]);
   });
   it("拒绝文件与时长超限，以及不完整的多语言模式", () => {

@@ -68,17 +68,23 @@ export function JobsPage() {
   }, [data.data, cursor]);
   return (
     <>
-      <PageHeading
-        title={tr("处理任务")}
-      >
+      <PageHeading title={tr("处理任务")}>
         <Button variant="outline" onClick={data.refresh}>
-          <RefreshCw data-icon="inline-start" />{tr("刷新")}{" "}</Button>
+          <RefreshCw data-icon="inline-start" />
+          {tr("刷新")}{" "}
+        </Button>
       </PageHeading>
-      {items.some((job) => ["uncertain", "restore_hold"].includes(job.state)) && <Alert>
-        <ShieldQuestion />
-        <AlertTitle>{tr("安全恢复任务")}</AlertTitle>
-        <AlertDescription>{tr("结果待确认或恢复待核对的任务不会重新提交。可以记录查询观察；未知远端 ID 由运维者核实归属后登记，观察不会解除隔离。")}{" "}</AlertDescription>
-      </Alert>}
+      {items.some((job) => ["uncertain", "restore_hold"].includes(job.state)) && (
+        <Alert>
+          <ShieldQuestion />
+          <AlertTitle>{tr("安全恢复任务")}</AlertTitle>
+          <AlertDescription>
+            {tr(
+              "结果待确认或恢复待核对的任务不会重新提交。可以记录查询观察；未知远端 ID 由运维者核实归属后登记，观察不会解除隔离。",
+            )}{" "}
+          </AlertDescription>
+        </Alert>
+      )}
       <FieldGroup className="mt-5 max-w-xs">
         <Field>
           <FieldLabel htmlFor="job-filter">{tr("任务状态")}</FieldLabel>
@@ -128,16 +134,25 @@ export function JobsPage() {
                   <Status value={job.state} />
                 </div>
                 <CardDescription>
-                  {date(job.created_at)}{" "}{tr("· 失败")}{" "}{job.attempt}{" "}{tr("次 · 阶段：")}{stateName(job.stage)}
+                  {date(job.created_at)} {tr("· 失败")} {job.attempt} {tr("次 · 阶段：")}
+                  {stateName(job.stage)}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="break-all text-xs text-muted-foreground">{tr("任务 ID：")}{job.id}</p>
+                <p className="break-all text-xs text-muted-foreground">
+                  {tr("任务 ID：")}
+                  {job.id}
+                </p>
                 {job.error_code && (
-                  <p className="mt-2 text-sm text-destructive">{tr("错误代码：")}{job.error_code}</p>
+                  <p className="mt-2 text-sm text-destructive">
+                    {tr("错误代码：")}
+                    {job.error_code}
+                  </p>
                 )}
                 {["uncertain", "restore_hold"].includes(job.state) && (
-                  <p className="mt-2 text-sm text-muted-foreground">{tr("此任务可能已在服务商受理，不能安全重试或宣称清理完成。")}{" "}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {tr("此任务可能已在服务商受理，不能安全重试或宣称清理完成。")}{" "}
+                  </p>
                 )}
               </CardContent>
               <CardFooter className="flex-wrap gap-2">
@@ -155,7 +170,9 @@ export function JobsPage() {
                     />
                   }
                 >
-                  <ExternalLink data-icon="inline-start" />{tr("查看录音")}{" "}</Button>
+                  <ExternalLink data-icon="inline-start" />
+                  {tr("查看录音")}{" "}
+                </Button>
                 {canRetry(job) && (
                   <Button
                     size="sm"
@@ -166,7 +183,9 @@ export function JobsPage() {
                         data.refresh();
                       }, tr("已请求恢复安全阶段"))
                     }
-                  >{tr("恢复安全阶段")}{" "}</Button>
+                  >
+                    {tr("恢复安全阶段")}{" "}
+                  </Button>
                 )}
                 {["uncertain", "restore_hold"].includes(job.state) && (
                   <Button
@@ -177,7 +196,9 @@ export function JobsPage() {
                       setRemoteId("");
                       setNote("");
                     }}
-                  >{tr("登记核对结果")}{" "}</Button>
+                  >
+                    {tr("登记核对结果")}{" "}
+                  </Button>
                 )}
               </CardFooter>
             </Card>
@@ -249,7 +270,9 @@ export function JobsPage() {
                   placeholder={tr("操作 ID（可选）")}
                 />
               )}
-              <FieldDescription>{tr("同一任务有多个操作时，须先确认核对的是上传还是转写提交。")}{" "}</FieldDescription>
+              <FieldDescription>
+                {tr("同一任务有多个操作时，须先确认核对的是上传还是转写提交。")}{" "}
+              </FieldDescription>
               {resolve?.operations
                 ?.filter((operation) => operation.id === operationId)
                 .map((operation) => (
@@ -257,8 +280,13 @@ export function JobsPage() {
                     key={operation.id}
                     className="flex flex-col gap-2 text-sm text-muted-foreground"
                   >
-                    <p className="break-all">{tr("已登记远端 ID：")}{operation.remote_id || tr("尚无")}</p>
-                    <p className="whitespace-pre-wrap">{tr("既有核对说明：")}{operation.resolution_note || tr("尚无")}
+                    <p className="break-all">
+                      {tr("已登记远端 ID：")}
+                      {operation.remote_id || tr("尚无")}
+                    </p>
+                    <p className="whitespace-pre-wrap">
+                      {tr("既有核对说明：")}
+                      {operation.resolution_note || tr("尚无")}
                     </p>
                   </div>
                 ))}
@@ -270,7 +298,9 @@ export function JobsPage() {
                 value={remoteId}
                 onChange={(e) => setRemoteId(e.target.value)}
               />
-              <FieldDescription>{tr("只能确认此操作已经登记的 ID。未知 ID 请联系运维者；留空则仅保存查询观察。")}</FieldDescription>
+              <FieldDescription>
+                {tr("只能确认此操作已经登记的 ID。未知 ID 请联系运维者；留空则仅保存查询观察。")}
+              </FieldDescription>
             </Field>
             <Field>
               <FieldLabel htmlFor="resolve-note">{tr("核对说明")}</FieldLabel>
@@ -288,7 +318,9 @@ export function JobsPage() {
                 action.busy || !note.trim() || (!!resolve?.operations?.length && !operationId)
               }
               type="submit"
-            >{tr("保存核对记录")}{" "}</Button>
+            >
+              {tr("保存核对记录")}{" "}
+            </Button>
           </FieldGroup>
         </form>
       </Modal>

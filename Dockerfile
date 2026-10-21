@@ -1,13 +1,15 @@
-FROM --platform=$BUILDPLATFORM node:24-bookworm-slim AS web
+FROM --platform=$BUILDPLATFORM ghcr.io/voidzero-dev/vite-plus:1.3.0 AS web
+USER root
+RUN mkdir -p /src/web && chown -R vp:vp /src
+USER vp
 WORKDIR /src/web
-RUN corepack enable
-COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
-RUN pnpm install --frozen-lockfile
-COPY docs/api/openapi.json /src/docs/api/openapi.json
-COPY web/ ./
+COPY --chown=vp:vp web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
+RUN vp install --frozen-lockfile
+COPY --chown=vp:vp docs/api/openapi.json /src/docs/api/openapi.json
+COPY --chown=vp:vp web/ ./
 ARG PUBLIC_BASE_URL=http://localhost:8080
 ENV PUBLIC_BASE_URL=$PUBLIC_BASE_URL
-RUN pnpm build
+RUN vp run build
 
 FROM --platform=$BUILDPLATFORM golang:1.26-bookworm AS backend
 WORKDIR /src

@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vp dev --host 0.0.0.0",
-    "build": "pnpm typecheck && vp build",
+    "build": "vp run typecheck && vp build",
     "preview": "vp preview --host 0.0.0.0",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.e2e.json",
+    "typecheck": "vp exec tsc --noEmit && vp exec tsc -p tsconfig.e2e.json",
     "test": "vp test",
-    "generate:api": "openapi-typescript ../docs/api/openapi.json -o src/lib/api.generated.ts",
-    "test:e2e": "pnpm --dir .. test:e2e"
+    "generate:api": "vp exec openapi-typescript ../docs/api/openapi.json -o src/lib/api.generated.ts",
+    "test:e2e": "vp -C .. run test:e2e",
+    "check": "vp check && vp run typecheck"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

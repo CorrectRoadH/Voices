@@ -51,8 +51,17 @@ export function SegmentEditor({
       setInvalid(tr("起止时间须同时填写或同时留空，结束不得早于开始。"));
       return;
     }
-    const initialAssignment = segment.assignment_mode === "label" ? segment.speaker_label_id || "unknown" : segment.assignment_mode;
-    if (!reset && text === segment.text && startMs === segment.start_ms && endMs === segment.end_ms && assignment === initialAssignment) {
+    const initialAssignment =
+      segment.assignment_mode === "label"
+        ? segment.speaker_label_id || "unknown"
+        : segment.assignment_mode;
+    if (
+      !reset &&
+      text === segment.text &&
+      startMs === segment.start_ms &&
+      endMs === segment.end_ms &&
+      assignment === initialAssignment
+    ) {
       onClose();
       return;
     }
@@ -104,7 +113,9 @@ export function SegmentEditor({
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
-            <FieldDescription>{tr("可留空表示人工删除文字。恢复原文可撤销文字校正。")}</FieldDescription>
+            <FieldDescription>
+              {tr("可留空表示人工删除文字。恢复原文可撤销文字校正。")}
+            </FieldDescription>
           </Field>
           <Field>
             <FieldLabel htmlFor="segment-assignment">{tr("说话人归属")}</FieldLabel>
@@ -162,9 +173,15 @@ export function SegmentEditor({
               variant="ghost"
               disabled={action.busy || segment.edited_text === null}
               onClick={() => void save(true)}
-            >{tr("恢复原文")}{" "}</Button>
-            <Button variant="outline" type="button" disabled={action.busy} onClick={onClose}>{tr("取消")}{" "}</Button>
-            <Button type="submit" disabled={action.busy}>{tr("保存修改")}{" "}</Button>
+            >
+              {tr("恢复原文")}{" "}
+            </Button>
+            <Button variant="outline" type="button" disabled={action.busy} onClick={onClose}>
+              {tr("取消")}{" "}
+            </Button>
+            <Button type="submit" disabled={action.busy}>
+              {tr("保存修改")}{" "}
+            </Button>
           </div>
         </FieldGroup>
       </form>
@@ -201,7 +218,9 @@ function LabelForm({
       <FieldGroup>
         <ErrorBox message={action.error} />
         <Field>
-          <FieldLabel htmlFor={`label-${label.id}`}>{tr("标签名称")}{label.provider_label && ` · ${label.provider_label}`}
+          <FieldLabel htmlFor={`label-${label.id}`}>
+            {tr("标签名称")}
+            {label.provider_label && ` · ${label.provider_label}`}
           </FieldLabel>
           <Input
             id={`label-${label.id}`}
@@ -235,7 +254,9 @@ function LabelForm({
             )}
           </NativeSelect>
         </Field>
-        <Button variant="outline" type="submit" disabled={action.busy}>{tr("保存标签")}{" "}</Button>
+        <Button variant="outline" type="submit" disabled={action.busy}>
+          {tr("保存标签")}{" "}
+        </Button>
       </FieldGroup>
     </form>
   );
@@ -322,19 +343,56 @@ export function LabelsEditor({
                 ))}
             </NativeSelect>
           </Field>
-          <Button disabled={action.busy} type="submit">{tr("添加标签")}{" "}</Button>
+          <Button disabled={action.busy} type="submit">
+            {tr("添加标签")}{" "}
+          </Button>
         </FieldGroup>
       </form>
     </Modal>
   );
 }
 type RecordingFieldName = "title" | "recorded_at" | "notes";
-export function RecordingField({ recording, field, onSaved }: { recording: Recording; field: RecordingFieldName; onSaved: () => void }) {
+export function RecordingField({
+  recording,
+  field,
+  onSaved,
+}: {
+  recording: Recording;
+  field: RecordingFieldName;
+  onSaved: () => void;
+}) {
   const [editing, setEditing] = useState(false);
-  if (editing) return <RecordingEditor field={field} recording={recording} onSaved={onSaved} onClose={() => setEditing(false)} />;
-  const label = field === "title" ? tr("编辑标题") : field === "recorded_at" ? tr("编辑开始时间") : tr("编辑备注");
-  const value = field === "title" ? recording.title || recording.original_name : field === "recorded_at" ? new Date(recording.recorded_at).toLocaleString(interfaceLocale(), {hour12:false}) : recording.notes || tr("添加备注");
-  const control = <button type="button" className="cursor-text rounded-sm text-left whitespace-pre-wrap break-words hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring" aria-label={label} onClick={() => setEditing(true)}>{value}</button>;
+  if (editing)
+    return (
+      <RecordingEditor
+        field={field}
+        recording={recording}
+        onSaved={onSaved}
+        onClose={() => setEditing(false)}
+      />
+    );
+  const label =
+    field === "title"
+      ? tr("编辑标题")
+      : field === "recorded_at"
+        ? tr("编辑开始时间")
+        : tr("编辑备注");
+  const value =
+    field === "title"
+      ? recording.title || recording.original_name
+      : field === "recorded_at"
+        ? new Date(recording.recorded_at).toLocaleString(interfaceLocale(), { hour12: false })
+        : recording.notes || tr("添加备注");
+  const control = (
+    <button
+      type="button"
+      className="cursor-text rounded-sm text-left whitespace-pre-wrap break-words hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring"
+      aria-label={label}
+      onClick={() => setEditing(true)}
+    >
+      {value}
+    </button>
+  );
   return field === "title" ? <h1 aria-label={value}>{control}</h1> : control;
 }
 export function RecordingEditor({
@@ -352,8 +410,7 @@ export function RecordingEditor({
   const [title, setTitle] = useState(recording.title);
   const [notes, setNotes] = useState(recording.notes);
   const local = new Date(
-    new Date(base.recorded_at).getTime() -
-      new Date(base.recorded_at).getTimezoneOffset() * 60000,
+    new Date(base.recorded_at).getTime() - new Date(base.recorded_at).getTimezoneOffset() * 60000,
   )
     .toISOString()
     .slice(0, 19);
@@ -362,7 +419,12 @@ export function RecordingEditor({
   return (
     <section aria-label={tr("编辑录音信息")} className="recording-field-editor">
       <form
-        onKeyDown={(event) => { if (event.key === "Escape" && !action.busy) { event.preventDefault(); onClose(); } }}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && !action.busy) {
+            event.preventDefault();
+            onClose();
+          }
+        }}
         onSubmit={(e) => {
           e.preventDefault();
           void action.run(async () => {
@@ -372,14 +434,24 @@ export function RecordingEditor({
             if (recordedAt !== local) patch.recorded_at = new Date(recordedAt).toISOString();
             if (Object.keys(patch).length) {
               try {
-                await write(`/recordings/${base.id}`, "PATCH", { ...patch, revision: base.revision });
+                await write(`/recordings/${base.id}`, "PATCH", {
+                  ...patch,
+                  revision: base.revision,
+                });
               } catch (error) {
                 if (!(error instanceof HttpError) || error.status !== 409) throw error;
                 const latest = await request<Recording>(`/recordings/${base.id}`);
-                const changed = (Object.keys(patch) as (keyof typeof patch)[])
-                  .some((key) => latest[key] !== base[key]);
-                if (changed) throw new Error(tr("同一字段已被修改，你的输入已保留。请取消编辑并核对最新内容后再保存。"));
-                await write(`/recordings/${base.id}`, "PATCH", { ...patch, revision: latest.revision });
+                const changed = (Object.keys(patch) as (keyof typeof patch)[]).some(
+                  (key) => latest[key] !== base[key],
+                );
+                if (changed)
+                  throw new Error(
+                    tr("同一字段已被修改，你的输入已保留。请取消编辑并核对最新内容后再保存。"),
+                  );
+                await write(`/recordings/${base.id}`, "PATCH", {
+                  ...patch,
+                  revision: latest.revision,
+                });
               }
             }
             onSaved();
@@ -389,42 +461,62 @@ export function RecordingEditor({
       >
         <FieldGroup className="gap-2">
           <ErrorBox message={action.error} />
-          {field === "title" && <Field>
-            <FieldLabel htmlFor="recording-title">{tr("标题")}</FieldLabel>
-            <Input
-              id="recording-title"
-              autoFocus
-              value={title}
-              required
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </Field>}
-          {field === "recorded_at" && <Field>
-            <FieldLabel htmlFor="recorded-at">{tr("录音开始时间")}</FieldLabel>
-            <Input
-              id="recorded-at"
-              autoFocus
-              type="datetime-local"
-              step="1"
-              required
-              value={recordedAt}
-              onChange={(e) => setRecordedAt(e.target.value)}
-            />
-            <FieldDescription>{Intl.DateTimeFormat().resolvedOptions().timeZone}</FieldDescription>
-          </Field>}
-          {field === "notes" && <Field>
-            <FieldLabel htmlFor="recording-notes">{tr("备注")}</FieldLabel>
-            <Textarea
-              id="recording-notes"
-              autoFocus
-              rows={3}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </Field>}
+          {field === "title" && (
+            <Field>
+              <FieldLabel htmlFor="recording-title">{tr("标题")}</FieldLabel>
+              <Input
+                id="recording-title"
+                autoFocus
+                value={title}
+                required
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </Field>
+          )}
+          {field === "recorded_at" && (
+            <Field>
+              <FieldLabel htmlFor="recorded-at">{tr("录音开始时间")}</FieldLabel>
+              <Input
+                id="recorded-at"
+                autoFocus
+                type="datetime-local"
+                step="1"
+                required
+                value={recordedAt}
+                onChange={(e) => setRecordedAt(e.target.value)}
+              />
+              <FieldDescription>
+                {Intl.DateTimeFormat().resolvedOptions().timeZone}
+              </FieldDescription>
+            </Field>
+          )}
+          {field === "notes" && (
+            <Field>
+              <FieldLabel htmlFor="recording-notes">{tr("备注")}</FieldLabel>
+              <Textarea
+                id="recording-notes"
+                autoFocus
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </Field>
+          )}
           <div className="flex gap-2">
-            <Button size="xs" disabled={action.busy} type="submit">{tr("保存")}</Button>
-            <Button size="xs" disabled={action.busy} variant="outline" onClick={() => { onSaved(); onClose(); }}>{tr("取消")}</Button>
+            <Button size="xs" disabled={action.busy} type="submit">
+              {tr("保存")}
+            </Button>
+            <Button
+              size="xs"
+              disabled={action.busy}
+              variant="outline"
+              onClick={() => {
+                onSaved();
+                onClose();
+              }}
+            >
+              {tr("取消")}
+            </Button>
           </div>
         </FieldGroup>
       </form>
@@ -432,13 +524,109 @@ export function RecordingEditor({
   );
 }
 
-export function SegmentText({ segment, disabled, onSaved }: { segment: Segment; disabled: boolean; onSaved: (segment: Segment) => void }) {
-  const [draft, setDraft] = useState<{text: string; original: string; revision: number; width: number} | null>(null);
+export function SegmentText({
+  segment,
+  disabled,
+  onSaved,
+}: {
+  segment: Segment;
+  disabled: boolean;
+  onSaved: (segment: Segment) => void;
+}) {
+  const [draft, setDraft] = useState<{
+    text: string;
+    original: string;
+    revision: number;
+    width: number;
+  } | null>(null);
   const action = useAction();
-  if (!draft) return <button type="button" className="segment-text cursor-text text-left rounded-md focus-visible:outline-2 focus-visible:outline-ring" disabled={disabled} aria-label={tr("编辑这段文字")} onClick={(event) => setDraft({text:segment.text, original:segment.text, revision:segment.revision, width:Math.max(160, event.currentTarget.closest(".segment-bubble")!.getBoundingClientRect().width - 20)})}>{segment.text || <span className="text-muted-foreground">{tr("（此段文字已由人工清空）")}</span>}</button>;
-  return <form className="segment-editor" style={{width:draft.width, maxWidth:"100%"}} onSubmit={(event) => { event.preventDefault(); if (action.busy) return; if (draft.text === draft.original) { setDraft(null); return; } void action.run(async () => { const saved = await write<Segment>(`/segments/${segment.id}`, "PATCH", {revision:draft.revision, edited_text:draft.text}); onSaved(saved); setDraft(null); }, tr("文字已保存")); }}>
-    <Field><FieldLabel className="sr-only" htmlFor={`text-${segment.id}`}>{tr("片段文字")}</FieldLabel><Textarea id={`text-${segment.id}`} rows={1} autoFocus value={draft.text} disabled={action.busy} onChange={(event) => setDraft({...draft,text:event.target.value})} onKeyDown={(event) => { if (event.key === "Escape" && !action.busy) setDraft(null); if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) event.currentTarget.form?.requestSubmit(); }} /></Field>
-    <ErrorBox message={action.error} />
-    <div className="flex justify-end gap-1"><Button type="button" variant="ghost" size="icon-xs" aria-label={tr("取消编辑")} title={tr("取消（Esc）")} disabled={action.busy} onClick={() => setDraft(null)}><X /></Button><Button type="submit" variant="ghost" size="icon-xs" aria-label={tr("保存文字")} title={tr("保存（Ctrl/⌘+Enter）")} disabled={action.busy || disabled}><Check /></Button></div>
-  </form>;
+  if (!draft)
+    return (
+      <button
+        type="button"
+        className="segment-text cursor-text text-left rounded-md focus-visible:outline-2 focus-visible:outline-ring"
+        disabled={disabled}
+        aria-label={tr("编辑这段文字")}
+        onClick={(event) =>
+          setDraft({
+            text: segment.text,
+            original: segment.text,
+            revision: segment.revision,
+            width: Math.max(
+              160,
+              event.currentTarget.closest(".segment-bubble")!.getBoundingClientRect().width - 20,
+            ),
+          })
+        }
+      >
+        {segment.text || (
+          <span className="text-muted-foreground">{tr("（此段文字已由人工清空）")}</span>
+        )}
+      </button>
+    );
+  return (
+    <form
+      className="segment-editor"
+      style={{ width: draft.width, maxWidth: "100%" }}
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (action.busy) return;
+        if (draft.text === draft.original) {
+          setDraft(null);
+          return;
+        }
+        void action.run(async () => {
+          const saved = await write<Segment>(`/segments/${segment.id}`, "PATCH", {
+            revision: draft.revision,
+            edited_text: draft.text,
+          });
+          onSaved(saved);
+          setDraft(null);
+        }, tr("文字已保存"));
+      }}
+    >
+      <Field>
+        <FieldLabel className="sr-only" htmlFor={`text-${segment.id}`}>
+          {tr("片段文字")}
+        </FieldLabel>
+        <Textarea
+          id={`text-${segment.id}`}
+          rows={1}
+          autoFocus
+          value={draft.text}
+          disabled={action.busy}
+          onChange={(event) => setDraft({ ...draft, text: event.target.value })}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && !action.busy) setDraft(null);
+            if (event.key === "Enter" && (event.ctrlKey || event.metaKey))
+              event.currentTarget.form?.requestSubmit();
+          }}
+        />
+      </Field>
+      <ErrorBox message={action.error} />
+      <div className="flex justify-end gap-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          aria-label={tr("取消编辑")}
+          title={tr("取消（Esc）")}
+          disabled={action.busy}
+          onClick={() => setDraft(null)}
+        >
+          <X />
+        </Button>
+        <Button
+          type="submit"
+          variant="ghost"
+          size="icon-xs"
+          aria-label={tr("保存文字")}
+          title={tr("保存（Ctrl/⌘+Enter）")}
+          disabled={action.busy || disabled}
+        >
+          <Check />
+        </Button>
+      </div>
+    </form>
+  );
 }

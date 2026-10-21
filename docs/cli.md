@@ -13,17 +13,18 @@
 ## 仓库根目录开发命令
 
 - `air .`：从根目录 `.env` 加载后端配置，监听 Go / SQL 文件变化并重启后端。
-- `pnpm dev`：启动前端开发服务器，固定端口 5173，API 代理至 18080。
-- `pnpm build`：类型检查并构建前端。
-- `pnpm test`：运行 Go 单元与数据库集成测试、前端单元测试、Worker 单元测试和发布规则测试；要求 `TEST_DATABASE_URL`。
-- `pnpm check`：运行 `pnpm test`，再执行 Go vet、前端类型检查与构建、Worker 类型检查；不包含浏览器、大文件和 Worker runtime 验收。
-- `pnpm test:go` / `pnpm test:web` / `pnpm test:worker` / `pnpm test:release`：分别运行上述常规测试；只有 Go 测试要求数据库。
-- `pnpm test:db`：检查是否提供 `TEST_DATABASE_URL`，不启动数据库，也不验证连接。
-- `pnpm check:go`：执行 Go vet。
-- `pnpm test:e2e`：要求 `TEST_DATABASE_URL`，构建前端并由 Go fixture 启动真实应用、调用浏览器测试和清理资源。
-- `pnpm test:worker:runtime`：构建 Worker 并在 workerd 中验收。
-- `pnpm db:up`：启动 `compose.dev.yaml` 中的 PostgreSQL，等待健康检查通过。
-- `pnpm db:down`：停止开发数据库，保留数据卷。
+- `vp run dev`：启动前端开发服务器，固定端口 5173，API 代理至 18080。
+- `vp run build`：类型检查并构建前端。
+- `vp run test`：运行 Go 单元与数据库集成测试、前端单元测试、Worker 单元测试和发布规则测试；要求 `TEST_DATABASE_URL`。
+- `vp run check`：先运行前端与 Worker 格式、lint 和类型检查，再运行 `vp run test`、Go vet 与前端构建；不包含浏览器、大文件和 Worker runtime 验收。
+- `vp run test:go` / `vp run test:web` / `vp run test:worker` / `vp run test:release`：分别运行上述常规测试；只有 Go 测试要求数据库。
+- `vp run test:db`：检查是否提供 `TEST_DATABASE_URL`，不启动数据库，也不验证连接。
+- `vp run check:go`：执行 Go vet。
+- `vp run check:web` / `vp run check:worker`：分别执行前端或 Worker 的格式、lint 和类型检查；前端另外检查 E2E 类型。
+- `vp run test:e2e`：要求 `TEST_DATABASE_URL`，构建前端并由 Go fixture 启动真实应用、调用浏览器测试和清理资源。
+- `vp run test:worker:runtime`：构建 Worker 并在 workerd 中验收。
+- `vp run db:up`：启动 `compose.dev.yaml` 中的 PostgreSQL，等待健康检查通过。
+- `vp run db:down`：停止开发数据库，保留数据卷。
 
 开发配置含服务商密钥，`.env` 不入库；Vite 从根目录读取配置，只有 `VITE_` 前缀变量可暴露给浏览器。
 

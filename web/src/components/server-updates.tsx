@@ -46,7 +46,9 @@ export function ServerUpdates() {
     <Card className="my-6" data-testid="server-updates">
       <CardHeader>
         <CardTitle>{tr("版本与公告")}</CardTitle>
-        <CardDescription>{tr("查看发布说明与升级通知，更新检查不会自动安装软件。")}</CardDescription>
+        <CardDescription>
+          {tr("查看发布说明与升级通知，更新检查不会自动安装软件。")}
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex min-w-0 flex-col gap-4">
         <ErrorBox message={resource.error || action.error} retry={resource.refresh} />
@@ -54,16 +56,28 @@ export function ServerUpdates() {
         {data && (
           <>
             <div className="flex flex-wrap items-center gap-3">
-              <span>{tr("当前版本：")}{data.current_version}</span>
+              <span>
+                {tr("当前版本：")}
+                {data.current_version}
+              </span>
               <Badge variant="outline">{stateLabel(data)}</Badge>
             </div>
-            {data.latest_version && <p>{tr("最近获取的正式版本：")}{data.latest_version}</p>}
+            {data.latest_version && (
+              <p>
+                {tr("最近获取的正式版本：")}
+                {data.latest_version}
+              </p>
+            )}
             {data.checked_at && (
-              <p className="text-sm text-muted-foreground">{tr("最近检查：")}{new Date(data.checked_at).toLocaleString(interfaceLocale())}
+              <p className="text-sm text-muted-foreground">
+                {tr("最近检查：")}
+                {new Date(data.checked_at).toLocaleString(interfaceLocale())}
               </p>
             )}
             {data.last_success_at && (
-              <p className="text-sm text-muted-foreground">{tr("最后成功：")}{new Date(data.last_success_at).toLocaleString(interfaceLocale())}
+              <p className="text-sm text-muted-foreground">
+                {tr("最后成功：")}
+                {new Date(data.last_success_at).toLocaleString(interfaceLocale())}
               </p>
             )}
             {safeLink(data.release_url) && (
@@ -72,7 +86,8 @@ export function ServerUpdates() {
                 href={safeLink(data.release_url)}
                 target="_blank"
                 rel="noopener noreferrer"
-              >{tr("查看 GitHub 发布")}{" "}<ExternalLink aria-hidden="true" className="size-4" />
+              >
+                {tr("查看 GitHub 发布")} <ExternalLink aria-hidden="true" className="size-4" />
               </a>
             )}
             {data.release_notes && (
@@ -100,7 +115,9 @@ export function ServerUpdates() {
                     href={safeLink(item.link)}
                     target="_blank"
                     rel="noopener noreferrer"
-                  >{tr("查看公告详情")}{" "}</a>
+                  >
+                    {tr("查看公告详情")}{" "}
+                  </a>
                 )}
               </article>
             ))}

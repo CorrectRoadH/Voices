@@ -57,7 +57,9 @@ export function AccountPage() {
               <Field>
                 <FieldLabel htmlFor="account-theme">{tr("界面主题")}</FieldLabel>
                 <ThemeSelect id="account-theme" />
-                <FieldDescription>{tr("仅保存在当前浏览器；选择“跟随系统”可自动切换浅色与深色。")}</FieldDescription>
+                <FieldDescription>
+                  {tr("仅保存在当前浏览器；选择“跟随系统”可自动切换浅色与深色。")}
+                </FieldDescription>
               </Field>
               <AccountLanguageSelect />
             </FieldGroup>
@@ -66,13 +68,26 @@ export function AccountPage() {
         <Card>
           <CardHeader>
             <CardTitle>{tr("个人资料")}</CardTitle>
-            <CardDescription>{tr("邮箱")}{" "}{session.user.email} ·{" "}
+            <CardDescription>
+              {tr("邮箱")} {session.user.email} ·{" "}
               {session.user.role === "admin" ? tr("系统管理员") : tr("普通用户")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <FieldGroup>
-              <Field><FieldLabel htmlFor="account-username">{tr("用户名")}</FieldLabel><Input id="account-username" autoComplete="username" value={username} maxLength={32} onChange={(event) => setUsername(event.target.value)} /><FieldDescription>{tr("可用于登录，2–32 个字母、数字或下划线；留空则使用邮箱登录。")}</FieldDescription></Field>
+              <Field>
+                <FieldLabel htmlFor="account-username">{tr("用户名")}</FieldLabel>
+                <Input
+                  id="account-username"
+                  autoComplete="username"
+                  value={username}
+                  maxLength={32}
+                  onChange={(event) => setUsername(event.target.value)}
+                />
+                <FieldDescription>
+                  {tr("可用于登录，2–32 个字母、数字或下划线；留空则使用邮箱登录。")}
+                </FieldDescription>
+              </Field>
               <Field>
                 <FieldLabel htmlFor="account-name">{tr("显示名称")}</FieldLabel>
                 <Input
@@ -93,7 +108,9 @@ export function AccountPage() {
                   refreshSession();
                 }, tr("个人资料已保存"))
               }
-            >{tr("保存个人资料")}{" "}</Button>
+            >
+              {tr("保存个人资料")}{" "}
+            </Button>
           </CardFooter>
         </Card>
         <Card>
@@ -125,7 +142,9 @@ export function AccountPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
-                  <FieldDescription>{tr("至少 6 个字符，不要求复杂组合；不会自动去除空格。")}{" "}</FieldDescription>
+                  <FieldDescription>
+                    {tr("至少 6 个字符，不要求复杂组合；不会自动去除空格。")}{" "}
+                  </FieldDescription>
                 </Field>
                 <Field data-invalid={!!confirm && confirm !== password}>
                   <FieldLabel htmlFor="confirm-password">{tr("确认新密码")}</FieldLabel>
@@ -152,7 +171,9 @@ export function AccountPage() {
               disabled={
                 action.busy || session.restore_mode || !current || !password || password !== confirm
               }
-            >{tr("修改密码并退出")}{" "}</Button>
+            >
+              {tr("修改密码并退出")}{" "}
+            </Button>
           </CardFooter>
         </Card>
       </div>
@@ -175,9 +196,7 @@ export function AdminAccountsPage() {
   }
   return (
     <>
-      <PageHeading
-        title={tr("账号管理")}
-      />
+      <PageHeading title={tr("账号管理")} />
       <ErrorBox
         message={action.error || users.error || registration.error}
         retry={() => {
@@ -189,7 +208,9 @@ export function AdminAccountsPage() {
         <Card>
           <CardHeader>
             <CardTitle>{tr("开放注册")}</CardTitle>
-            <CardDescription>{tr("新账号默认为普通用户。所有已启用账号共用实例配置的转写服务额度。")}{" "}</CardDescription>
+            <CardDescription>
+              {tr("新账号默认为普通用户。所有已启用账号共用实例配置的转写服务额度。")}{" "}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <FieldGroup>
@@ -218,14 +239,20 @@ export function AdminAccountsPage() {
             <p className="text-sm text-muted-foreground">{tr("关闭后已有账号仍可登录。")}</p>
           </CardFooter>
         </Card>
-        <AccountFilters onApply={(next) => { setFilters(next); setCursor(null); }} />
+        <AccountFilters
+          onApply={(next) => {
+            setFilters(next);
+            setCursor(null);
+          }}
+        />
         {!users.loading && !users.error && users.data?.items.length === 0 && (
           <EmptyState title={tr("没有匹配的账号")} description={tr("试试其他关键词或筛选条件。")} />
         )}
         {users.loading ? (
           <Loading />
         ) : (
-          !users.error && users.data?.items.map((user) => (
+          !users.error &&
+          users.data?.items.map((user) => (
             <Card key={user.id}>
               <CardHeader>
                 <CardTitle>{user.display_name}</CardTitle>
@@ -235,8 +262,12 @@ export function AdminAccountsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex gap-2">
-                <Badge variant="secondary">{user.role === "admin" ? tr("管理员") : tr("普通用户")}</Badge>
-                <Badge variant="outline">{user.status === "active" ? tr("已启用") : tr("已停用")}</Badge>
+                <Badge variant="secondary">
+                  {user.role === "admin" ? tr("管理员") : tr("普通用户")}
+                </Badge>
+                <Badge variant="outline">
+                  {user.status === "active" ? tr("已启用") : tr("已停用")}
+                </Badge>
               </CardContent>
               <CardFooter className="flex flex-wrap gap-2">
                 <Button
@@ -261,10 +292,14 @@ export function AdminAccountsPage() {
         )}
         <div className="flex gap-2">
           {cursor && (
-            <Button variant="outline" onClick={() => setCursor(null)}>{tr("返回首页")}{" "}</Button>
+            <Button variant="outline" onClick={() => setCursor(null)}>
+              {tr("返回首页")}{" "}
+            </Button>
           )}
           {users.data?.next_cursor && (
-            <Button variant="outline" onClick={() => setCursor(users.data!.next_cursor)}>{tr("下一页")}{" "}</Button>
+            <Button variant="outline" onClick={() => setCursor(users.data!.next_cursor)}>
+              {tr("下一页")}{" "}
+            </Button>
           )}
         </div>
       </div>
@@ -272,20 +307,41 @@ export function AdminAccountsPage() {
   );
 }
 
-function AccountFilters({ onApply }: { onApply: (filters: { q: string; status: string; role: string }) => void }) {
+function AccountFilters({
+  onApply,
+}: {
+  onApply: (filters: { q: string; status: string; role: string }) => void;
+}) {
   const [q, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [role, setRole] = useState("");
   return (
-    <form onSubmit={(event) => { event.preventDefault(); onApply({ q: q.trim(), status, role }); }}>
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        onApply({ q: q.trim(), status, role });
+      }}
+    >
       <FieldGroup className="grid items-end gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_9rem_9rem_auto]">
         <Field>
           <FieldLabel htmlFor="account-search">{tr("搜索账号")}</FieldLabel>
-          <Input id="account-search" type="search" placeholder={tr("邮箱、用户名或显示名称")} maxLength={100} value={q} onChange={(event) => setQuery(event.target.value)} />
+          <Input
+            id="account-search"
+            type="search"
+            placeholder={tr("邮箱、用户名或显示名称")}
+            maxLength={100}
+            value={q}
+            onChange={(event) => setQuery(event.target.value)}
+          />
         </Field>
         <Field>
           <FieldLabel htmlFor="account-status">{tr("账号状态")}</FieldLabel>
-          <NativeSelect id="account-status" value={status} onChange={(event) => setStatus(event.target.value)} className="w-full">
+          <NativeSelect
+            id="account-status"
+            value={status}
+            onChange={(event) => setStatus(event.target.value)}
+            className="w-full"
+          >
             <NativeSelectOption value="">{tr("全部状态")}</NativeSelectOption>
             <NativeSelectOption value="active">{tr("已启用")}</NativeSelectOption>
             <NativeSelectOption value="disabled">{tr("已停用")}</NativeSelectOption>
@@ -293,13 +349,20 @@ function AccountFilters({ onApply }: { onApply: (filters: { q: string; status: s
         </Field>
         <Field>
           <FieldLabel htmlFor="account-role">{tr("账号角色")}</FieldLabel>
-          <NativeSelect id="account-role" value={role} onChange={(event) => setRole(event.target.value)} className="w-full">
+          <NativeSelect
+            id="account-role"
+            value={role}
+            onChange={(event) => setRole(event.target.value)}
+            className="w-full"
+          >
             <NativeSelectOption value="">{tr("全部角色")}</NativeSelectOption>
             <NativeSelectOption value="admin">{tr("管理员")}</NativeSelectOption>
             <NativeSelectOption value="user">{tr("普通用户")}</NativeSelectOption>
           </NativeSelect>
         </Field>
-        <Button type="submit" variant="outline">{tr("筛选账号")}</Button>
+        <Button type="submit" variant="outline">
+          {tr("筛选账号")}
+        </Button>
       </FieldGroup>
     </form>
   );

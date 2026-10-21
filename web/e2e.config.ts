@@ -3,7 +3,7 @@ import { web } from "@e2e-dev/web";
 import { localBrowser } from "./tests/support/local-browser";
 
 const url = process.env.VOICES_TEST_URL;
-if (!url) throw new Error("请通过 pnpm test:e2e 启动隔离的 Go/PostgreSQL fixture");
+if (!url) throw new Error("请通过 vp run test:e2e 启动隔离的 Go/PostgreSQL fixture");
 export default {
   tests: "tests/*.e2e.ts",
   targets: [
