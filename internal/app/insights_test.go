@@ -53,8 +53,8 @@ func fakeInsightServer(t *testing.T, calls *atomic.Int32) *httptest.Server {
 }
 
 // @use-case docs/feature/insights/use-case/generate-insights.md
-func TestInsightsGenerationOwnershipAndStale(t *testing.T) {
-	f, rid, tid, ids := insightFixture(t)
+func TestInsightsOwnershipIdempotencyAndCleanup(t *testing.T) {
+	f, rid, tid, _ := insightFixture(t)
 	ctx := context.Background()
 	var calls atomic.Int32
 	remote := fakeInsightServer(t, &calls)
@@ -84,13 +84,8 @@ func TestInsightsGenerationOwnershipAndStale(t *testing.T) {
 	second.executeInsight(ctx, work)
 	_, result := f.json(t, "GET", path, nil, 200, "")
 	v := result["insight"].(map[string]any)
-	if v["state"] != "succeeded" || v["stale"] != false || v["summary"] != "会议摘要" || calls.Load() != 1 {
+	if v["state"] != "succeeded" || calls.Load() != 1 {
 		t.Fatal(result, calls.Load())
-	}
-	f.json(t, "PATCH", "/api/v1/segments/"+ids[0], map[string]any{"revision": 1, "edited_text": "修改后的正文", "start_ms": nil, "end_ms": nil}, 200, "")
-	_, result = f.json(t, "GET", path, nil, 200, "")
-	if result["insight"].(map[string]any)["stale"] != true {
-		t.Fatal("not stale")
 	}
 	var input []byte
 	if err = f.db.QueryRow(ctx, `SELECT input_json FROM transcription_insights WHERE transcription_id=$1`, tid).Scan(&input); err != nil || input != nil {

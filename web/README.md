@@ -42,7 +42,7 @@ TEST_DATABASE_URL='postgres://user:password@localhost:5432/voices_test?sslmode=d
 E2E_CHROMIUM_EXECUTABLE_PATH=/run/current-system/sw/bin/chromium TEST_DATABASE_URL=... vp run test:e2e
 ```
 
-浏览器测试统一使用 [tester-army/e2e](https://github.com/tester-army/e2e)。中文用例位于 `tests/*.e2e.ts`；`test:e2e` 构建前端并通过 Go fixture 启动真实 HTTP、隔离 PostgreSQL 和后台任务。仅外部 STT、LLM、更新服务使用 fake；不配置测试代理模型，不调用真实付费服务。
+浏览器测试统一使用 [tester-army/e2e](https://github.com/tester-army/e2e)。中文用例位于 `tests/*.e2e.ts`；`test:e2e` 构建前端并通过 Go fixture 启动真实 HTTP、隔离 PostgreSQL 和后台任务。被测应用仅外部 STT、LLM、更新服务使用 fake；浏览器测试代理需要独立 E2E 模型配置，具体要求见[交付机制](../docs/engineering/delivery/README.md#测试分工)。
 
 engine 管理浏览器生命周期，Go fixture 清理服务器、任务和 schema。失败报告与截图位于 `.e2e/<流程>/`。`vp run typecheck` 同时检查应用和 e2e 用例。未设置测试数据库时入口直接失败，不把跳过当作通过。
 

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Browser } from "@e2e-dev/web";
-import type { Screen } from "e2e";
+import type { Agent } from "e2e";
 import { expect } from "e2e";
 
 export function fixture(name: string) {
@@ -28,30 +28,25 @@ export async function api(browser: Browser, path: string, method = "GET", data?:
   });
 }
 
-export async function login(screen: Screen, user: string, password: string) {
-  await screen.getByLabel(/^(用户名或邮箱|邮箱)$/).fill(user);
-  await screen.getByLabel("密码").fill(password);
-  await screen.getByRole("button", { name: "进入工作台" }).click();
+export async function login(agent: Agent, user: string, password: string) {
+  await agent.act("使用账号 {user}、密码 {password} 登录。", { params: { user, password } });
 }
 
-export async function logout(browser: Browser) {
-  expect((await api(browser, "/session", "DELETE")).status, "退出会话应成功").toBe(204);
-  await browser.goto(fixture("VOICES_TEST_URL"));
+export async function logout(agent: Agent) {
+  await agent.act("退出当前账号，停在登录或注册页面。");
 }
 
 export async function register(
-  screen: Screen,
+  agent: Agent,
   email: string,
   username: string,
   password: string,
   first = false,
 ) {
-  await screen.getByLabel("邮箱").fill(email);
-  await screen.getByLabel("用户名").fill(username);
-  await screen.getByLabel("密码").fill(password);
-  await screen.getByRole("button", { name: "创建账号" }).click();
-  if (first) await screen.getByRole("button", { name: "暂不启用 LLM", exact: true }).click();
-  await expect(screen.getByRole("heading", { name: "录音库" })).toBeVisible();
+  await agent.act("注册账号：邮箱 {email}、用户名 {username}、密码 {password}。", {
+    params: { email, username, password },
+  });
+  if (first) await agent.act("选择暂不启用 LLM，完成初始化并进入录音库。");
 }
 
 export async function noOverflow(browser: Browser) {

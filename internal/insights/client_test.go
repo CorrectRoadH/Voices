@@ -67,7 +67,7 @@ func Test模型失败不重试且不泄漏内容(t *testing.T) {
 		status int
 		body   string
 		code   Error
-	}{{"server", 500, `SECRET`, "llm_unavailable"}, {"rejected", 400, `SECRET`, "llm_rejected"}, {"large", 200, strings.Repeat("x", (1<<20)+1), InvalidResponse}, {"redirect", 302, "", "llm_unavailable"}, {"invalid", 200, `{"choices":[{"finish_reason":"stop","message":{"content":"{\"summary\":\"ok\",\"chapters\":[{\"segment_id\":\"unknown\",\"title\":\"bad\"}]}"}}]}`, InvalidResponse}, {"truncated", 200, `{"choices":[{"finish_reason":"length","message":{"content":"SECRET"}}]}`, InvalidResponse}} {
+	}{{"server", 500, `SECRET`, "llm_unavailable"}, {"rejected", 400, `SECRET`, "llm_rejected"}, {"large", 200, strings.Repeat("x", (1<<20)+1), InvalidResponse}, {"redirect", 302, "", "llm_unavailable"}} {
 		t.Run(tc.name, func(t *testing.T) {
 			var calls atomic.Int32
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -40,4 +40,4 @@ concord doctor --json
 
 未设置 `TEST_DATABASE_URL` 时 Go 集成测试会跳过，这不算数据库验收通过。服务商测试只替换外部 HTTP 边界，不调用真实付费 API。
 
-浏览器用例统一位于 `web/tests/*.e2e.ts`，用中文描述操作与验收，使用 tester-army/e2e。默认不配置代理模型、不调用付费 API。失败报告与截图位于 `web/.e2e/<流程>/`。测试分工见 [交付机制](engineering/delivery/README.md#测试分工)。
+浏览器用例统一位于 `web/tests/*.e2e.ts`，用中文描述操作与验收，使用 tester-army/e2e。测试代理模型配置与调用边界遵守[交付机制](engineering/delivery/README.md#测试分工)。失败报告与截图位于 `web/.e2e/<流程>/`。测试分工见 [交付机制](engineering/delivery/README.md#测试分工)。

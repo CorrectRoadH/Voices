@@ -3,30 +3,32 @@ import { expect } from "e2e";
 import { api, fixture, login, logout } from "./support/session";
 
 // @use-case docs/feature/interface-language/use-case/choose-language.md
-test("访客和账号语言隔离、失败回滚、保留中文内容与移动端布局", async ({ app, browser, screen }) => {
+test("访客和账号语言隔离、失败回滚、保留中文内容与移动端布局", async ({
+  app,
+  agent,
+  browser,
+  screen,
+}) => {
   const base = fixture("VOICES_TEST_URL");
   const password = "test-language-password";
   await browser.emulateMedia({ colorScheme: "dark" });
   await browser.goto(base);
   await expect(browser).toHaveTitle("Voices");
-  await screen.getByLabel("界面语言", { exact: true }).selectOption({ value: "en" });
+  await agent.act("把界面语言切换为 English。");
   await expect(screen.getByText("Create administrator account", { exact: true })).toBeVisible();
   await expect(browser.locator("html")).toHaveAttribute("lang", "en");
   await browser.reload();
   await expect(screen.getByLabel("Interface language", { exact: true })).toHaveValue("en");
-  await screen.getByLabel("Email", { exact: true }).fill("language-admin@example.test");
-  await screen.getByLabel("Username", { exact: true }).fill("language_admin");
-  await screen.getByLabel("Password", { exact: true }).fill(password);
-  await screen.getByRole("button", { name: "Create account", exact: true }).click();
+  await agent.act(
+    "保持英文界面，用邮箱 language-admin@example.test、用户名 language_admin、密码 test-language-password 创建管理员账号，停在初始化页面。",
+  );
   await expect(screen.getByRole("heading", { name: "Set up your site" })).toBeVisible();
-  await screen.getByRole("button", { name: "Continue without LLM", exact: true }).click();
+  await agent.act("选择 Continue without LLM 完成初始化。");
   // 注册时选择的语言写入新账号。
   await expect(browser.locator("html")).toHaveAttribute("lang", "en");
-  await screen.getByRole("link", { name: "My account", exact: true }).click();
-  await screen.getByLabel("Interface language", { exact: true }).selectOption({ value: "zh-CN" });
+  await agent.act("进入 My account，把界面语言切换为简体中文。");
   await expect(browser.locator("html")).toHaveAttribute("lang", "zh-CN");
-  await screen.getByRole("link", { name: "我的账号", exact: true }).click();
-  await screen.getByLabel("显示名称", { exact: true }).fill("中文用户名");
+  await agent.act("在我的账号中把显示名称填写为中文用户名，先不要保存资料。");
   await browser.route("**/api/v1/me", async (route) => {
     if (route.request.method === "PATCH" && JSON.parse(route.request.postData || "{}").ui_language)
       await route.abort();
@@ -50,7 +52,7 @@ test("访客和账号语言隔离、失败回滚、保留中文内容与移动�
     );
     return null;
   });
-  await screen.getByLabel("界面语言", { exact: true }).selectOption({ value: "en" });
+  await agent.act("把界面语言切换为 English。");
   await expect(screen.getByRole("heading", { name: "My account", exact: true })).toBeVisible();
   await expect(screen.getByText("Interface language saved", { exact: true })).toBeVisible();
   expect(
@@ -59,7 +61,7 @@ test("访客和账号语言隔离、失败回滚、保留中文内容与移动�
     ),
   ).toBe(true);
   await expect(screen.getByLabel("Display name", { exact: true })).toHaveValue("中文用户名");
-  await screen.getByRole("button", { name: "Save profile", exact: true }).click();
+  await agent.act("保存当前个人资料。");
   await expect(
     browser.locator("[data-slot=toast-description]").filter({ hasText: "Profile saved" }),
   ).toBeVisible();
@@ -70,16 +72,16 @@ test("访客和账号语言隔离、失败回滚、保留中文内容与移动�
   // 保留中文用户内容，仅翻译内置标签。
   const person = await api(browser, "/people", "POST", { display_name: "音乐", notes: "中文备注" });
   expect(person.status).toBe(201);
-  await screen.getByRole("link", { name: "People", exact: true }).click();
+  await agent.act("打开 People 页面。");
   await expect(screen.getByText("音乐", { exact: true })).toBeVisible();
   await expect(screen.getByText("中文备注", { exact: true })).toBeVisible();
-  await screen.getByRole("link", { name: "Transcription preferences", exact: true }).click();
+  await agent.act("打开 Transcription preferences 页面。");
   await expect(screen.getByText("Provider connections", { exact: true })).toBeVisible();
   await expect(screen.getByLabel("Language mode", { exact: true })).toBeVisible();
-  await screen.getByRole("link", { name: "Jobs", exact: true }).click();
+  await agent.act("打开 Jobs 页面。");
   await expect(screen.getByText("No jobs yet", { exact: true })).toBeVisible();
   for (const name of ["Overview", "System logs", "Account management", "Server settings"]) {
-    await screen.getByRole("link", { name, exact: true }).click();
+    await agent.act("打开 {name} 页面。", { params: { name } });
     await expect(screen.getByRole("heading", { name, exact: true })).toBeVisible();
     const visible = await browser.locator("main").textContent();
     expect((visible || "").replaceAll("中文用户名", "").replaceAll("简体中文", "")).not.toMatch(
@@ -101,11 +103,13 @@ test("访客和账号语言隔离、失败回滚、保留中文内容与移动�
   ).toBeVisible();
   await browser.locator("[data-slot=toast-close]").click();
   await browser.unroute("**/api/v1/admin/server-settings");
-  await screen.getByRole("button", { name: "Retry autosave", exact: true }).click();
+  await agent.act("重试自动保存当前服务器配置。");
   await expect(screen.getByTestId("settings-save-status")).toHaveText("All changes saved");
-  await screen.getByLabel("LLM Base URL", { exact: true }).fill(fixture("VOICES_MODEL_TEST_URL"));
+  await agent.act("将 LLM Base URL 改为 {url} 并等待自动保存，不获取模型。", {
+    params: { url: fixture("VOICES_MODEL_TEST_URL") },
+  });
   await expect(screen.getByTestId("settings-save-status")).toHaveText("All changes saved");
-  await screen.getByRole("button", { name: "Fetch LLM models", exact: true }).click();
+  await agent.act("获取 LLM 模型一次；出现服务拒绝访问提示后立即停止，不重试。");
   await expect(
     browser
       .locator("[data-slot=toast-description]")
@@ -146,33 +150,30 @@ test("访客和账号语言隔离、失败回滚、保留中文内容与移动�
   expect(await browser.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
     true,
   );
-  await screen.getByRole("link", { name: "My account", exact: true }).click();
+  await agent.act("打开 My account 页面。");
   expect(await browser.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
     true,
   );
   await app.screenshot("英文手机界面");
   // 退出恢复访客偏好，新账号不继承上一账号语言。
-  await screen.getByRole("button", { name: "Sign out", exact: true }).click();
+  await logout(agent);
   await expect(screen.getByLabel("Interface language", { exact: true })).toHaveValue("en");
-  await screen.getByRole("button", { name: "Need an account? Register", exact: true }).click();
-  await screen.getByLabel("Email", { exact: true }).fill("language-other@example.test");
-  await screen.getByLabel("Username", { exact: true }).fill("language_other");
-  await screen.getByLabel("Password", { exact: true }).fill(password);
-  await screen.getByLabel("Interface language", { exact: true }).selectOption({ value: "zh-CN" });
-  await screen.getByRole("button", { name: "创建账号", exact: true }).click();
+  await agent.act(
+    "切换到注册页面，选择简体中文，用邮箱 language-other@example.test、用户名 language_other、密码 test-language-password 创建普通账号。",
+  );
   await expect(browser.locator("html")).toHaveAttribute("lang", "zh-CN");
-  await screen.getByRole("link", { name: "我的账号", exact: true }).click();
+  await agent.act("打开我的账号页面。");
   await expect(screen.getByLabel("界面语言", { exact: true })).toHaveValue("zh-CN");
 
   // 清空访客缓存后登录，仍使用服务端保存的账号语言。
-  await logout(browser);
+  await logout(agent);
   await browser.evaluate(() => {
     localStorage.clear();
     return null;
   });
   await browser.reload();
   await expect(screen.getByLabel("界面语言")).toHaveValue("zh-CN");
-  await login(screen, "language_admin", password);
+  await login(agent, "language_admin", password);
   await expect(browser.locator("html")).toHaveAttribute("lang", "en");
   await expect(screen.getByRole("link", { name: "People" })).toBeVisible();
 });

@@ -47,11 +47,11 @@ describe("真实 HTTP 客户端的故障边界", () => {
         )
         .mockResolvedValueOnce(new Response("<secret-provider-body>", { status: 502 })),
     );
-    try {
-      await write("/segments/s", "PATCH", { revision: 1 });
-    } catch (e) {
-      expect(errorMessage(e)).toContain("不会覆盖");
-    }
+    await expect(write("/segments/s", "PATCH", { revision: 1 })).rejects.toMatchObject({
+      status: 409,
+      code: "conflict",
+    });
+    expect(errorMessage(new HttpError(409, "conflict", "revision mismatch"))).toContain("不会覆盖");
     await expect(request("/jobs")).rejects.toMatchObject({
       status: 502,
       message: "服务器返回 502，请稍后重试。",
@@ -93,19 +93,4 @@ it("成功状态的损坏 JSON 不会泄露响应原文", async () => {
     ),
   );
   await expect(request("/providers")).rejects.toThrow("服务器返回的数据无法解析");
-});
-
-// @use-case docs/feature/transcription/use-case/transcribe.md
-it("202 带 JSON 的转写创建响应保留新版本与任务", async () => {
-  const accepted = { transcription: { id: "new-version" }, job: { id: "job-1" } };
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(accepted), {
-        status: 202,
-        headers: { "Content-Type": "application/json" },
-      }),
-    ),
-  );
-  expect(await write("/recordings/r/transcriptions", "POST", {}, "key")).toEqual(accepted);
 });

@@ -6,20 +6,35 @@ import { join } from "node:path";
 import { api, fixture, login, logout, noOverflow } from "./support/session";
 
 // @use-case docs/feature/sentence-links/use-case/copy-sentence-link.md
-test("真实上传转写、编辑与人物归属、导出及登录后恢复句子链接", async ({ app, browser, screen }) => {
+test("真实上传转写、编辑与人物归属、导出及登录后恢复句子链接", async ({
+  app,
+  agent,
+  browser,
+  screen,
+}) => {
   const base = fixture("VOICES_TEST_URL");
   await app.open();
-  await login(screen, "tester@example.test", "acceptance-password");
-  await screen.getByRole("button", { name: "导入录音" }).first().click();
+  await login(agent, "tester@example.test", "acceptance-password");
+  await agent.act("打开导入录音窗口，等待选择文件。");
   await screen.getByLabel("选择音频文件").setInputFiles(fixture("VOICES_TEST_AUDIO"));
-  await browser.locator("summary").filter({ hasText: "转写选项" }).click();
-  await screen.getByLabel("转写服务商").selectOption({ value: "soniox" });
-  await screen.getByLabel("模型", { exact: true }).selectOption({ value: "stt-async-v5" });
-  await screen.getByLabel("语言模式").selectOption({ value: "single" });
-  await screen.getByLabel("语言代码").fill("zh");
-  await screen.getByRole("button", { name: "开始导入" }).click();
+  let invalidUploads = 0;
+  await browser.route("**/api/v1/recordings", async (route) => {
+    if (route.request.method === "POST") invalidUploads++;
+    await route.continue();
+  });
+  await agent.act(
+    "展开转写选项，选择 Soniox 的 stt-async-v5 模型、单语言模式，语言代码填 invalid-language，然后开始导入一次。预期校验失败，保留无效选择，不重试。",
+  );
+  await expect(
+    screen.getByText("所选语言不在模型支持范围内，请调整语言或模型。", { exact: true }),
+  ).toBeVisible();
+  await expect(screen.getByRole("button", { name: /开始导入/ })).toBeDisabled();
+  await expect(screen.getByLabel("语言代码")).toHaveValue("invalid-language");
+  expect(invalidUploads, "无效选项应在发出上传请求前被拒绝").toBe(0);
+  await browser.unroute("**/api/v1/recordings");
+  await agent.act("把语言代码改为 zh，点击重新上传，等待导入完成。");
   await expect(screen.getByRole("dialog", { name: "导入录音" })).toHaveCount(0);
-  await browser.locator(".recording-row").first().click();
+  await agent.act("打开刚导入的 browser-meeting 录音详情。");
   const first = browser.locator('[id^="segment-"]').first();
   await expect(first).toBeVisible({ timeout: 30000 });
   await expect(screen.getByText("请先配置 LLM")).toBeVisible();
@@ -34,36 +49,25 @@ test("真实上传转写、编辑与人物归属、导出及登录后恢复句�
       document.querySelector("audio");
     return null;
   });
-  await target.getByRole("button", { name: "编辑这段文字" }).click();
-  await screen.getByLabel("片段文字").fill("浏览器校正 [保留]。");
-  await screen.getByRole("button", { name: "保存文字" }).click();
+  await agent.act("将第一段转写文字完整替换为 {text}，包括末尾句号，然后保存。", {
+    params: { text: "浏览器校正 [保留]。" },
+  });
   await expect(target).toContainText("浏览器校正 [保留]。");
-  await screen.getByRole("button", { name: "编辑标题", exact: true }).click();
-  await screen.getByLabel("标题", { exact: true }).fill("原位编辑标题");
-  await screen
-    .getByRole("form", { name: "编辑标题", exact: true })
-    .getByRole("button", { name: "保存", exact: true })
-    .click();
+  await agent.act("把录音标题改成原位编辑标题并保存。");
   await expect(screen.getByRole("heading", { name: "原位编辑标题", exact: true })).toBeVisible();
-  await screen.getByRole("tab", { name: "录音信息" }).click();
-  await screen.getByRole("button", { name: "编辑备注", exact: true }).click();
-  await screen.getByLabel("备注", { exact: true }).fill("备注草稿");
-  await screen.getByRole("tab", { name: "摘要", exact: true }).click();
-  await screen.getByRole("tab", { name: "录音信息", exact: true }).click();
+  await agent.act(
+    "在录音信息里编辑备注，输入内容必须完整等于 {notes}，暂不保存；切换到摘要，再返回录音信息，保留备注编辑状态。",
+    { params: { notes: "备注草稿" } },
+  );
   await expect(screen.getByLabel("备注", { exact: true })).toHaveValue("备注草稿");
-  await screen
-    .getByRole("form", { name: "编辑备注", exact: true })
-    .getByRole("button", { name: "保存", exact: true })
-    .click();
+  await agent.act("保存当前录音备注。");
   await expect(screen.getByRole("button", { name: "编辑备注", exact: true })).toHaveText(
     "备注草稿",
   );
+  // datetime-local 由浏览器精确设置，避免模型误解秒或时区。
   await screen.getByRole("button", { name: "编辑开始时间" }).click();
   await screen.getByLabel("录音开始时间").fill("2026-10-18T10:20:30");
-  await screen
-    .getByRole("form", { name: "编辑开始时间", exact: true })
-    .getByRole("button", { name: "保存" })
-    .click();
+  await agent.act("保存已填写的录音开始时间。");
   await expect(browser.locator(`#segment-${segmentId} .message-time`)).toHaveAttribute(
     "title",
     /10:20:30/,
@@ -83,15 +87,15 @@ test("真实上传转写、编辑与人物归属、导出及登录后恢复句�
     if (route.request.method === "PATCH") unchangedWrites++;
     await route.continue();
   });
-  await target.getByRole("button", { name: "编辑这段文字" }).click();
-  await screen.getByRole("button", { name: "保存文字" }).click();
+  await agent.act("编辑第一段浏览器校正 [保留]。的文字，不修改内容，直接保存。");
   await expect(screen.getByLabel("片段文字")).toHaveCount(0);
   expect(unchangedWrites, "无变化的正文不应保存").toBe(0);
   await browser.unroute(`**/api/v1/segments/${segmentId}`);
 
-  await browser.locator(`#segment-${segmentId} .speaker-name-trigger`).click();
-  await screen.getByLabel("搜索或新建人物").fill("新建批量人物");
-  await screen.getByRole("button", { name: "新建并关联“新建批量人物”" }).click();
+  await agent.act(
+    "通过第一段文字的说话人入口，新建人物，显示名称完整填写为 {name}，并关联给该说话人。",
+    { params: { name: "新建批量人物" } },
+  );
   await expect(target).toContainText("新建批量人物");
   const recordings = await (await api(browser, "/recordings")).json();
   const recording = recordings.items[0];
@@ -110,11 +114,9 @@ test("真实上传转写、编辑与人物归属、导出及登录后恢复句�
     "批量人物归属必须持久保存",
   ).toBe(true);
 
-  await screen.getByRole("link", { name: "人物" }).click();
-  await screen.getByRole("link", { name: /新建批量人物/ }).click();
-  await screen.getByRole("button", { name: "标记为本人" }).click();
+  await agent.act("打开人物列表，进入新建批量人物详情，将其标记为本人。");
   await expect(screen.getByRole("button", { name: "取消本人" })).toBeVisible();
-  await screen.getByRole("button", { name: "编辑人物" }).click();
+  await agent.act("打开编辑人物窗口，等待选择头像文件。");
   const directory = await mkdtemp(join(tmpdir(), "voices-e2e-avatar-"));
   try {
     const image = await browser.evaluate(() => {
@@ -128,7 +130,7 @@ test("真实上传转写、编辑与人物归属、导出及登录后恢复句�
     const path = join(directory, "avatar.png");
     await writeFile(path, Buffer.from(image, "base64"));
     await screen.getByLabel("头像").setInputFiles(path);
-    await screen.getByRole("button", { name: "保存人物" }).click();
+    await agent.act("保存当前人物资料和已选择的头像。");
     await expect(browser.locator("[data-slot=avatar-image]").first()).toBeVisible();
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -136,6 +138,25 @@ test("真实上传转写、编辑与人物归属、导出及登录后恢复句�
   await browser.goto(detailUrl);
   await expect(target).toHaveAttribute("class", /segment-self/);
   await expect(browser.locator(`#segment-${segmentId} [data-slot=avatar-image]`)).toBeVisible();
+  // 只模拟操作系统剪贴板权限边界；引用仍由实际菜单和产品代码生成。
+  await browser.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async () => {
+          throw new DOMException("denied", "NotAllowedError");
+        },
+      },
+    });
+    return null;
+  });
+  await agent.act("打开第一段浏览器校正 [保留]。的更多操作菜单，选择复制引用。");
+  const manual = screen.getByRole("dialog", { name: "手动复制", exact: true });
+  await expect(manual).toBeVisible();
+  const citation = await manual.getByRole("textbox").inputValue();
+  expect(citation).toContain("浏览器校正 \\[保留\\]。");
+  expect(citation).toContain(`/transcriptions/${tid}?segment=${segmentId}`);
+  await agent.act("关闭手动复制窗口。");
   const railTop = await browser.evaluate(
     () => document.querySelector(".sidebar-tabs")!.getBoundingClientRect().top,
   );
@@ -150,14 +171,11 @@ test("真实上传转写、编辑与人物归属、导出及登录后恢复句�
 
   // 背景声过滤和带锚点链接均使用真实片段。
   await browser.goto(detailUrl);
-  await browser.locator(`#segment-${segmentId} .speaker-name-trigger`).click();
-  await screen.getByRole("button", { name: "背景声 · 内置" }).click();
+  await agent.act("将第一段文字所属的说话人关联到内置人物背景声。");
   await expect(target).toHaveCount(0);
-  await screen.getByRole("tab", { name: "录音信息", exact: true }).click();
-  await screen.getByText("说话人与人物", { exact: true }).click();
-  await screen.getByRole("switch", { name: "显示背景声等内置人物片段" }).check();
+  await agent.act("在录音信息的说话人与人物中，开启显示背景声等内置人物片段。");
   await expect(target).toContainText("背景声");
-  await screen.getByRole("switch", { name: "显示背景声等内置人物片段" }).uncheck();
+  await agent.act("关闭显示背景声等内置人物片段。");
   await expect(target).toHaveCount(0);
   const deep = `${base}/recordings/${recording.id}/transcriptions/${tid}?segment=${segmentId}`;
   await browser.goto(deep);
@@ -169,8 +187,7 @@ test("真实上传转写、编辑与人物归属、导出及登录后恢复句�
     await browser.evaluate(() => document.querySelector("audio")!.paused),
     "定位句子不应自动播放",
   ).toBe(true);
-  await screen.getByRole("tab", { name: "录音信息" }).click();
-  await browser.locator("summary").filter({ hasText: "版本与导出" }).click();
+  await agent.act("打开录音信息里的版本与导出。");
   const download = await browser.waitForDownload(() =>
     screen.getByRole("button", { name: "TXT" }).click(),
   );
@@ -181,9 +198,9 @@ test("真实上传转写、编辑与人物归属、导出及登录后恢复句�
   await noOverflow(browser);
   await app.screenshot("手机转写详情");
 
-  await logout(browser);
+  await logout(agent);
   await browser.goto(deep);
-  await login(screen, "tester@example.test", "acceptance-password");
+  await login(agent, "tester@example.test", "acceptance-password");
   await expect(browser).toHaveURL(deep);
   await expect(target).toContainText("浏览器校正 [保留]。");
 });

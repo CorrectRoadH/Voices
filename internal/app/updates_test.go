@@ -60,7 +60,7 @@ func TestUpdatesBrowser(t *testing.T) {
 	upstream := updateUpstream(t)
 	f.a.Updates = updates.New(context.Background(), "1.9.0", upstream.URL, upstream.Client())
 	defer f.a.Updates.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "vp", "exec", "e2e", "run", "tests/updates.e2e.ts")
 	cmd.Dir = "../../web"

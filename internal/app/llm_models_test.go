@@ -140,7 +140,7 @@ func TestLLMModelsBrowser(t *testing.T) {
 	f.a.Config.LLMBaseURL, f.a.Config.LLMKey = remote.URL+"/v1", "browser-model-key"
 	seedFixtureSettings(t, f)
 	f.a.Config.WebDir = "../../web/dist"
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "vp", "exec", "e2e", "run", "tests/models.e2e.ts")
 	cmd.Dir = "../../web"

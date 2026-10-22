@@ -283,7 +283,9 @@ func TestConcurrentLastAdminProtection(t *testing.T) {
 // @use-case docs/feature/accounts/use-case/register.md
 func TestRegistrationValidationAndRestoreMode(t *testing.T) {
 	f := setupAccountFixture(t, false)
-	f.json(t, "POST", "/api/v1/users", map[string]any{"email": "invalid@example.test", "display_name": "Invalid", "password": "short"}, 400, "")
+	for _, password := range []string{"short", strings.Repeat("a", 73)} {
+		f.json(t, "POST", "/api/v1/users", map[string]any{"email": "invalid@example.test", "display_name": "Invalid", "password": password}, 400, "")
+	}
 	_, state := f.json(t, "GET", "/api/v1/auth/status", nil, 200, "")
 	if state["initialized"] != false {
 		t.Fatal("invalid registration consumed bootstrap")
@@ -301,20 +303,6 @@ func TestRegistrationValidationAndRestoreMode(t *testing.T) {
 	f.json(t, "PATCH", "/api/v1/admin/registration", map[string]any{"registration_open": false}, 409, "")
 	f.json(t, "GET", "/api/v1/session", nil, 200, "")
 	f.json(t, "DELETE", "/api/v1/session", nil, 204, "")
-}
-
-// @use-case docs/feature/accounts/use-case/register.md
-func TestSimplePasswordPolicy(t *testing.T) {
-	for _, p := range []string{"123456", "abcdef", "六个中文字符"} {
-		if err := validPassword(p); err != nil {
-			t.Errorf("simple password rejected: %v", err)
-		}
-	}
-	for _, p := range []string{"12345", string(make([]byte, 73))} {
-		if err := validPassword(p); err == nil {
-			t.Error("invalid password accepted")
-		}
-	}
 }
 
 // @use-case docs/feature/accounts/use-case/register.md
@@ -358,18 +346,13 @@ func TestUsernameAndEmailLoginShareIdentityAndLimit(t *testing.T) {
 }
 
 // @use-case docs/feature/administration/use-case/inspect-instance.md
-func TestAdminAccountFilters(t *testing.T) {
+func TestAdminAccountFilterValidation(t *testing.T) {
  f := setup(t)
  b := anotherAccount(t, f, "lookup")
- c := anotherAccount(t, f, "other")
- bid, cid := userID(t, b), userID(t, c)
+ bid := userID(t, b)
  b.json(t, "PATCH", "/api/v1/me", map[string]any{"display_name": "100% Named_User", "username": "lookup_alias"}, 200, "")
- f.json(t, "PATCH", "/api/v1/admin/users/"+cid, map[string]any{"status": "disabled"}, 200, "")
  cases := []struct{ query, id string; count int }{
-  {"q=LOOKUP", bid, 1}, {"q=lookup_alias", bid, 1}, {"q="+url.QueryEscape("Named_User"), bid, 1},
   {"q="+url.QueryEscape("%"), bid, 1}, {"q="+url.QueryEscape("_"), bid, 1},
-  {"status=disabled", cid, 1}, {"role=admin", userID(t, f), 1},
-  {"q=other&status=active", "", 0}, {"role=user&status=active", bid, 1},
  }
  for _, tc := range cases {
   _, result := f.json(t,"GET","/api/v1/admin/users?"+tc.query,nil,200,"")

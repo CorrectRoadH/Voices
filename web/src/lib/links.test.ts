@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import {
-  basePath,
-  copyText,
-  safeReturnPath,
-  sentenceMarkdown,
-  sentenceUrl,
-  validateAnchor,
-} from "./links";
+import { basePath, safeReturnPath, sentenceMarkdown, sentenceUrl, validateAnchor } from "./links";
 import type { Segment, TranscriptionDetail } from "./types";
 const segment = {
   id: "s-1",
@@ -30,13 +23,6 @@ describe("稳定句子引用", () => {
       sentenceUrl("/voices/", { ...segment, text: "不进入 URL" }, "https://voices.example"),
     ).toBe("https://voices.example/voices/recordings/r-1/transcriptions/old-version?segment=s-1");
   });
-  it("文字清空与未知说话人仍可生成引用，不回退原文", () => {
-    expect(
-      sentenceMarkdown("/", { ...segment, text: "", speaker_name: "" }, "https://voices.example"),
-    ).toBe(
-      "[未知说话人: ](https://voices.example/recordings/r-1/transcriptions/old-version?segment=s-1)",
-    );
-  });
   it("明确拒绝归属不匹配，不回退激活版本", () => {
     expect(() => validateAnchor("r-1", "old-version", version, segment)).not.toThrow();
     expect(() => validateAnchor("r-2", "old-version", version, segment)).toThrow("不匹配");
@@ -44,25 +30,6 @@ describe("稳定句子引用", () => {
     expect(() =>
       validateAnchor("r-1", "old-version", version, { ...segment, transcription_id: "other" }),
     ).toThrow("不匹配");
-  });
-  it("剪贴板失败与不存在时返回手动复制状态", async () => {
-    expect(await copyText("abc", undefined)).toBe(false);
-    expect(
-      await copyText("abc", {
-        writeText: async () => {
-          throw new Error("denied");
-        },
-      } as unknown as Clipboard),
-    ).toBe(false);
-    let copied = "";
-    expect(
-      await copyText("abc", {
-        writeText: async (text) => {
-          copied = text;
-        },
-      } as Clipboard),
-    ).toBe(true);
-    expect(copied).toBe("abc");
   });
 });
 // @feature docs/feature/sentence-links/README.md

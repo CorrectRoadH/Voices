@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -236,38 +237,72 @@ func TestOnboardingBrowser(t *testing.T) {
 	if os.Getenv("VOICES_BROWSER_TEST") != "1" {
 		t.Skip("set VOICES_BROWSER_TEST=1 after building web")
 	}
-	f := setupAccountFixture(t, false)
-	f.a.Config.WebDir = "../../web/dist"
-	var calls atomic.Int32
-	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/models" {
-			writeJSON(w, 200, map[string]any{"data": []any{map[string]any{"id": "sample-model"}}})
-			return
-		}
-		calls.Add(1)
-		var body struct {
-			Model string `json:"model"`
-		}
-		json.NewDecoder(r.Body).Decode(&body)
-		if body.Model == "invalid-model" {
-			http.Error(w, "private provider response", 401)
-			return
-		}
-		sampleLLM(w)
-	}))
-	defer remote.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "vp", "exec", "e2e", "run", "tests/onboarding.e2e.ts")
-	cmd.Dir = "../../web"
-	cmd.Env = append(os.Environ(), "E2E_TELEMETRY_DISABLED=1", "VOICES_E2E_OUTPUT=.e2e/onboarding", "VOICES_TEST_URL="+f.server.URL, "VOICES_MODEL_TEST_URL="+remote.URL)
-	output, err := cmd.CombinedOutput()
-	t.Log(string(output))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if calls.Load() != 2 {
-		t.Fatal("unexpected generation count", calls.Load())
+	for _, scenario := range []struct {
+		name, title string
+		calls       int32
+	}{
+		{"main", "管理员注册后独立初始化、恢复草稿、测试失败修正和普通用户分流", 2},
+		{"revision", "配置修改使测试失效，旧测试结果不能批准新配置", 3},
+		{"skip", "清空配置后跳过，完成失败可重试且完成后不再初始化", 0},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			// 每个浏览器场景都有全新的数据库 schema，不依赖前一场景的完成状态。
+			f := setupAccountFixture(t, false)
+			f.a.Config.WebDir = "../../web/dist"
+			var calls atomic.Int32
+			var waiting atomic.Bool
+			release := make(chan struct{})
+			var releaseOnce sync.Once
+			remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/models":
+					writeJSON(w, 200, map[string]any{"data": []any{map[string]any{"id": "sample-model"}}})
+					return
+				case "/test/status":
+					writeJSON(w, 200, map[string]any{"waiting": waiting.Load()})
+					return
+				case "/test/release":
+					releaseOnce.Do(func() { close(release) })
+					w.WriteHeader(http.StatusNoContent)
+					return
+				}
+				calls.Add(1)
+				var body struct {
+					Model string `json:"model"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					http.Error(w, "invalid request", 400)
+					return
+				}
+				if body.Model == "invalid-model" {
+					http.Error(w, "private provider response", 401)
+					return
+				}
+				if body.Model == "delayed-model" {
+					waiting.Store(true)
+					select {
+					case <-release:
+					case <-r.Context().Done():
+						return
+					}
+				}
+				sampleLLM(w)
+			}))
+			defer func() { releaseOnce.Do(func() { close(release) }); remote.Close() }()
+			ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
+			defer cancel()
+			cmd := exec.CommandContext(ctx, "vp", "exec", "e2e", "run", "tests/onboarding.e2e.ts", "--grep", "^"+scenario.title+"$")
+			cmd.Dir = "../../web"
+			cmd.Env = append(os.Environ(), "E2E_TELEMETRY_DISABLED=1", "VOICES_E2E_OUTPUT=.e2e/onboarding/"+scenario.name, "VOICES_TEST_URL="+f.server.URL, "VOICES_MODEL_TEST_URL="+remote.URL)
+			output, err := cmd.CombinedOutput()
+			t.Log(string(output))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if calls.Load() != scenario.calls {
+				t.Fatal("unexpected generation count", calls.Load())
+			}
+		})
 	}
 }
 

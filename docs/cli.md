@@ -20,7 +20,7 @@
 - `vp run test:go` / `vp run test:web` / `vp run test:worker` / `vp run test:release`：分别运行上述常规测试；只有 Go 测试要求数据库。
 - `vp run test:db`：检查是否提供 `TEST_DATABASE_URL`，不启动数据库，也不验证连接。
 - `vp run check:go`：执行 Go vet。
-- `vp run check:web` / `vp run check:worker`：分别执行前端或 Worker 的格式、lint 和类型检查；前端另外检查 E2E 类型。
+- `vp run check:web` / `vp run check:worker`：分别执行前端或 Worker 的格式、lint 和类型检查；前端另外检查翻译完整性与 E2E 类型。
 - `vp run test:e2e`：要求 `TEST_DATABASE_URL`，构建前端并由 Go fixture 启动真实应用、调用浏览器测试和清理资源。
 - `vp run test:worker:runtime`：构建 Worker 并在 workerd 中验收。
 - `vp run db:up`：启动 `compose.dev.yaml` 中的 PostgreSQL，等待健康检查通过。

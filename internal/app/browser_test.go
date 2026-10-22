@@ -25,7 +25,7 @@ func TestBrowserFullStack(t *testing.T) {
 	done := make(chan struct{})
 	go func() { defer close(done); f.a.Run(ctx) }()
 	defer func() { cancel(); <-done }()
-	cmdCtx, cmdCancel := context.WithTimeout(context.Background(), 90*time.Second)
+	cmdCtx, cmdCancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cmdCancel()
 	cmd := exec.CommandContext(cmdCtx, "vp", "exec", "e2e", "run", "tests/workbench.e2e.ts")
 	cmd.Dir = "../../web"
@@ -57,7 +57,7 @@ func TestAccountsBrowserFullStack(t *testing.T) {
 	done := make(chan struct{})
 	go func() { defer close(done); f.a.Run(ctx) }()
 	defer func() { cancel(); <-done }()
-	cmdCtx, stop := context.WithTimeout(context.Background(), 90*time.Second)
+	cmdCtx, stop := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer stop()
 	cmd := exec.CommandContext(cmdCtx, "vp", "exec", "e2e", "run", "tests/accounts.e2e.ts")
 	cmd.Dir = "../../web"

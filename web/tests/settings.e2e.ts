@@ -3,27 +3,28 @@ import { expect } from "e2e";
 import { api, fixture, logout, register } from "./support/session";
 
 // @use-case docs/feature/accounts/use-case/manage-server.md
-test("服务器配置自动保存、密钥清除、失败重试与并发冲突", async ({ app, browser, screen }) => {
+test("服务器配置自动保存、密钥清除、失败重试与并发冲突", async ({
+  app,
+  agent,
+  browser,
+  screen,
+}) => {
   const base = fixture("VOICES_TEST_URL");
   await browser.goto(base);
   await expect(browser).toHaveTitle("Voices");
-  await screen.getByLabel("邮箱", { exact: true }).fill("server-admin@example.test");
-  await screen.getByLabel("用户名", { exact: true }).fill("ServerAdmin");
-  await screen.getByLabel("密码", { exact: true }).fill("test-browser-password");
-  await screen.getByRole("button", { name: "创建账号", exact: true }).click();
-  await screen.getByRole("button", { name: "暂不启用 LLM", exact: true }).click();
-  await screen.getByRole("link", { name: "服务器设置", exact: true }).click();
+  await agent.act(
+    "用邮箱 server-admin@example.test、用户名 ServerAdmin、密码 test-browser-password 创建管理员账号。",
+  );
+  await agent.act("暂不启用 LLM，完成初始化后打开服务器设置。");
   await expect(screen.getByRole("heading", { name: "服务器设置", exact: true })).toBeVisible();
   await expect(screen.getByLabel("站点 Base URL")).toHaveValue(base);
   await expect(screen.getByRole("button", { name: "保存服务器配置", exact: true })).toHaveCount(0);
   await expect(screen.getByRole("button", { name: "重新加载已保存配置", exact: true })).toHaveCount(
     0,
   );
-  await screen.getByLabel("Soniox API Key", { exact: true }).fill("browser-soniox-key");
-  await screen.getByLabel("AssemblyAI API Key", { exact: true }).fill("browser-assembly-key");
-  await screen.getByLabel("LLM Base URL", { exact: true }).fill("https://llm.example/v1");
-  await screen.getByLabel("模型名称", { exact: true }).fill("browser-model");
-  await screen.getByLabel("LLM API Key", { exact: true }).fill("browser-llm-key");
+  await agent.act(
+    "配置 Soniox API Key 为 browser-soniox-key、AssemblyAI API Key 为 browser-assembly-key；LLM Base URL 为 https://llm.example/v1、模型名称为 browser-model、LLM API Key 为 browser-llm-key。等待自动保存，不测试连接。",
+  );
   await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
   await expect(screen.getByText("已保存，等待重启生效", { exact: true })).toBeVisible();
   await expect(screen.getByRole("button", { name: "清除 Soniox 密钥" })).toBeVisible();
@@ -31,10 +32,10 @@ test("服务器配置自动保存、密钥清除、失败重试与并发冲突",
   await browser.reload();
   await expect(screen.getByLabel("模型名称")).toHaveValue("browser-model");
   // 修改普通字段时保留已保存的密钥。
-  await screen.getByLabel("模型名称", { exact: true }).fill("browser-model-updated");
+  await agent.act("把模型名称改为 browser-model-updated，等待自动保存。");
   await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
   await expect(screen.getByRole("button", { name: "清除 LLM 密钥", exact: true })).toBeVisible();
-  await screen.getByLabel("模型名称", { exact: true }).fill("browser-model");
+  await agent.act("把模型名称改回 browser-model，等待自动保存。");
   await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
   // 清除密钥可在保存前取消。
   await screen.getByRole("button", { name: "清除 Soniox 密钥", exact: true }).click();
@@ -100,7 +101,7 @@ test("服务器配置自动保存、密钥清除、失败重试与并发冲突",
   expect(failures).toBe(1);
   await expect(screen.getByLabel("模型名称", { exact: true })).toHaveValue("retry-model");
   await browser.unroute("**/api/v1/admin/server-settings");
-  await screen.getByRole("button", { name: "重试自动保存", exact: true }).click();
+  await agent.act("重试自动保存当前草稿。");
   await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
   // 并发更新产生冲突，保留本地草稿。
   const snapshot = await (await api(browser, "/admin/server-settings")).json();
@@ -127,9 +128,9 @@ test("服务器配置自动保存、密钥清除、失败重试与并发冲突",
   );
 
   // 普通用户不能进入服务器设置，也不能通过 API 读取。
-  await logout(browser);
-  await screen.getByRole("button", { name: "没有账号？注册" }).click();
-  await register(screen, "server-user@example.test", "ServerUser", "test-browser-password");
+  await logout(agent);
+  await agent.act("切换到注册账号页面。");
+  await register(agent, "server-user@example.test", "ServerUser", "test-browser-password");
   await expect(screen.getByRole("link", { name: "服务器设置" })).toHaveCount(0);
   expect((await api(browser, "/admin/server-settings")).status).toBe(403);
   await browser.goto(base + "/admin/server");
