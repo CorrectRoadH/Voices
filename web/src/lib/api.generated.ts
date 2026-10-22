@@ -5150,6 +5150,13 @@ export interface components {
             error_code: string | null;
             created_at: string;
             operations?: components["schemas"]["ProviderOperation"][];
+            /** @description Sanitized observations of the last failure; null for historical jobs without details. */
+            error_detail?: {
+                reason: string;
+                http_status?: number;
+            } | null;
+            /** @description Whether current resource state permits retry; server revalidates transactionally and rejects restore mode. */
+            retry_allowed?: boolean;
         };
         Model: {
             id: string;

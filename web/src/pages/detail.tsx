@@ -75,7 +75,7 @@ function isSpeakerContinuation(
 
 export function DetailPage() {
   const { recordingId = "", transcriptionId } = useParams();
-  const [search] = useSearchParams();
+  const [search, setSearch] = useSearchParams();
   const anchor = search.get("segment");
   const navigate = useNavigate();
   const recording = useResource<Recording>(
@@ -147,6 +147,7 @@ export function DetailPage() {
   const refresh = () => {
     setReload((n) => n + 1);
     versions.refresh();
+    jobs.refresh();
     recording.refresh();
     people.refresh();
   };
@@ -195,6 +196,34 @@ export function DetailPage() {
       window.removeEventListener("resize", measure);
     };
   }, [recording.data?.id]);
+
+  function openNewTranscription() {
+    setOptions(version?.options || settings.data?.default_transcription || blankOptions);
+    setDuplicateConsent(false);
+    setCreateKey(requestKey());
+    setNewOpen(true);
+  }
+  useEffect(() => {
+    if (search.get("new_transcription") !== "1" || !recording.data || settings.loading || loading)
+      return;
+    const next = new URLSearchParams(search);
+    next.delete("new_transcription");
+    setSearch(next, { replace: true });
+    if (recording.data.state !== "ready" || session.restore_mode) return;
+    setOptions(version?.options || settings.data?.default_transcription || blankOptions);
+    setDuplicateConsent(false);
+    setCreateKey(requestKey());
+    setNewOpen(true);
+  }, [
+    search,
+    setSearch,
+    recording.data,
+    settings.loading,
+    settings.data,
+    loading,
+    version,
+    session.restore_mode,
+  ]);
 
   async function playSegment(segment: Segment) {
     if (segments && version) await playback.play(segment);
@@ -446,6 +475,9 @@ export function DetailPage() {
                   }
                   jobs={jobs.data?.items || []}
                   loading={versions.loading}
+                  onRetranscribe={openNewTranscription}
+                  canCreate={r.state === "ready" && !session.restore_mode}
+                  onRetried={refresh}
                   onManage={() => {
                     setRailTab("info");
                     setVersionsOpen(true);
@@ -832,13 +864,8 @@ export function DetailPage() {
                     </FieldGroup>
                     <Button
                       size="sm"
-                      disabled={blocked}
-                      onClick={() => {
-                        setOptions(settings.data?.default_transcription || blankOptions);
-                        setDuplicateConsent(false);
-                        setCreateKey(requestKey());
-                        setNewOpen(true);
-                      }}
+                      disabled={blocked || r.state !== "ready" || session.restore_mode}
+                      onClick={openNewTranscription}
                     >
                       <Plus data-icon="inline-start" />
                       {tr("新建转写")}{" "}
@@ -1074,6 +1101,8 @@ export function DetailPage() {
             loading={action.pendingKey === "transcribe"}
             disabled={
               action.busy ||
+              session.restore_mode ||
+              r.state !== "ready" ||
               !!createError ||
               jobs.loading ||
               !!jobs.error ||

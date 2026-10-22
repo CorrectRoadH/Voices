@@ -27,17 +27,16 @@ import {
   Modal,
   Status,
 } from "@/components/shared";
-import { useAction, useResource } from "@/lib/hooks";
+import { useAction, useApp, useResource } from "@/lib/hooks";
 import { query, write } from "@/lib/api";
 import { date, stateName } from "@/lib/format";
+import { jobError } from "@/lib/job-error";
 import type { Job, Page } from "@/lib/types";
 export function canRetry(job: Job) {
-  return (
-    ["failed", "retry_wait"].includes(job.state) &&
-    !["uploading", "submitting", "uncertain", "restore_hold"].includes(job.stage)
-  );
+  return job.retry_allowed === true;
 }
 export function JobsPage() {
+  const { session } = useApp();
   const [params, setParams] = useSearchParams();
   const [cursor, setCursor] = useState("");
   const [items, setItems] = useState<Job[]>([]);
@@ -80,7 +79,7 @@ export function JobsPage() {
           <AlertTitle>{tr("安全恢复任务")}</AlertTitle>
           <AlertDescription>
             {tr(
-              "结果待确认或恢复待核对的任务不会重新提交。可以记录查询观察；未知远端 ID 由运维者核实归属后登记，观察不会解除隔离。",
+              "结果待确认的任务不会自动重试。你可以确认风险后重新转写，也可以登记核对结果；恢复待核对的任务须先完成核对。",
             )}{" "}
           </AlertDescription>
         </Alert>
@@ -144,10 +143,13 @@ export function JobsPage() {
                   {job.id}
                 </p>
                 {job.error_code && (
-                  <p className="mt-2 text-sm text-destructive">
-                    {tr("错误代码：")}
-                    {job.error_code}
-                  </p>
+                  <div className="mt-2 flex flex-col gap-1 text-sm">
+                    <p className="text-destructive">{jobError(job)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {tr("错误代码：")}
+                      {job.error_code}
+                    </p>
+                  </div>
                 )}
                 {["uncertain", "restore_hold"].includes(job.state) && (
                   <p className="mt-2 text-sm text-muted-foreground">
@@ -173,7 +175,7 @@ export function JobsPage() {
                   <ExternalLink data-icon="inline-start" />
                   {tr("查看录音")}{" "}
                 </Button>
-                {canRetry(job) && (
+                {canRetry(job) && !session.restore_mode && (
                   <Button
                     loading={action.pendingKey === job.id}
                     size="sm"
@@ -189,11 +191,27 @@ export function JobsPage() {
                       )
                     }
                   >
-                    {tr("恢复安全阶段")}{" "}
+                    {tr("重试")}{" "}
                   </Button>
                 )}
+                {job.state === "uncertain" &&
+                  job.kind === "transcribe" &&
+                  !session.restore_mode && (
+                    <Button
+                      size="sm"
+                      nativeButton={false}
+                      render={
+                        <Link
+                          to={`/recordings/${job.recording_id}/transcriptions/${job.transcription_id}?new_transcription=1`}
+                        />
+                      }
+                    >
+                      {tr("重新转写")}
+                    </Button>
+                  )}
                 {["uncertain", "restore_hold"].includes(job.state) && (
                   <Button
+                    variant="outline"
                     size="sm"
                     onClick={() => {
                       setResolve(job);

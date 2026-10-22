@@ -330,7 +330,7 @@ func (a *App) remoteCreate(ctx context.Context, j job, provider, kind string, ca
 	if remoteErr == nil {
 		err = persistence.Transaction(saveCtx, a.DB, func(tx pgx.Tx) error { return registerResourceTx(saveCtx, tx, op, provider, resource) })
 		if err != nil {
-			return providers.Resource{}, &providers.Error{Code: "uncertain"}
+			return providers.Resource{}, &providers.Error{Code: "uncertain", Reason: "local_persistence"}
 		}
 		return resource, nil
 	}
@@ -338,12 +338,16 @@ func (a *App) remoteCreate(ctx context.Context, j job, provider, kind string, ca
 	if errors.As(remoteErr, &pe) && pe.Definitive {
 		_, err = a.DB.Exec(saveCtx, "UPDATE provider_operations SET state='confirmed_absent',terminal_evidence=$2 WHERE id=$1 AND state IN ('sent','uncertain') AND remote_id IS NULL", op, jsonBytes(map[string]string{"type": "adapter_terminal_rejection", "operation_id": op, "reason": pe.Code}))
 		if err != nil {
-			return providers.Resource{}, &providers.Error{Code: "uncertain"}
+			return providers.Resource{}, &providers.Error{Code: "uncertain", Reason: "local_persistence"}
 		}
 		return providers.Resource{}, remoteErr
 	}
 	_, _ = a.DB.Exec(saveCtx, "UPDATE provider_operations SET state='uncertain' WHERE id=$1 AND remote_id IS NULL AND state='sent'", op)
-	return providers.Resource{}, &providers.Error{Code: "uncertain"}
+	result := &providers.Error{Code: "uncertain"}
+	if pe != nil {
+		result.Reason, result.HTTPStatus = pe.Reason, pe.HTTPStatus
+	}
+	return providers.Resource{}, result
 }
 func registerResourceTx(ctx context.Context, tx pgx.Tx, op, provider string, resource providers.Resource) error {
 	var tid, kind, state, actualProvider string

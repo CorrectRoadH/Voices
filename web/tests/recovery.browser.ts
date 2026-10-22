@@ -1,0 +1,42 @@
+import { test } from "@e2e-dev/web";
+import { expect } from "e2e";
+import { api, fixture, noOverflow } from "./support/session";
+
+// @use-case docs/feature/transcription/use-case/transcribe.md
+test("任务原因、安全重试与确认风险后重新转写", async ({ app, browser, screen }) => {
+  const id = fixture("VOICES_TEST_RECORDING");
+  const job = fixture("VOICES_TEST_JOB");
+  const base = fixture("VOICES_TEST_URL");
+  await app.open();
+  await screen.getByLabel("用户名或邮箱").fill("tester@example.test");
+  await screen.getByLabel("密码", { exact: true }).fill("acceptance-password");
+  await screen.getByRole("button", { name: "进入工作台" }).click();
+  await expect(screen.getByRole("button", { name: "导入录音" }).first()).toBeVisible();
+  await browser.goto(`${base}/jobs?recording_id=${id}`);
+  await expect(screen.getByText("服务商返回了异常 HTTP 状态。 (HTTP 503)")).toBeVisible();
+  await expect(screen.getByRole("button", { name: "重试", exact: true })).toHaveCount(0);
+  await app.screenshot("任务显示具体原因与重新转写入口");
+  await screen.getByRole("button", { name: "重新转写", exact: true }).click();
+  await expect(screen.getByRole("dialog")).toBeVisible();
+  await expect(screen.getByRole("button", { name: "开始转写", exact: true })).toBeDisabled();
+  await browser.keyboard.press("Escape");
+  await expect(screen.getByRole("dialog")).toHaveCount(0);
+  let versions = await (await api(browser, `/recordings/${id}/transcriptions`)).json();
+  expect(versions.items.length, "取消不能创建新版本").toBe(1);
+  await expect(screen.getByText("音频已就绪", { exact: true }).first()).toBeVisible();
+  await screen.getByRole("button", { name: "重新转写", exact: true }).click();
+  await expect(screen.getByRole("button", { name: "开始转写", exact: true })).toBeDisabled();
+  await screen.getByRole("switch", { name: "我接受可能重复收费，另建新版本" }).click();
+  await screen.getByRole("button", { name: "开始转写", exact: true }).click();
+  await expect(screen.getByRole("dialog")).toHaveCount(0);
+  versions = await (await api(browser, `/recordings/${id}/transcriptions`)).json();
+  expect(versions.items.length).toBe(2);
+  const jobs = await (await api(browser, `/jobs?recording_id=${id}`)).json();
+  expect(jobs.items.find((item: { id: string }) => item.id === job).state).toBe("uncertain");
+  await browser.goto(`${base}/jobs?recording_id=${fixture("VOICES_TEST_FAILED_RECORDING")}`);
+  await expect(screen.getByText("服务商返回了异常 HTTP 状态。 (HTTP 401)")).toBeVisible();
+  await screen.getByRole("button", { name: "重试", exact: true }).click();
+  await expect(screen.getByText("服务商返回了异常 HTTP 状态。 (HTTP 401)")).toHaveCount(0);
+  await noOverflow(browser);
+  await app.screenshot("明确失败任务安全重试");
+});

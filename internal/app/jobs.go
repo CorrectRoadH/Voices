@@ -176,7 +176,7 @@ func (a *App) stage(ctx context.Context, j *job, stage string) error {
 		if err := a.fence(ctx, tx, *j); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, "UPDATE jobs SET stage=$2,error_code=NULL WHERE id=$1", j.ID, stage); err != nil {
+		if _, err := tx.Exec(ctx, "UPDATE jobs SET stage=$2,error_code=NULL,error_detail=NULL WHERE id=$1", j.ID, stage); err != nil {
 			return err
 		}
 		if j.TranscriptionID != nil {
@@ -191,12 +191,14 @@ func (a *App) stage(ctx context.Context, j *job, stage string) error {
 	return err
 }
 func (a *App) failJob(ctx context.Context, j job, cause error) error {
+	var detail *providers.Diagnostic
 	code := "processing_failed"
 	state := "failed"
 	delay := time.Duration(min(60, 2<<min(j.Attempt, 5))) * time.Second
 	var pe *providers.Error
 	if errors.As(cause, &pe) {
 		code = pe.Code
+		detail = pe.Diagnostic()
 		if pe.Code == "uncertain" {
 			state = "uncertain"
 		} else if (pe.Code == "transient" || pe.Code == "rate_limited") && j.Attempt < 7 {
@@ -210,7 +212,7 @@ func (a *App) failJob(ctx context.Context, j job, cause error) error {
 		if err := a.fence(ctx, tx, j); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, "UPDATE jobs SET state=$2,error_code=$3,attempt=attempt+1,next_run_at=clock_timestamp()+$4::interval,lease_owner=NULL,lease_until=NULL WHERE id=$1", j.ID, state, code, delay.String()); err != nil {
+		if _, err := tx.Exec(ctx, "UPDATE jobs SET state=$2,error_code=$3,error_detail=$5,attempt=attempt+1,next_run_at=clock_timestamp()+$4::interval,lease_owner=NULL,lease_until=NULL WHERE id=$1", j.ID, state, code, delay.String(), detail); err != nil {
 			return err
 		}
 		if j.TranscriptionID != nil {

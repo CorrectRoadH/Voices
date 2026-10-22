@@ -22,7 +22,7 @@ export function bytes(value: number) {
 }
 export const states: Record<string, string> = {
   preparing: "预处理中",
-  ready: "已就绪",
+  ready: "音频已就绪",
   deleting: "待清理",
   queued: "排队中",
   running: "处理中",

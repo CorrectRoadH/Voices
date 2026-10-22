@@ -38,7 +38,7 @@ func (a *assemblyAI) Upload(ctx context.Context, audio io.Reader, _ string, size
 		return Resource{}, err
 	}
 	if !validUploadURL(response.URL) {
-		return Resource{}, operationError(true)
+		return Resource{}, operationError(true, "invalid_resource")
 	}
 	return Resource{ID: response.URL, Kind: "file"}, nil
 }
@@ -70,7 +70,7 @@ func (a *assemblyAI) Submit(ctx context.Context, file Resource, o Options) (Reso
 		return Resource{}, err
 	}
 	if !validID(response.ID) {
-		return Resource{}, operationError(true)
+		return Resource{}, operationError(true, "invalid_resource")
 	}
 	return Resource{ID: response.ID, Kind: "transcription"}, nil
 }

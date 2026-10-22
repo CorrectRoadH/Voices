@@ -202,6 +202,7 @@ func (r rewriteTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 type remoteFake struct {
 	uploads, submits, deletes atomic.Int32
+	uploadStatus              atomic.Int32
 	uncertain                 atomic.Bool
 	pollFailures              atomic.Int32
 }
@@ -214,6 +215,10 @@ func fakeRemote(t *testing.T) *remoteFake {
 		case r.Method == "POST" && r.URL.Path == "/v1/files":
 			io.Copy(io.Discard, r.Body)
 			id := remote.uploads.Add(1)
+			if status := remote.uploadStatus.Load(); status != 0 {
+				w.WriteHeader(int(status))
+				return
+			}
 			fmt.Fprintf(w, `{"id":"file-%d"}`, id)
 		case r.Method == "POST" && r.URL.Path == "/v1/transcriptions":
 			id := remote.submits.Add(1)

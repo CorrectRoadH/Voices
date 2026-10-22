@@ -66,6 +66,27 @@ type Error struct {
 	Code              string
 	Definitive        bool
 	RetryAfterSeconds int
+	Reason            string
+	HTTPStatus        int
+}
+
+// Diagnostic contains only bounded, public-safe observations, never upstream text.
+type Diagnostic struct {
+	Reason     string `json:"reason"`
+	HTTPStatus int    `json:"http_status,omitempty"`
+}
+
+func (e *Error) Diagnostic() *Diagnostic {
+	switch e.Reason {
+	case "timeout", "cancelled", "dns", "tls", "connection", "response_read", "response_too_large", "invalid_json", "invalid_resource", "http_status", "local_persistence":
+	default:
+		return nil
+	}
+	d := &Diagnostic{Reason: e.Reason}
+	if e.HTTPStatus >= 100 && e.HTTPStatus <= 599 {
+		d.HTTPStatus = e.HTTPStatus
+	}
+	return d
 }
 
 func (e *Error) Error() string { return "provider: " + e.Code }

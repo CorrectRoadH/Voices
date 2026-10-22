@@ -66,7 +66,7 @@ func (a *App) retryJob(w http.ResponseWriter, r *http.Request) error {
 		if deleted {
 			return &apiError{409, "resources_cleaned", "远端资源已开始清理，请新建转写版本"}
 		}
-		if _, err := tx.Exec(r.Context(), "UPDATE jobs SET state='queued',attempt=0,error_code=NULL,next_run_at=clock_timestamp(),lease_owner=NULL,lease_until=NULL,cancel_requested=false WHERE id=$1", r.PathValue("id")); err != nil {
+		if _, err := tx.Exec(r.Context(), "UPDATE jobs SET state='queued',attempt=0,error_code=NULL,error_detail=NULL,next_run_at=clock_timestamp(),lease_owner=NULL,lease_until=NULL,cancel_requested=false WHERE id=$1", r.PathValue("id")); err != nil {
 			return err
 		}
 		if kind == "prepare" {

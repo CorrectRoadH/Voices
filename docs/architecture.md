@@ -306,3 +306,11 @@ restore_hold 禁止普通 retry、自动提交与硬删除；恢复模式不得�
 模块：internal/insights 负责 SDK 调用及输出验证；internal/app/insights.go 负责所有权内的任务与结果；admin_overview.go/admin_events.go/runtime_events.go 分别负责统计、脱敏读取及尽力记录。
 
 站点初始化与注册分离；LLM 测试绑定已保存的配置修订。新摘要任务读取数据库配置并持久化秘密快照，完成或失败时清除；站点与 STT 仍在启动时加载。见[站点初始化设计](research/site-onboarding/README.md)。
+
+### 任务错误诊断
+
+沿用现有任务状态与操作所有权。jobs 增加可空 error_detail JSONB，仅保存最近失败的 reason（固定枚举）与可选 http_status（100–599）；历史行保持 NULL。providers.Error 在既有 Code/Definitive 之外携带 Reason/HTTPStatus，应用持久化前通过白名单裁剪；不保存原始 error、URL、响应正文。开始下一阶段及显式重试时清除诊断。新增字段为可独立回滚的展示数据，不参与重试、隔离、清理或计费判断。
+
+Job API 附带 error_detail 与 retry_allowed。retry_allowed 根据 failed/retry_wait、录音未删除、无 sent/uncertain 操作及远端资源尚未开始清理计算；写入入口仍在事务中重新验证。恢复模式由会话限制入口，服务端仍拒绝写入。任务页重新转写导航到录音的 new_transcription 查询入口，仅打开既有确认表单，不能因导航自动发送请求；风险确认默认关闭，使用已有幂等请求键创建独立版本。
+
+验收覆盖服务商错误分类与敏感数据排除、真实 PostgreSQL 中失败诊断的保存/读取/重试清除、旧 uncertain 不重放及确认后新建版本，以及浏览器入口、确认取消与恢复限制。

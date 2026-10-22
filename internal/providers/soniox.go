@@ -49,7 +49,7 @@ func (s *soniox) Upload(ctx context.Context, audio io.Reader, filename string, s
 		return Resource{}, err
 	}
 	if !validID(response.ID) {
-		return Resource{}, operationError(true)
+		return Resource{}, operationError(true, "invalid_resource")
 	}
 	return Resource{ID: response.ID, Kind: "file"}, nil
 }
@@ -77,7 +77,7 @@ func (s *soniox) Submit(ctx context.Context, file Resource, o Options) (Resource
 		return Resource{}, err
 	}
 	if !validID(response.ID) {
-		return Resource{}, operationError(true)
+		return Resource{}, operationError(true, "invalid_resource")
 	}
 	return Resource{ID: response.ID, Kind: "transcription"}, nil
 }

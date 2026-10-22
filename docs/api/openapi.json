@@ -6160,6 +6160,31 @@
             "items": {
               "$ref": "#/components/schemas/ProviderOperation"
             }
+          },
+          "error_detail": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Sanitized observations of the last failure; null for historical jobs without details.",
+            "properties": {
+              "reason": {
+                "type": "string"
+              },
+              "http_status": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 599
+              }
+            },
+            "required": [
+              "reason"
+            ],
+            "additionalProperties": false
+          },
+          "retry_allowed": {
+            "type": "boolean",
+            "description": "Whether current resource state permits retry; server revalidates transactionally and rejects restore mode."
           }
         },
         "required": [

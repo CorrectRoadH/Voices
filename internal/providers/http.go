@@ -3,9 +3,13 @@ package providers
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"io"
 	"math"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -28,11 +32,35 @@ func newRemoteHTTP(base, key string) remoteHTTP {
 
 func localError(code string) error { return &Error{Code: code, Definitive: true} }
 
-func operationError(creation bool) error {
-	if creation {
-		return &Error{Code: "uncertain"}
+func operationError(creation bool, reasons ...string) *Error {
+	reason := ""
+	if len(reasons) > 0 {
+		reason = reasons[0]
 	}
-	return &Error{Code: "transient"}
+	if creation {
+		return &Error{Code: "uncertain", Reason: reason}
+	}
+	return &Error{Code: "transient", Reason: reason}
+}
+
+func transportReason(err error) string {
+	var ne net.Error
+	var dns *net.DNSError
+	var cert *tls.CertificateVerificationError
+	var unknown x509.UnknownAuthorityError
+	var record tls.RecordHeaderError
+	switch {
+	case errors.Is(err, context.Canceled):
+		return "cancelled"
+	case errors.Is(err, context.DeadlineExceeded) || errors.As(err, &ne) && ne.Timeout():
+		return "timeout"
+	case errors.As(err, &dns):
+		return "dns"
+	case errors.As(err, &cert) || errors.As(err, &unknown) || errors.As(err, &record):
+		return "tls"
+	default:
+		return "connection"
+	}
 }
 
 // Never follow redirects, including 307/308 POST redirects. A redirect may have
@@ -68,7 +96,7 @@ func (h *remoteHTTP) request(ctx context.Context, method, path, contentType stri
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, operationError(creation)
+		return nil, operationError(creation, transportReason(err))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -81,14 +109,25 @@ func (h *remoteHTTP) request(ctx context.Context, method, path, contentType stri
 		return nil, operationError(false)
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
-	if err != nil || len(data) > maxResponseBytes {
-		return nil, operationError(creation)
+	if err != nil {
+		reason := transportReason(err)
+		if reason == "connection" {
+			reason = "response_read"
+		}
+		e := operationError(creation, reason)
+		e.HTTPStatus = resp.StatusCode
+		return nil, e
+	}
+	if len(data) > maxResponseBytes {
+		e := operationError(creation, "response_too_large")
+		e.HTTPStatus = resp.StatusCode
+		return nil, e
 	}
 	return data, nil
 }
 
 func responseError(resp *http.Response, creation bool) error {
-	e := &Error{Code: "transient"}
+	e := &Error{Code: "transient", Reason: "http_status", HTTPStatus: resp.StatusCode}
 	switch resp.StatusCode {
 	case 400, 413, 415, 422:
 		e.Code, e.Definitive = "invalid", true
@@ -134,7 +173,7 @@ func (h *remoteHTTP) json(ctx context.Context, method, path string, value any, c
 
 func decode(data []byte, value any, creation bool) error {
 	if err := json.Unmarshal(data, value); err != nil {
-		return operationError(creation)
+		return operationError(creation, "invalid_json")
 	}
 	return nil
 }

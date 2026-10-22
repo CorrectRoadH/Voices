@@ -4,6 +4,9 @@ import { Link } from "react-router-dom";
 import { tr } from "@/lib/i18n";
 import { stateName } from "@/lib/format";
 import type { Job, Recording, Transcription } from "@/lib/types";
+import { useAction, useApp } from "@/lib/hooks";
+import { write } from "@/lib/api";
+import { jobError } from "@/lib/job-error";
 import { Button } from "./ui/button";
 import { EmptyState, ErrorBox, Loading } from "./shared";
 
@@ -13,13 +16,21 @@ export function RecordingProgress({
   jobs,
   loading,
   onManage,
+  onRetranscribe,
+  canCreate,
+  onRetried,
 }: {
   recording: Recording;
   transcription?: Transcription | null;
   jobs: Job[];
   loading: boolean;
   onManage: () => void;
+  onRetranscribe: () => void;
+  canCreate: boolean;
+  onRetried: () => void;
 }) {
+  const action = useAction();
+  const { session } = useApp();
   if (loading) return <Loading />;
   const job = jobs.find((item) =>
     recording.state === "preparing" || !transcription
@@ -70,7 +81,11 @@ export function RecordingProgress({
       ) : needsAttention ? (
         <EmptyState
           title={stateName(state!)}
-          description={tr("任务需要核对，请查看任务详情；确认前不会重复提交。")}
+          description={
+            state === "restore_hold"
+              ? tr("数据库恢复后的远端状态尚未核对。")
+              : tr("上一次请求可能已被服务商接收。请核对任务，或确认可能重复收费后重新转写。")
+          }
         />
       ) : state === "succeeded" ? (
         <EmptyState
@@ -85,7 +100,29 @@ export function RecordingProgress({
           )}
         />
       )}
+      {job?.error_code && <p className="text-sm text-destructive">{jobError(job)}</p>}
+      <ErrorBox message={action.error} />
       <div className="flex flex-wrap gap-2">
+        {job?.retry_allowed && !session.restore_mode && (
+          <Button
+            size="sm"
+            loading={action.busy}
+            disabled={action.busy}
+            onClick={() =>
+              void action.run(async () => {
+                await write(`/jobs/${job.id}/retry`, "POST", {});
+                onRetried();
+              })
+            }
+          >
+            {tr("重试")}
+          </Button>
+        )}
+        {state === "uncertain" && canCreate && (
+          <Button size="sm" onClick={onRetranscribe}>
+            {tr("重新转写")}
+          </Button>
+        )}
         {(pending || needsAttention || state === "failed") && (
           <Button
             variant="outline"
