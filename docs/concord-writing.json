@@ -1,5 +1,5 @@
 {
-  "format": "concord.writing/v2",
+  "format": "concord.writing/v3",
   "roots": [
     "docs"
   ],
@@ -233,24 +233,24 @@
       "term": "目前",
       "use": "直接写目标行为",
       "why": "「目前」把当前实现当契约,读者分不清哪句是该照着做的",
-      "allowIn": [
-        "到目前为止"
-      ],
       "roots": [
         "docs/feature",
         "docs/roadmap"
+      ],
+      "allowIn": [
+        "到目前为止"
       ]
     },
     {
       "term": "现已",
       "use": "重写受影响小节",
       "why": "差分句要求读者知道旧稿长什么样,新读者读不懂「现已」相对的是什么",
-      "allowIn": [
-        "实现已"
-      ],
       "roots": [
         "docs/feature",
         "docs/roadmap"
+      ],
+      "allowIn": [
+        "实现已"
       ]
     },
     {
@@ -275,12 +275,12 @@
       "term": "新版",
       "use": "写具体行为,或写清版本号",
       "why": "「新版」相对谁不明确,发一次版就过期",
-      "allowIn": [
-        "新版本"
-      ],
       "roots": [
         "docs/feature",
         "docs/roadmap"
+      ],
+      "allowIn": [
+        "新版本"
       ]
     },
     {
