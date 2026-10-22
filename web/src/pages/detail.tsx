@@ -36,6 +36,9 @@ import { RecordingProgress } from "@/components/recording-progress";
 import { InsightOutline, type InsightsResponse } from "@/components/transcription-insights";
 import { Popover, PopoverTrigger, PopoverContent, PopoverTitle } from "@/components/ui/popover";
 import { MessageBubble } from "@/components/message-bubble";
+import { TranscriptSearch } from "@/components/transcript-search";
+import { useSegmentFocus } from "@/lib/use-segment-focus";
+import { useSegmentPlayback } from "@/lib/use-segment-playback";
 import { PersonAvatar } from "@/components/person-avatar";
 import { LabelsEditor, RecordingField, SegmentEditor, SegmentText } from "@/components/editors";
 import { OptionsFields, blankOptions, optionError } from "@/components/options";
@@ -103,6 +106,9 @@ export function DetailPage() {
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(false);
   const [reload, setReload] = useState(0);
+  const [textQuery, setTextQuery] = useState("");
+  const [searchRevision, setSearchRevision] = useState(0);
+  useEffect(() => setTextQuery(""), [recordingId, selected]);
   const [insightPoll, setInsightPoll] = useState(0);
   const insights = useResource<InsightsResponse>(
     selected ? `/transcriptions/${selected}/insights` : null,
@@ -136,14 +142,12 @@ export function DetailPage() {
   const [options, setOptions] = useState<Options>(blankOptions);
   const [duplicateConsent, setDuplicateConsent] = useState(false);
   const [createKey, setCreateKey] = useState(() => requestKey());
-  const [playbackError, setPlaybackError] = useState(false);
-  const player = useRef<HTMLAudioElement>(null);
-  const pendingSeek = useRef<number | null>(null);
-  const stopAt = useRef<number | null>(null);
-  const playRequest = useRef(0);
-  const playbackFrame = useRef(0);
   const action = useAction();
   const { session, notify } = useApp();
+  const playback = useSegmentPlayback(JSON.stringify([recordingId, selected]), (message) =>
+    notify(message, true),
+  );
+  const { queueSeek, flushSeek } = playback;
   const uncertain =
     jobs.data?.items.some((j) => ["uncertain", "restore_hold"].includes(j.state)) || false;
   const refresh = () => {
@@ -161,6 +165,16 @@ export function DetailPage() {
   const prependAnchor = useRef<{ id: string; top: number } | null>(null);
   const readingGrid = useRef<HTMLDivElement>(null);
   const transcriptPanel = useRef<HTMLDivElement>(null);
+  const playerPanel = useRef<HTMLDivElement>(null);
+  const viewKey = JSON.stringify([recordingId, selected, anchor, showBuiltin]);
+  const { position: positionSegment, positioned: anchorPositioned } = useSegmentFocus({
+    anchor,
+    viewKey,
+    ready: !!segments && !loading,
+    panelRef: transcriptPanel,
+    playerPanelRef: playerPanel,
+    onPositioned: flushSeek,
+  });
   useLayoutEffect(() => {
     const grid = readingGrid.current;
     if (!grid) return;
@@ -182,13 +196,11 @@ export function DetailPage() {
     };
   }, [recording.data?.id]);
 
-  const [paging, setPaging] = useState(false);
+  const [paging, setPaging] = useState<"next" | "previous" | null>(null);
   const topSentinel = useRef<HTMLDivElement>(null);
   const bottomSentinel = useRef<HTMLDivElement>(null);
-  const pendingAnchor = useRef(false);
-  const [anchorPositioned, setAnchorPositioned] = useState(0);
   useEffect(() => {
-    const view = JSON.stringify([recordingId, selected, anchor, showBuiltin]);
+    const view = viewKey;
     const changed = loadedView.current !== view;
     if (changed) {
       setVersion(null);
@@ -199,7 +211,7 @@ export function DetailPage() {
     const pagingRequest = pageRequest.current;
 
     setLoadError("");
-    pendingSeek.current = null;
+    queueSeek(null);
     if (!selected) return;
     const controller = new AbortController();
     const opts = { signal: controller.signal };
@@ -238,7 +250,6 @@ export function DetailPage() {
         if (changed && anchor && !page.items.some((segment) => segment.id === anchor))
           throw new Error(tr("服务器返回的窗口未包含引用片段，无法定位。"));
         if (controller.signal.aborted) return;
-        pendingAnchor.current = changed && !!anchor;
         loadedView.current = view;
         setVersion(v);
         if (!pagingRequest) {
@@ -274,19 +285,29 @@ export function DetailPage() {
           target.end_ms !== null &&
           target.end_ms > target.start_ms
         )
-          pendingSeek.current = target.start_ms / 1000;
+          queueSeek(target.start_ms);
       } catch (e) {
         if (!controller.signal.aborted) setLoadError(errorMessage(e));
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
-          setPaging(false);
+          setPaging(null);
           pageRequest.current = null;
         }
       }
     })();
     return () => controller.abort();
-  }, [recordingId, selected, selectedState, anchor, cursor, reload, showBuiltin]);
+  }, [
+    recordingId,
+    selected,
+    selectedState,
+    anchor,
+    cursor,
+    reload,
+    showBuiltin,
+    viewKey,
+    queueSeek,
+  ]);
   useLayoutEffect(() => {
     const previous = prependAnchor.current;
     if (previous) {
@@ -301,7 +322,7 @@ export function DetailPage() {
     }
   }, [segments]);
   useEffect(() => {
-    if (!segments || loading || paging || loadError || pendingAnchor.current) return;
+    if (!segments || loading || paging || loadError || !anchorPositioned) return;
     const observer = new IntersectionObserver(
       (entries) => {
         if (pageRequest.current) return;
@@ -311,77 +332,34 @@ export function DetailPage() {
           const next = direction === "next" ? segments.next_cursor : segments.previous_cursor;
           if (!next) continue;
           pageRequest.current = { cursor: next, direction };
-          setPaging(true);
+          setPaging(direction);
           setCursor(next);
           break;
         }
       },
-      { rootMargin: "150px" },
+      {
+        root:
+          transcriptPanel.current && getComputedStyle(transcriptPanel.current).overflowY === "auto"
+            ? transcriptPanel.current
+            : null,
+        rootMargin: "150px",
+      },
     );
     if (topSentinel.current) observer.observe(topSentinel.current);
     if (bottomSentinel.current) observer.observe(bottomSentinel.current);
     return () => observer.disconnect();
   }, [segments, loading, paging, loadError, anchorPositioned]);
-  useEffect(
-    () => () => {
-      playRequest.current++;
-      stopAt.current = null;
-      cancelAnimationFrame(playbackFrame.current);
-      player.current?.pause();
-    },
-    [recordingId, selected],
-  );
-  function watchPlayback() {
-    cancelAnimationFrame(playbackFrame.current);
-    const audio = player.current;
-    if (!audio || audio.paused) return;
-    if (stopAt.current !== null && audio.currentTime >= stopAt.current) {
-      const end = stopAt.current;
-      audio.pause();
-      audio.currentTime = end;
-      stopAt.current = null;
-      return;
-    }
-    playbackFrame.current = requestAnimationFrame(watchPlayback);
-  }
   async function playSegment(segment: Segment) {
-    if (segment.start_ms === null || !segments || !version || !player.current) return;
-    const requestId = ++playRequest.current;
-    player.current.pause();
-    try {
-      const end = segment.end_ms;
-      if (end === null || end <= segment.start_ms)
-        throw new Error(tr("没有有效的结束时间，无法播放此范围。"));
-      stopAt.current = end / 1000;
-      pendingSeek.current = segment.start_ms / 1000;
-      applySeek();
-      await player.current.play();
-    } catch (error) {
-      if (requestId === playRequest.current) {
-        stopAt.current = null;
-        notify(errorMessage(error), true);
-      }
-    }
+    if (segments && version) await playback.play(segment);
   }
-  function applySeek() {
-    if (pendingSeek.current !== null && player.current && player.current.readyState >= 1) {
-      player.current.currentTime = pendingSeek.current;
-      pendingSeek.current = null;
-    }
+  function jumpSearch(id: string) {
+    playback.pause();
+    if (anchor === id) positionSegment(id);
+    else
+      void navigate(
+        `/recordings/${recordingId}/transcriptions/${selected}?segment=${encodeURIComponent(id)}`,
+      );
   }
-  useEffect(() => {
-    if (segments && anchor && !cursor && pendingAnchor.current) {
-      const timer = setTimeout(() => {
-        pendingAnchor.current = false;
-        document
-          .getElementById(`segment-${anchor}`)
-          ?.scrollIntoView({ behavior: "smooth", block: "center" });
-        applySeek();
-        setAnchorPositioned((n) => n + 1);
-      }, 80);
-      return () => clearTimeout(timer);
-    }
-  }, [segments, anchor, cursor]);
   async function generateInsights() {
     if (!selected) return;
     await action.run(
@@ -406,16 +384,13 @@ export function DetailPage() {
       if (!version) return;
       validateAnchor(recordingId, selected!, version, segment);
       setOutlineOpen(false);
-      player.current?.pause();
-      stopAt.current = null;
+      playback.pause();
       const timed =
         segment.start_ms !== null && segment.end_ms !== null && segment.end_ms > segment.start_ms;
       if (timed) {
-        pendingSeek.current = segment.start_ms! / 1000;
-        applySeek();
+        playback.seek(segment.start_ms!);
       } else notify(tr("该片段没有有效时间，仅定位正文。"));
-      if (anchor === id)
-        document.getElementById(`segment-${id}`)?.scrollIntoView({ block: "center" });
+      if (anchor === id) positionSegment(id);
       else navigate(`/recordings/${recordingId}/transcriptions/${selected}?segment=${id}`);
     } catch (error) {
       notify(errorMessage(error), true);
@@ -505,7 +480,7 @@ export function DetailPage() {
           </AlertDescription>
         </Alert>
       ) : (
-        <div className="player-panel">
+        <div className="player-panel" ref={playerPanel}>
           <div className="player-icon">
             <AudioLines />
           </div>
@@ -570,23 +545,11 @@ export function DetailPage() {
             </div>
             {r.state === "ready" ? (
               <audio
-                ref={player}
+                {...playback.audioProps}
                 key={r.id}
                 controls
                 preload="metadata"
                 src={apiUrl(`/recordings/${r.id}/audio`)}
-                onLoadedMetadata={applySeek}
-                onPlay={watchPlayback}
-                onPause={() => {
-                  if (player.current?.paused) {
-                    cancelAnimationFrame(playbackFrame.current);
-                    stopAt.current = null;
-                  }
-                }}
-                onTimeUpdate={() => {
-                  if (stopAt.current !== null) watchPlayback();
-                }}
-                onError={() => setPlaybackError(true)}
                 aria-label={tr("录音播放器")}
               />
             ) : (
@@ -597,7 +560,7 @@ export function DetailPage() {
                   : tr("准备中，完成后可播放。")}
               </p>
             )}
-            {playbackError && (
+            {playback.failed && (
               <p className="text-sm text-destructive">
                 {tr("音频暂时无法加载，请刷新会话或稍后重试。")}
               </p>
@@ -607,6 +570,17 @@ export function DetailPage() {
       )}
       <div className="detail-grid" ref={readingGrid}>
         <Card className="transcript-card" ref={transcriptPanel}>
+          {selected && (selectedState === "succeeded" || version?.state === "succeeded") && (
+            <TranscriptSearch
+              key={selected}
+              transcriptionId={selected}
+              revision={reload + searchRevision}
+              query={textQuery}
+              onQuery={setTextQuery}
+              anchor={anchor}
+              onJump={jumpSearch}
+            />
+          )}
           <CardContent>
             <ErrorBox message={loadError} retry={() => setReload((n) => n + 1)} />
             {loading ? (
@@ -652,7 +626,7 @@ export function DetailPage() {
                   {segments.previous_cursor && (
                     <div ref={topSentinel} className="h-px shrink-0" aria-hidden="true" />
                   )}
-                  {paging && pageRequest.current?.direction === "previous" && (
+                  {paging === "previous" && (
                     <p role="status" className="text-center text-xs text-muted-foreground">
                       {tr("正在加载…")}
                     </p>
@@ -692,7 +666,6 @@ export function DetailPage() {
                             people.data?.items.some(
                               (p) => p.id === segment.person_id && p.is_self,
                             ) && "segment-self",
-                            anchor === segment.id && "segment-highlight",
                           )}
                           tabIndex={anchor === segment.id ? -1 : undefined}
                         >
@@ -833,8 +806,10 @@ export function DetailPage() {
                             </div>
                             <SegmentText
                               segment={segment}
+                              searchQuery={textQuery}
                               disabled={blocked}
                               onSaved={(saved) => {
+                                setSearchRevision((value) => value + 1);
                                 setSegments(
                                   (current) =>
                                     current && {

@@ -21,6 +21,13 @@ export default {
       "check"
     ],
     "sourceFiles": [
+      "internal/app/search_browser_test.go",
+      "web/tests/search.e2e.ts",
+      "web/src/components/transcript-search.tsx",
+      "web/src/components/highlighted-text.tsx",
+      "web/src/lib/use-transcript-search.ts",
+      "web/src/lib/use-segment-focus.ts",
+      "web/src/lib/use-segment-playback.ts",
       "internal/app/admin_events.go",
       "internal/app/admin_overview.go",
       "internal/app/runtime_events.go",

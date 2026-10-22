@@ -4,6 +4,7 @@
 import { personName, labelName } from "@/lib/person-name";
 import { tr, interfaceLocale } from "@/lib/i18n";
 import { InlineEdit } from "./inline-edit";
+import { HighlightedText } from "./highlighted-text";
 import { requestKey } from "@/lib/request-key";
 import { useState } from "react";
 import { Button } from "./ui/button";
@@ -427,10 +428,12 @@ export function RecordingField({
 
 export function SegmentText({
   segment,
+  searchQuery = "",
   disabled,
   onSaved,
 }: {
   segment: Segment;
+  searchQuery?: string;
   disabled: boolean;
   onSaved: (segment: Segment) => void;
 }) {
@@ -438,7 +441,7 @@ export function SegmentText({
     <InlineEdit
       value={segment.text}
       displayValue={
-        segment.text || (
+        (segment.text ? <HighlightedText text={segment.text} query={searchQuery} /> : null) || (
           <span className="text-muted-foreground">{tr("（此段文字已由人工清空）")}</span>
         )
       }

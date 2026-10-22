@@ -805,5 +805,14 @@
   "在版本与导出中选择转写版本以阅读结果。": "Choose a transcription version under Versions and exports to read the result.",
   "编辑当前片段": "Edit this segment",
   "批量关联说话人": "Link all segments of this speaker",
-  "仅修改当前片段，不影响同一说话人的其他片段。": "Only changes this segment. Other segments from the same speaker are unaffected."
+  "仅修改当前片段，不影响同一说话人的其他片段。": "Only changes this segment. Other segments from the same speaker are unaffected.",
+  "搜索转写正文": "Search transcript",
+  "搜索转写正文…": "Search transcript…",
+  "搜索失败": "Search failed",
+  "正在搜索…": "Searching…",
+  "没有匹配片段": "No matching segments",
+  "{{count}} 个匹配片段": "{{count}} matching segments",
+  "上一个匹配片段": "Previous matching segment",
+  "下一个匹配片段": "Next matching segment",
+  "清除正文搜索": "Clear transcript search"
 }

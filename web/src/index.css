@@ -633,7 +633,6 @@ audio {
   right: -6px;
   transform: scaleX(-1);
 }
-.segment-highlight .segment-bubble,
 .segment-bubble[data-menu-open] {
   outline: 2px solid color-mix(in oklch, var(--primary), transparent 45%);
   outline-offset: 1px;
@@ -1265,6 +1264,22 @@ body:has(.player-panel) [data-slot="toast-viewport"] {
   box-shadow: none;
   border: 0;
   overflow: visible;
+}
+.transcript-search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  flex-shrink: 0;
+  padding: 8px 0;
+  background: var(--background);
+}
+.transcript-search input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+.transcript-match {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-radius: 2px;
 }
 .transcript-card > [data-slot="card-header"],
 .transcript-card > [data-slot="card-content"] {
