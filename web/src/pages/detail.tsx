@@ -37,7 +37,7 @@ import { InsightOutline, type InsightsResponse } from "@/components/transcriptio
 import { Popover, PopoverTrigger, PopoverContent, PopoverTitle } from "@/components/ui/popover";
 import { MessageBubble } from "@/components/message-bubble";
 import { TranscriptSearch } from "@/components/transcript-search";
-import { useSegmentFocus } from "@/lib/use-segment-focus";
+import { useTranscriptWindow } from "@/lib/use-transcript-window";
 import { useSegmentPlayback } from "@/lib/use-segment-playback";
 import { PersonAvatar } from "@/components/person-avatar";
 import { LabelsEditor, RecordingField, SegmentEditor, SegmentText } from "@/components/editors";
@@ -50,7 +50,6 @@ import { cn } from "@/lib/utils";
 import type {
   Recording,
   Transcription,
-  TranscriptionDetail,
   Segment,
   Options,
   Page,
@@ -101,10 +100,6 @@ export function DetailPage() {
   );
   const selected = transcriptionId || recording.data?.active_transcription_id || undefined;
   const selectedState = versions.data?.items.find((t) => t.id === selected)?.state;
-  const [version, setVersion] = useState<TranscriptionDetail | null>(null);
-  const [segments, setSegments] = useState<Schema["SegmentList"] | null>(null);
-  const [loadError, setLoadError] = useState("");
-  const [loading, setLoading] = useState(false);
   const [reload, setReload] = useState(0);
   const [textQuery, setTextQuery] = useState("");
   const [searchRevision, setSearchRevision] = useState(0);
@@ -126,7 +121,6 @@ export function DetailPage() {
   useEffect(() => {
     insightKey.current = requestKey();
   }, [selected]);
-  const [cursor, setCursor] = useState("");
   const [showBuiltin, setShowBuiltin] = useState(!!anchor);
   const [speakerPicker, setSpeakerPicker] = useState<string | null>(null);
   const [editSegment, setEditSegment] = useState<Segment | null>(null);
@@ -156,24 +150,30 @@ export function DetailPage() {
     recording.refresh();
     people.refresh();
   };
-  useEffect(() => {
-    setCursor("");
-  }, [recordingId, selected, anchor]);
-  const loadedView = useRef("");
-  const pageRequest = useRef<{ cursor: string; direction: "next" | "previous" } | null>(null);
-  const loadedRange = useRef({ start: "", count: 0 });
-  const prependAnchor = useRef<{ id: string; top: number } | null>(null);
   const readingGrid = useRef<HTMLDivElement>(null);
   const transcriptPanel = useRef<HTMLDivElement>(null);
   const playerPanel = useRef<HTMLDivElement>(null);
-  const viewKey = JSON.stringify([recordingId, selected, anchor, showBuiltin]);
-  const { position: positionSegment, positioned: anchorPositioned } = useSegmentFocus({
+  const {
+    version,
+    segments,
+    loadError,
+    loading,
+    paging,
+    topSentinel,
+    bottomSentinel,
+    position: positionSegment,
+    replaceSegment,
+  } = useTranscriptWindow({
+    recordingId,
+    selected,
+    selectedState,
     anchor,
-    viewKey,
-    ready: !!segments && !loading,
+    showBuiltin,
+    reload,
     panelRef: transcriptPanel,
     playerPanelRef: playerPanel,
-    onPositioned: flushSeek,
+    queueSeek,
+    flushSeek,
   });
   useLayoutEffect(() => {
     const grid = readingGrid.current;
@@ -196,159 +196,6 @@ export function DetailPage() {
     };
   }, [recording.data?.id]);
 
-  const [paging, setPaging] = useState<"next" | "previous" | null>(null);
-  const topSentinel = useRef<HTMLDivElement>(null);
-  const bottomSentinel = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const view = viewKey;
-    const changed = loadedView.current !== view;
-    if (changed) {
-      setVersion(null);
-      setSegments(null);
-      pageRequest.current = null;
-      loadedRange.current = { start: "", count: 0 };
-    }
-    const pagingRequest = pageRequest.current;
-
-    setLoadError("");
-    queueSeek(null);
-    if (!selected) return;
-    const controller = new AbortController();
-    const opts = { signal: controller.signal };
-    if (changed) setLoading(true);
-    void (async () => {
-      try {
-        const v = await request<TranscriptionDetail>(
-          `/transcriptions/${encodeURIComponent(selected)}`,
-          opts,
-        );
-        let target: Segment | undefined;
-        if (anchor)
-          target = await request<Segment>(`/segments/${encodeURIComponent(anchor)}`, opts);
-        validateAnchor(recordingId, selected, v, target);
-        const fetchPage = (pageCursor: string, initialAnchor = false) =>
-          request<Schema["SegmentList"]>(
-            `/transcriptions/${encodeURIComponent(selected)}/segments?limit=50&hide_builtin=${!showBuiltin && !anchor}${pageCursor ? `&cursor=${encodeURIComponent(pageCursor)}` : initialAnchor && anchor ? `&anchor_id=${encodeURIComponent(anchor)}` : ""}`,
-            opts,
-          );
-        let page = await fetchPage(
-          pagingRequest?.cursor || (!changed ? loadedRange.current.start : ""),
-          changed,
-        );
-        if (!changed && !pagingRequest) {
-          const expected = Math.max(50, loadedRange.current.count);
-          while (page.next_cursor && page.items.length < expected) {
-            const next = await fetchPage(page.next_cursor);
-            page = {
-              ...page,
-              items: [...page.items, ...next.items],
-              next_cursor: next.next_cursor,
-            };
-          }
-        }
-        page.items.forEach((segment) => validateAnchor(recordingId, selected, v, segment));
-        if (changed && anchor && !page.items.some((segment) => segment.id === anchor))
-          throw new Error(tr("服务器返回的窗口未包含引用片段，无法定位。"));
-        if (controller.signal.aborted) return;
-        loadedView.current = view;
-        setVersion(v);
-        if (!pagingRequest) {
-          loadedRange.current = { start: page.current_cursor || "", count: page.items.length };
-          setSegments(page);
-        } else {
-          if (pagingRequest.direction === "previous") {
-            const first = document.querySelector<HTMLElement>(".segments > article");
-            if (first)
-              prependAnchor.current = { id: first.id, top: first.getBoundingClientRect().top };
-            loadedRange.current.start = page.current_cursor || pagingRequest.cursor;
-          }
-          setSegments((current) => {
-            if (!current) return page;
-            const unique = new Map(current.items.map((item) => [item.id, item]));
-            page.items.forEach((item) => unique.set(item.id, item));
-            const items = [...unique.values()].sort((a, b) => a.ordinal - b.ordinal);
-            loadedRange.current.count = items.length;
-            return {
-              ...current,
-              items,
-              ...(pagingRequest.direction === "next"
-                ? { next_cursor: page.next_cursor }
-                : { previous_cursor: page.previous_cursor, current_cursor: page.current_cursor }),
-            };
-          });
-        }
-        if (
-          changed &&
-          target &&
-          !cursor &&
-          target.start_ms !== null &&
-          target.end_ms !== null &&
-          target.end_ms > target.start_ms
-        )
-          queueSeek(target.start_ms);
-      } catch (e) {
-        if (!controller.signal.aborted) setLoadError(errorMessage(e));
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-          setPaging(null);
-          pageRequest.current = null;
-        }
-      }
-    })();
-    return () => controller.abort();
-  }, [
-    recordingId,
-    selected,
-    selectedState,
-    anchor,
-    cursor,
-    reload,
-    showBuiltin,
-    viewKey,
-    queueSeek,
-  ]);
-  useLayoutEffect(() => {
-    const previous = prependAnchor.current;
-    if (previous) {
-      const element = document.getElementById(previous.id);
-      if (element) {
-        const delta = element.getBoundingClientRect().top - previous.top;
-        const panel = transcriptPanel.current;
-        if (panel && getComputedStyle(panel).overflowY === "auto") panel.scrollTop += delta;
-        else window.scrollBy(0, delta);
-      }
-      prependAnchor.current = null;
-    }
-  }, [segments]);
-  useEffect(() => {
-    if (!segments || loading || paging || loadError || !anchorPositioned) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (pageRequest.current) return;
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          const direction = entry.target === topSentinel.current ? "previous" : "next";
-          const next = direction === "next" ? segments.next_cursor : segments.previous_cursor;
-          if (!next) continue;
-          pageRequest.current = { cursor: next, direction };
-          setPaging(direction);
-          setCursor(next);
-          break;
-        }
-      },
-      {
-        root:
-          transcriptPanel.current && getComputedStyle(transcriptPanel.current).overflowY === "auto"
-            ? transcriptPanel.current
-            : null,
-        rootMargin: "150px",
-      },
-    );
-    if (topSentinel.current) observer.observe(topSentinel.current);
-    if (bottomSentinel.current) observer.observe(bottomSentinel.current);
-    return () => observer.disconnect();
-  }, [segments, loading, paging, loadError, anchorPositioned]);
   async function playSegment(segment: Segment) {
     if (segments && version) await playback.play(segment);
   }
@@ -622,12 +469,15 @@ export function DetailPage() {
                     </AlertDescription>
                   </Alert>
                 )}
-                <div className="segments">
+                <div className="segments relative">
                   {segments.previous_cursor && (
                     <div ref={topSentinel} className="h-px shrink-0" aria-hidden="true" />
                   )}
                   {paging === "previous" && (
-                    <p role="status" className="text-center text-xs text-muted-foreground">
+                    <p
+                      role="status"
+                      className="absolute inset-x-0 top-0 text-center text-xs text-muted-foreground"
+                    >
                       {tr("正在加载…")}
                     </p>
                   )}
@@ -810,15 +660,7 @@ export function DetailPage() {
                               disabled={blocked}
                               onSaved={(saved) => {
                                 setSearchRevision((value) => value + 1);
-                                setSegments(
-                                  (current) =>
-                                    current && {
-                                      ...current,
-                                      items: current.items.map((item) =>
-                                        item.id === saved.id ? saved : item,
-                                      ),
-                                    },
-                                );
+                                replaceSegment(saved);
                                 insights.refresh();
                               }}
                             />
@@ -1144,7 +986,6 @@ export function DetailPage() {
                         checked={showBuiltin || !!anchor}
                         disabled={!!anchor}
                         onCheckedChange={(checked) => {
-                          setCursor("");
                           setShowBuiltin(checked);
                         }}
                       />

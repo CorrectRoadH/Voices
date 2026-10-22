@@ -28,6 +28,7 @@ export default {
       "web/src/lib/use-transcript-search.ts",
       "web/src/lib/use-segment-focus.ts",
       "web/src/lib/use-segment-playback.ts",
+      "web/src/lib/use-transcript-window.ts",
       "internal/app/admin_events.go",
       "internal/app/admin_overview.go",
       "internal/app/runtime_events.go",
