@@ -22,7 +22,7 @@ test("个人与管理调用日志共用筛选、详情和分页", async ({ app, 
     screen.getByText("查看全站 STT 与 AI 调用，调用记录永久保存。", { exact: true }),
   ).toBeVisible();
   await agent.act(
-    "在账号搜索中输入 calls_viewer，将调用类别筛选为 STT，将调用结果筛选为调用失败。",
+    "展开更多筛选，在账号搜索中输入 calls_viewer，将调用类别筛选为 STT，将调用结果筛选为调用失败。",
   );
   await expect(screen.getByText("HTTP: 401", { exact: true })).toHaveCount(50);
   await agent.act("加载更多调用记录。");
@@ -33,5 +33,5 @@ test("个人与管理调用日志共用筛选、详情和分页", async ({ app, 
   await noOverflow(browser);
   await app.screenshot("手机调用日志");
   await agent.act("将模型 ID 筛选为 nonexistent-model。");
-  await expect(screen.getByText("暂无调用记录", { exact: true })).toBeVisible();
+  await expect(screen.getByText("没有匹配的调用记录", { exact: true })).toBeVisible();
 });

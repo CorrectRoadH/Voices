@@ -108,6 +108,13 @@ export function DetailPage() {
   );
   const selected = transcriptionId || recording.data?.active_transcription_id || undefined;
   const selectedState = versions.data?.items.find((t) => t.id === selected)?.state;
+  const selectedIndex = versions.data?.items.findIndex((t) => t.id === selected) ?? -1;
+  const newerVersion = selectedIndex > 0 ? versions.data?.items[0] : undefined;
+  const headlineVersion =
+    newerVersion || versions.data?.items.find((t) => t.id === selected) || versions.data?.items[0];
+  const previousVersion = versions.data?.items.find(
+    (t) => t.state === "succeeded" && t.id !== selected,
+  );
   const [reload, setReload] = useState(0);
   const [textQuery, setTextQuery] = useState("");
   const [searchRevision, setSearchRevision] = useState(0);
@@ -453,11 +460,50 @@ export function DetailPage() {
       </div>
       <header className="detail-heading">
         <div className="flex flex-wrap items-center gap-3">
-          <Status value={r.state} />
+          {!newerVersion && (
+            <Status
+              value={r.state === "ready" && headlineVersion ? headlineVersion.state : r.state}
+            />
+          )}
         </div>
         <RecordingField key={r.id} field="title" recording={r} onSaved={recording.refresh} />
       </header>
-      <ErrorBox message={recording.error || versions.error} retry={refresh} />
+      <ErrorBox
+        message={
+          recording.error || versions.error || jobs.error
+            ? tr("状态更新失败：") + (recording.error || versions.error || jobs.error)
+            : ""
+        }
+        retry={refresh}
+      />
+      {newerVersion && (
+        <Alert>
+          <AlertTitle>
+            {newerVersion.state === "succeeded" ? tr("新版本已生成") : tr("新版本状态")}
+          </AlertTitle>
+          <AlertDescription>
+            <div className="flex flex-wrap items-center gap-3">
+              {newerVersion.state !== "succeeded" && <Status value={newerVersion.state} />}
+              <Button
+                size="sm"
+                variant="outline"
+                nativeButton={false}
+                render={<Link to={`/recordings/${r.id}/transcriptions/${newerVersion.id}`} />}
+              >
+                {tr("查看新版本")}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                nativeButton={false}
+                render={<Link to={`/jobs?recording_id=${r.id}`} />}
+              >
+                {tr("查看任务")}
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
       <ErrorBox message={people.error} retry={people.refresh} />
       <ErrorBox message={settings.error} retry={settings.refresh} />
       {blocked ? (
@@ -494,7 +540,7 @@ export function DetailPage() {
                     </TabsList>
                     <TabsContent value="outline">
                       <InsightOutline
-                        hasTranscription={!!selected}
+                        hasTranscription={version?.state === "succeeded"}
                         data={insights.data}
                         error={insights.error}
                         busy={action.pendingKey === "insights"}
@@ -512,7 +558,7 @@ export function DetailPage() {
                     <TabsContent value="summary">
                       <InsightOutline
                         view="summary"
-                        hasTranscription={!!selected}
+                        hasTranscription={version?.state === "succeeded"}
                         data={insights.data}
                         error={insights.error}
                         busy={action.pendingKey === "insights"}
@@ -630,14 +676,15 @@ export function DetailPage() {
             <ErrorBox message={loadError} retry={() => setReload((n) => n + 1)} />
             {loading ? (
               <Loading />
-            ) : (!selected || (version && version.state !== "succeeded")) && !loadError ? (
+            ) : (!selected || (version && version.state !== "succeeded")) &&
+              !loadError &&
+              !versions.error ? (
               <>
-                <ErrorBox message={jobs.error} retry={jobs.refresh} />
                 <RecordingProgress
                   recording={r}
                   transcription={
                     selected
-                      ? version
+                      ? versions.data?.items.find((item) => item.id === selected) || version
                       : versions.data?.items.find(
                           (item) => !["succeeded", "failed", "cancelled"].includes(item.state),
                         ) || versions.data?.items[0]
@@ -657,6 +704,18 @@ export function DetailPage() {
                     );
                   }}
                 />
+                {previousVersion && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    nativeButton={false}
+                    render={
+                      <Link to={`/recordings/${r.id}/transcriptions/${previousVersion.id}`} />
+                    }
+                  >
+                    {tr("查看旧版本")}
+                  </Button>
+                )}
               </>
             ) : version && segments ? (
               <>
@@ -969,7 +1028,7 @@ export function DetailPage() {
             <TabsContent value="outline">
               <div className="desktop-outline">
                 <InsightOutline
-                  hasTranscription={!!selected}
+                  hasTranscription={version?.state === "succeeded"}
                   data={insights.data}
                   error={insights.error}
                   busy={action.pendingKey === "insights"}
@@ -985,7 +1044,7 @@ export function DetailPage() {
             <TabsContent value="summary">
               <InsightOutline
                 view="summary"
-                hasTranscription={!!selected}
+                hasTranscription={version?.state === "succeeded"}
                 data={insights.data}
                 error={insights.error}
                 busy={action.pendingKey === "insights"}
@@ -1328,7 +1387,11 @@ export function DetailPage() {
                   );
                   setNewOpen(false);
                   versions.refresh();
-                  navigate(`/recordings/${r.id}/transcriptions/${result.transcription.id}`);
+                  jobs.refresh();
+                  navigate(
+                    `/recordings/${r.id}/transcriptions/${version?.state === "succeeded" ? version.id : result.transcription.id}`,
+                    { replace: true },
+                  );
                 },
                 tr("转写已加入后台任务"),
                 "transcribe",

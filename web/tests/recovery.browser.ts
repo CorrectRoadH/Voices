@@ -54,7 +54,7 @@ test("任务原因、安全重试与确认风险后重新转写", async ({ app, 
   await expect(screen.getByRole("dialog")).toHaveCount(0);
   let versions = await (await api(browser, `/recordings/${id}/transcriptions`)).json();
   expect(versions.items.length, "取消不能创建新版本").toBe(1);
-  await expect(screen.getByText("音频已就绪", { exact: true }).first()).toBeVisible();
+  await expect(screen.getByText("失败", { exact: true }).first()).toBeVisible();
   await screen.getByRole("button", { name: "重新转写", exact: true }).click();
   await expect(screen.getByRole("switch", { name: "我接受可能重复收费，另建新版本" })).toHaveCount(
     0,

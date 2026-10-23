@@ -164,6 +164,22 @@ test("加载阶段、行内编辑快捷键、保存状态与真实并发冲突",
     ),
   ).toBe(true);
   await app.screenshot("处理完成与共用编辑组件");
+  const original = await (await api(browser, `/recordings/${id}`)).json();
+  await screen.getByRole("tab", { name: "录音信息", exact: true }).click();
+  await screen.getByRole("button", { name: "新建转写", exact: true }).click();
+  await screen.getByRole("button", { name: "开始转写", exact: true }).click();
+  await expect(screen.getByRole("dialog")).toHaveCount(0);
+  await expect(segment).toHaveText("共用组件修改的转写正文");
+  await expect(screen.getByText("新版本已生成", { exact: true })).toBeVisible({ timeout: 30000 });
+  expect((await (await api(browser, `/recordings/${id}`)).json()).active_transcription_id).toBe(
+    original.active_transcription_id,
+  );
+  await app.screenshot("新版本完成仍保留旧正文");
+  await screen.getByRole("button", { name: "查看新版本", exact: true }).click();
+  await expect(segment).not.toHaveText("共用组件修改的转写正文");
+  await browser.goto(`${fixture("VOICES_TEST_URL")}/recordings/${id}`);
+  await expect(segment).toHaveText("共用组件修改的转写正文");
+
   // 把首个说话人批量关联为系统后，其他说话人的头像与真实发言边界必须保留。
   const visibleIds = await browser.evaluate(() =>
     Array.from(document.querySelectorAll("article.segment"))
@@ -323,6 +339,21 @@ test("异步操作反馈、筛选空态与刷新保留内容", async ({ app, bro
     release();
     hold = undefined;
   }
-  await expect(screen.getByText("暂无调用记录", { exact: true })).toBeVisible();
+  await expect(screen.getByText("没有匹配的调用记录", { exact: true })).toBeVisible();
   await browser.unroute("**/api/v1/calls?**");
+  await browser.goto(`${base}/jobs?view=calls&model=ui-fold`);
+  await expect(screen.getByText("查询成功 · 已加载 3 次", { exact: true })).toBeVisible();
+  await expect(screen.getByText("HTTP: 200", { exact: true }).first()).not.toBeVisible();
+  await screen.getByText("更多筛选", { exact: true }).click();
+  await app.screenshot("桌面紧凑调用日志");
+  await screen.getByText("查询成功 · 已加载 3 次", { exact: true }).click();
+  await expect(screen.getByText("HTTP: 200", { exact: true })).toHaveCount(3);
+  await expect(screen.getByText("音频时长: 1:26:02", { exact: true })).toHaveCount(3);
+  await browser.setViewport({ width: 375, height: 812 });
+  await noOverflow(browser);
+  await browser.evaluate(() => {
+    document.querySelector("article")?.scrollIntoView();
+    return null;
+  });
+  await app.screenshot("紧凑调用日志与展开查询记录");
 });

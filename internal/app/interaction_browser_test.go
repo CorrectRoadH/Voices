@@ -28,6 +28,12 @@ func TestInteractionBrowser(t *testing.T) {
 	}
 	out := f.upload(t, wav(20), map[string]any{"title": "加载与编辑验收", "auto_transcribe": true, "transcription_options": options()}, uuid.NewString(), 201)
 	id := out["recording"].(map[string]any)["id"].(string)
+	for range 3 {
+		_, err := f.db.Exec(context.Background(), `INSERT INTO external_calls(id,owner_id,category,operation,provider,model,recording_id,job_id,deadline_at,state,request_started,http_status,audio_duration_ms) VALUES($1,$2,'stt','poll','soniox','ui-fold',$3,$3,clock_timestamp(),'succeeded',true,200,5162000)`, uuid.NewString(), userID(t, f), id)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 	gate := filepath.Join(t.TempDir(), "start-worker")
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -59,7 +65,7 @@ func TestInteractionBrowser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if remote.uploads.Load() != 1 || remote.submits.Load() != 1 {
+	if remote.uploads.Load() != 2 || remote.submits.Load() != 2 {
 		t.Fatalf("unexpected remote operations: uploads=%d submits=%d", remote.uploads.Load(), remote.submits.Load())
 	}
 }

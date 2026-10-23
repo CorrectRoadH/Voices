@@ -3,7 +3,7 @@
 // @concord-implements docs/feature/call-logs/use-case/inspect-calls.md
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { RefreshCw } from "lucide-react";
+import { Copy, RefreshCw } from "lucide-react";
 import { tr } from "@/lib/i18n";
 import { request, errorMessage } from "@/lib/api";
 import { date } from "@/lib/format";
@@ -11,8 +11,10 @@ import type { Schema } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { useAction } from "@/lib/hooks";
+import { groupCalls } from "@/lib/call-groups";
+import { copyText } from "@/lib/links";
 import { Badge } from "@/components/ui/badge";
 import { PageHeading, ErrorBox, Loading, EmptyState } from "@/components/shared";
 
@@ -50,6 +52,7 @@ const filterKeys = [
 ];
 export function CallLogs({ admin = false }: { admin?: boolean }) {
   const [params, setParams] = useSearchParams();
+  const [names, setNames] = useState<Record<string, string>>({});
   const [items, setItems] = useState<Call[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [pending, setPending] = useState<"refresh" | "page" | null>("refresh");
@@ -108,6 +111,33 @@ export function CallLogs({ admin = false }: { admin?: boolean }) {
       requestVersion.current++;
     };
   }, [filter, endpoint, revision]);
+  const recordingIds = [
+    ...new Set(
+      items.filter((c) => c.can_open_recording && c.recording_id).map((c) => c.recording_id!),
+    ),
+  ]
+    .sort()
+    .join(",");
+  useEffect(() => {
+    const abort = new AbortController();
+    setNames({});
+    void Promise.all(
+      recordingIds
+        .split(",")
+        .filter(Boolean)
+        .map(async (id) => {
+          try {
+            const recording = await request<Schema["Recording"]>(`/recordings/${id}`, {
+              signal: abort.signal,
+            });
+            if (!abort.signal.aborted) setNames((old) => ({ ...old, [id]: recording.title }));
+          } catch {
+            /* A deleted or inaccessible recording keeps its neutral label. */
+          }
+        }),
+    );
+    return () => abort.abort();
+  }, [recordingIds, endpoint]);
   function change(key: string, value: string) {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);
@@ -161,51 +191,63 @@ export function CallLogs({ admin = false }: { admin?: boolean }) {
           )}
         </p>
       </details>
-      <div className="my-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <FieldGroup className="my-4 grid gap-3 sm:grid-cols-2">
         {select("category", "调用类别", { stt: "STT", ai: "AI" })}
-        {select("operation", "调用操作", operations)}
-        {select("provider", "服务商", {
-          soniox: "Soniox",
-          assemblyai: "AssemblyAI",
-          openai_compatible: "OpenAI Compatible",
-        })}
         {select("state", "调用结果", states)}
-        <Field>
-          <FieldLabel htmlFor="call-model">{tr("模型 ID")}</FieldLabel>
-          <Input
-            id="call-model"
-            value={params.get("model") || ""}
-            onChange={(e) => change("model", e.target.value)}
-            maxLength={200}
-          />
-        </Field>
-        {admin && (
+      </FieldGroup>
+      <details
+        className="mb-4"
+        open={
+          ["operation", "provider", "model", "account", "from", "to"].some((key) =>
+            params.has(key),
+          ) || undefined
+        }
+      >
+        <summary className="cursor-pointer text-sm">{tr("更多筛选")}</summary>
+        <FieldGroup className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {select("operation", "调用操作", operations)}
+          {select("provider", "服务商", {
+            soniox: "Soniox",
+            assemblyai: "AssemblyAI",
+            openai_compatible: "OpenAI Compatible",
+          })}
           <Field>
-            <FieldLabel htmlFor="call-account">{tr("账号搜索")}</FieldLabel>
+            <FieldLabel htmlFor="call-model">{tr("模型 ID")}</FieldLabel>
             <Input
-              id="call-account"
-              value={params.get("account") || ""}
-              onChange={(e) => change("account", e.target.value)}
+              id="call-model"
+              value={params.get("model") || ""}
+              onChange={(e) => change("model", e.target.value)}
               maxLength={200}
             />
           </Field>
-        )}
-        {["from", "to"].map((key) => (
-          <Field key={key}>
-            <FieldLabel htmlFor={`call-${key}`}>
-              {tr(key === "from" ? "开始时间" : "结束时间")}
-            </FieldLabel>
-            <Input
-              id={`call-${key}`}
-              type="datetime-local"
-              value={localDate(params.get(key))}
-              onChange={(e) =>
-                change(key, e.target.value ? new Date(e.target.value).toISOString() : "")
-              }
-            />
-          </Field>
-        ))}
-      </div>
+          {admin && (
+            <Field>
+              <FieldLabel htmlFor="call-account">{tr("账号搜索")}</FieldLabel>
+              <Input
+                id="call-account"
+                value={params.get("account") || ""}
+                onChange={(e) => change("account", e.target.value)}
+                maxLength={200}
+              />
+            </Field>
+          )}
+          {["from", "to"].map((key) => (
+            <Field key={key}>
+              <FieldLabel htmlFor={`call-${key}`}>
+                {tr(key === "from" ? "开始时间" : "结束时间")}
+              </FieldLabel>
+              <Input
+                id={`call-${key}`}
+                type="datetime-local"
+                value={localDate(params.get(key))}
+                onChange={(e) =>
+                  change(key, e.target.value ? new Date(e.target.value).toISOString() : "")
+                }
+              />
+            </Field>
+          ))}
+        </FieldGroup>
+      </details>
       {filterKeys
         .filter((k) => k.endsWith("_id") || k === "generation")
         .filter((k) => params.has(k))
@@ -222,15 +264,50 @@ export function CallLogs({ admin = false }: { admin?: boolean }) {
         <Loading />
       ) : !items.length && !error ? (
         <EmptyState
-          title={tr("暂无调用记录")}
-          description={tr("发起 STT 或 AI 操作后会在这里显示，启用前的历史不会补录。")}
+          title={filter ? tr("没有匹配的调用记录") : tr("暂无调用记录")}
+          description={
+            filter
+              ? tr("请调整或清除筛选。")
+              : tr("发起 STT 或 AI 操作后会在这里显示，启用前的历史不会补录。")
+          }
         />
       ) : (
-        <div className="grid gap-4">
-          {items.map((call) => (
-            <CallCard key={call.id} call={call} admin={admin} />
-          ))}
+        <div className="divide-y rounded-lg border">
+          {groupCalls(items).map((group) =>
+            group.length === 1 ? (
+              <CallRow
+                key={group[0].id}
+                call={group[0]}
+                admin={admin}
+                name={names[group[0].recording_id || ""]}
+              />
+            ) : (
+              <details key={group[0].id} className="px-4 py-3">
+                <summary className="cursor-pointer text-sm">
+                  <span className="font-medium">
+                    {names[group[0].recording_id || ""] || tr("查询进度")}
+                  </span>
+                  <span className="ml-3">
+                    {tr("查询成功")} · {tr("已加载")} {group.length} {tr("次")}
+                  </span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {date(group[0].started_at)} · {group[0].provider} · {group[0].model}
+                  </span>
+                </summary>
+                <div className="mt-2 divide-y">
+                  {group.map((call) => (
+                    <CallRow key={call.id} call={call} admin={admin} />
+                  ))}
+                </div>
+              </details>
+            ),
+          )}
         </div>
+      )}
+      {filter && (
+        <Button variant="ghost" size="sm" onClick={() => setParams({}, { replace: true })}>
+          {tr("清除筛选")}
+        </Button>
       )}
       {cursor && (
         <Button
@@ -252,88 +329,107 @@ function localDate(value: string | null) {
   if (Number.isNaN(d.getTime())) return "";
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
-function CallCard({ call, admin }: { call: Call; admin: boolean }) {
+function audioTime(ms: number) {
+  const seconds = Math.floor(ms / 1000);
+  return `${Math.floor(seconds / 3600)}:${String(Math.floor(seconds / 60) % 60).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+}
+function CallRow({ call, admin, name }: { call: Call; admin: boolean; name?: string }) {
+  const action = useAction();
   const metric = (value: number | null) => (value === null ? tr("未知") : value.toLocaleString());
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle>{tr(operations[call.operation] || call.operation)}</CardTitle>
-          <Badge variant={call.state === "failed" ? "destructive" : "secondary"}>
-            {tr(states[call.state] || call.state)}
-          </Badge>
-        </div>
-        <CardDescription className="break-all">
-          {date(call.started_at)} · {call.provider}
-          {call.model ? ` · ${call.model}` : ""}
-          {admin && call.actor && (
-            <span className="block">
-              {call.actor.display_name} · {call.actor.email}
-            </span>
-          )}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm">
-        <div className="flex flex-wrap gap-x-5 gap-y-1">
-          <span>HTTP: {metric(call.http_status)}</span>
-          <span>
-            {tr("耗时")}:{" "}
-            {call.duration_ms === null ? tr("未知") : `${(call.duration_ms / 1000).toFixed(2)} s`}
-          </span>
-          {call.category === "ai" ? (
-            <span>
-              {tr("输入 / 输出 / 总 token")}: {metric(call.input_tokens)} /{" "}
-              {metric(call.output_tokens)} / {metric(call.total_tokens)}
-            </span>
-          ) : (
-            <span>
-              {tr("音频时长")}:{" "}
-              {call.audio_duration_ms === null
-                ? tr("未知")
-                : `${(call.audio_duration_ms / 1000).toFixed(1)} s`}
-            </span>
-          )}
-        </div>
-        {call.error_code && (
-          <p className="break-all text-destructive">
-            {tr("错误代码：")}
-            {call.error_code}
-            {call.error_reason ? ` · ${call.error_reason}` : ""}
-          </p>
-        )}
-        <details>
-          <summary className="cursor-pointer">{tr("调用详情")}</summary>
-          <dl className="mt-2 grid gap-2 break-all text-xs text-muted-foreground">
-            {["id", "job_id", "recording_id", "transcription_id", "operation_id", "generation"].map(
-              (key) => {
-                const value = call[key as keyof Call];
-                return typeof value === "string" ? (
-                  <div key={key}>
-                    <dt>{key}</dt>
-                    <dd>{value}</dd>
-                  </div>
-                ) : null;
-              },
-            )}
-            <div>
-              <dt>{tr("请求已发起")}</dt>
-              <dd>
-                {tr(call.request_started === null ? "未知" : call.request_started ? "是" : "否")}
-              </dd>
-            </div>
-          </dl>
-        </details>
+    <article className="flex min-w-0 flex-col gap-2 px-4 py-3 text-sm">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         {call.can_open_recording && call.recording_id && (
-          <Button
-            size="sm"
-            variant="outline"
-            nativeButton={false}
-            render={<Link to={`/recordings/${call.recording_id}`} />}
+          <Link
+            className="min-w-0 break-words font-medium underline underline-offset-4"
+            to={`/recordings/${call.recording_id}`}
           >
-            {tr("查看录音")}
-          </Button>
+            {name || tr("查看录音")}
+          </Link>
         )}
-      </CardContent>
-    </Card>
+        <span className="font-medium">{tr(operations[call.operation] || call.operation)}</span>
+        <Badge variant={call.state === "failed" ? "destructive" : "secondary"}>
+          {tr(states[call.state] || call.state)}
+        </Badge>
+        <span className="text-xs tabular-nums text-muted-foreground">{date(call.started_at)}</span>
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <span className="break-all">
+          {call.provider}
+          {call.model ? ` · ${call.model}` : ""}
+        </span>
+        {admin && call.actor && (
+          <span className="break-all">
+            {call.actor.display_name} · {call.actor.email}
+          </span>
+        )}
+        <span>HTTP: {metric(call.http_status)}</span>
+        <span>
+          {tr("耗时")}:{" "}
+          {call.duration_ms === null ? tr("未知") : `${(call.duration_ms / 1000).toFixed(2)} s`}
+        </span>
+        {call.category === "ai" ? (
+          <span>
+            {tr("输入 / 输出 / 总 token")}: {metric(call.input_tokens)} /{" "}
+            {metric(call.output_tokens)} / {metric(call.total_tokens)}
+          </span>
+        ) : (
+          <span>
+            {tr("音频时长")}:{" "}
+            {call.audio_duration_ms === null ? tr("未知") : audioTime(call.audio_duration_ms)}
+          </span>
+        )}
+      </div>
+      {call.error_code && (
+        <p className="break-all text-destructive">
+          {tr("错误代码：")}
+          {call.error_code}
+          {call.error_reason ? ` · ${call.error_reason}` : ""}
+        </p>
+      )}
+      <details>
+        <summary className="cursor-pointer text-xs text-muted-foreground">{tr("调用详情")}</summary>
+        <dl className="mt-2 grid gap-3 text-xs sm:grid-cols-2">
+          {["id", "job_id", "recording_id", "transcription_id", "operation_id", "generation"].map(
+            (key) => {
+              const value = call[key as keyof Call];
+              return typeof value === "string" ? (
+                <div key={key} className="min-w-0">
+                  <dt className="text-muted-foreground">{key}</dt>
+                  <dd className="flex items-start gap-2">
+                    <span className="break-all">{value}</span>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label={`${tr("复制")} ${key}`}
+                      loading={action.pendingKey === key}
+                      onClick={() =>
+                        void action.run(
+                          async () => {
+                            if (!(await copyText(value)))
+                              throw new Error(tr("复制失败，请手动选择文字复制。"));
+                          },
+                          tr("已复制"),
+                          key,
+                        )
+                      }
+                    >
+                      <Copy />
+                    </Button>
+                  </dd>
+                </div>
+              ) : null;
+            },
+          )}
+          <div>
+            <dt>{tr("请求已发起")}</dt>
+            <dd>
+              {tr(call.request_started === null ? "未知" : call.request_started ? "是" : "否")}
+            </dd>
+          </div>
+        </dl>
+        <ErrorBox message={action.error} />
+      </details>
+    </article>
   );
 }

@@ -913,5 +913,19 @@
   "选择第 {{v0}} 段": "Select segment {{v0}}",
   "多选": "Select multiple",
   "选择这组发言": "Select this speaker group",
-  "请选择同一转写版本的 1–100 个不同片段。": "Select 1–100 distinct segments from the same transcription version."
+  "请选择同一转写版本的 1–100 个不同片段。": "Select 1–100 distinct segments from the same transcription version.",
+  "更多筛选": "More filters",
+  "没有匹配的调用记录": "No matching calls",
+  "请调整或清除筛选。": "Adjust or clear your filters.",
+  "查询成功": "Query succeeded",
+  "已加载": "Loaded",
+  "次": "calls",
+  "复制": "Copy",
+  "已复制": "Copied",
+  "状态更新失败：": "Status update failed: ",
+  "新版本已生成": "New version ready",
+  "新版本状态": "New version status",
+  "查看新版本": "View new version",
+  "查看旧版本": "View previous version",
+  "复制失败，请手动选择文字复制。": "Copy failed. Select the text and copy it manually."
 }
