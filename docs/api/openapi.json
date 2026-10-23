@@ -2364,7 +2364,8 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "One state or comma-separated states. Omit to include all states."
           },
           {
             "name": "cursor",
@@ -6591,6 +6592,13 @@
           "retry_allowed": {
             "type": "boolean",
             "description": "Whether current resource state permits retry; server revalidates transactionally and rejects restore mode."
+          },
+          "recording_title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Current title of the associated recording owned by the job owner; null when unavailable or deleting."
           }
         },
         "required": [

@@ -134,7 +134,6 @@ export function DetailPage() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [manualCopy, setManualCopy] = useState("");
   const [options, setOptions] = useState<Options>(blankOptions);
-  const [duplicateConsent, setDuplicateConsent] = useState(false);
   const [createKey, setCreateKey] = useState(() => requestKey());
   const action = useAction();
   const { session, notify } = useApp();
@@ -201,7 +200,6 @@ export function DetailPage() {
 
   function openNewTranscription() {
     setOptions(version?.options || settings.data?.default_transcription || blankOptions);
-    setDuplicateConsent(false);
     setCreateKey(requestKey());
     setNewOpen(true);
   }
@@ -213,7 +211,6 @@ export function DetailPage() {
     setSearch(next, { replace: true });
     if (recording.data.state !== "ready" || session.restore_mode) return;
     setOptions(version?.options || settings.data?.default_transcription || blankOptions);
-    setDuplicateConsent(false);
     setCreateKey(requestKey());
     setNewOpen(true);
   }, [
@@ -1082,24 +1079,12 @@ export function DetailPage() {
         )}
         <FieldGroup>
           {uncertain && (
-            <>
-              <Alert variant="destructive">
-                <AlertTitle>{tr("已有任务尚未核实")}</AlertTitle>
-                <AlertDescription>
-                  {tr("新的转写可能造成重复收费；旧任务继续保留，需核对远端 ID 和清理状态。")}{" "}
-                </AlertDescription>
-              </Alert>
-              <Field orientation="horizontal">
-                <FieldLabel htmlFor="duplicate-consent">
-                  {tr("我接受可能重复收费，另建新版本")}
-                </FieldLabel>
-                <Switch
-                  id="duplicate-consent"
-                  checked={duplicateConsent}
-                  onCheckedChange={setDuplicateConsent}
-                />
-              </Field>
-            </>
+            <Alert variant="destructive">
+              <AlertTitle>{tr("重新转写")}</AlertTitle>
+              <AlertDescription>
+                {tr("新的转写可能造成重复收费；旧任务继续保留，需核对远端 ID 和清理状态。")}{" "}
+              </AlertDescription>
+            </Alert>
           )}
           <Button
             loading={action.pendingKey === "transcribe"}
@@ -1109,8 +1094,7 @@ export function DetailPage() {
               r.state !== "ready" ||
               !!createError ||
               jobs.loading ||
-              !!jobs.error ||
-              (uncertain && !duplicateConsent)
+              !!jobs.error
             }
             onClick={() =>
               void action.run(
@@ -1121,7 +1105,7 @@ export function DetailPage() {
                     {
                       ...options,
                       diarization: true,
-                      ...(uncertain ? { acknowledge_duplicate_risk: duplicateConsent } : {}),
+                      ...(uncertain ? { acknowledge_duplicate_risk: true } : {}),
                     },
                     createKey,
                   );

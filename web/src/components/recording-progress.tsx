@@ -43,8 +43,19 @@ export function RecordingProgress({
       : recording.state === "preparing"
         ? "preparing"
         : transcription?.state;
-  const pending = !!state && ["preparing", "queued", "running", "retry_wait"].includes(state);
-  const needsAttention = !!state && ["uncertain", "restore_hold"].includes(state);
+  const pending =
+    !!state &&
+    [
+      "preparing",
+      "queued",
+      "running",
+      "retry_wait",
+      "uploading",
+      "submitting",
+      "polling",
+      "normalizing",
+    ].includes(state);
+  const needsAttention = state === "restore_hold";
   return (
     <div className="flex flex-col items-start gap-4 py-6">
       {pending ? (
@@ -71,7 +82,7 @@ export function RecordingProgress({
             </p>
           )}
         </div>
-      ) : state === "failed" ? (
+      ) : state === "failed" || state === "uncertain" ? (
         <ErrorBox
           message={
             tr("处理失败，请查看任务详情后重试。") +
@@ -81,11 +92,7 @@ export function RecordingProgress({
       ) : needsAttention ? (
         <EmptyState
           title={stateName(state!)}
-          description={
-            state === "restore_hold"
-              ? tr("数据库恢复后的远端状态尚未核对。")
-              : tr("上一次请求可能已被服务商接收。请核对任务，或确认可能重复收费后重新转写。")
-          }
+          description={tr("数据库恢复后的远端状态尚未核对。")}
         />
       ) : state === "succeeded" ? (
         <EmptyState
@@ -123,7 +130,7 @@ export function RecordingProgress({
             {tr("重新转写")}
           </Button>
         )}
-        {(pending || needsAttention || state === "failed") && (
+        {(pending || needsAttention || state === "failed" || state === "uncertain") && (
           <Button
             variant="outline"
             size="sm"

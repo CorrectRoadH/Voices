@@ -27,7 +27,7 @@ export const states: Record<string, string> = {
   queued: "排队中",
   running: "处理中",
   retry_wait: "等待重试",
-  uncertain: "结果待确认",
+  uncertain: "失败",
   restore_hold: "恢复待核对",
   succeeded: "已完成",
   failed: "失败",

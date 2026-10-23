@@ -36,11 +36,28 @@ func TestJobRecoveryBrowser(t *testing.T) {
 	}
 	f.a.execute(context.Background(), fj)
 	remote.uploadStatus.Store(0)
+	f.a.Config.TranscriptionConcurrency = 4
+	stageIDs := make([]string, 0, 4)
+	for i, stage := range []string{"uploading", "submitting", "polling", "normalizing"} {
+		out := f.upload(t, wav(22+i), map[string]any{"title": stage, "auto_transcribe": true, "transcription_options": options()}, uuid.NewString(), 201)
+		stageIDs = append(stageIDs, out["recording"].(map[string]any)["id"].(string))
+		f.run(t, "prepare")
+		stageJob, err := f.a.claim(context.Background(), "transcribe")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := f.a.stage(context.Background(), &stageJob, stage); err != nil {
+			t.Fatal(err)
+		}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "vp", "exec", "e2e", "run", "--config", "e2e.recovery.config.ts")
 	cmd.Dir = "../../web"
 	cmd.Env = append(os.Environ(), "E2E_TELEMETRY_DISABLED=1", "VOICES_TEST_URL="+f.server.URL, "VOICES_TEST_RECORDING="+rid, "VOICES_TEST_FAILED_RECORDING="+failedID, "VOICES_TEST_JOB="+j.ID)
+	for i, id := range stageIDs {
+		cmd.Env = append(cmd.Env, "VOICES_TEST_STAGE_"+[]string{"UPLOADING", "SUBMITTING", "POLLING", "NORMALIZING"}[i]+"="+id)
+	}
 	output, err := cmd.CombinedOutput()
 	t.Log(string(output))
 	if err != nil {

@@ -20,6 +20,7 @@ const labelColumns = `l.id,l.transcription_id,l.display_name,l.provider_label,l.
 const segmentColumns = `s.id,s.transcription_id,t.recording_id,s.ordinal,COALESCE(s.edited_text,s.source_text) AS text,s.source_text,s.edited_text,s.start_ms,s.end_ms,l.id AS speaker_label_id,COALESCE(p.display_name,l.display_name,'未知说话人') AS speaker_name,l.person_id,p.builtin_key AS person_builtin_key,s.assignment_mode,s.revision`
 const segmentJoins = ` FROM segments s JOIN transcriptions t ON t.id=s.transcription_id JOIN recordings r ON r.id=t.recording_id LEFT JOIN speaker_labels l ON l.id=CASE s.assignment_mode WHEN 'inherit' THEN s.source_speaker_label_id WHEN 'label' THEN s.assigned_label_id ELSE NULL END LEFT JOIN people p ON p.id=l.person_id `
 const jobColumns = `j.id,j.kind,j.recording_id,j.transcription_id,j.state,j.stage,j.attempt,j.error_code,j.error_detail,j.created_at,
+(SELECT jr.title FROM recordings jr WHERE jr.id=j.recording_id AND jr.owner_id=j.owner_id AND jr.state<>'deleting') AS recording_title,
 (j.state IN ('failed','retry_wait')
  AND EXISTS(SELECT 1 FROM recordings jr WHERE jr.id=j.recording_id AND jr.state<>'deleting')
  AND NOT EXISTS(SELECT 1 FROM provider_operations jo WHERE jo.job_id=j.id AND jo.state IN ('sent','uncertain'))

@@ -5,7 +5,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { tr } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ExternalLink, RefreshCw, ShieldQuestion } from "lucide-react";
+import { RefreshCw, ShieldQuestion } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -69,8 +69,9 @@ function TaskList() {
   const [operationId, setOperationId] = useState("");
   const [remoteId, setRemoteId] = useState("");
   const [note, setNote] = useState("");
+  const filter = params.get("state") === "uncertain" ? "failed" : params.get("state");
   const data = useResource<Page<Job>>(
-    `/jobs${query({ state: params.get("state"), recording_id: params.get("recording_id"), cursor, limit: 50 })}`,
+    `/jobs${query({ state: filter === "failed" ? "failed,uncertain" : filter, recording_id: params.get("recording_id"), cursor, limit: 50 })}`,
     0,
     7000,
   );
@@ -98,15 +99,11 @@ function TaskList() {
           {tr("刷新")}{" "}
         </Button>
       </PageHeading>
-      {items.some((job) => ["uncertain", "restore_hold"].includes(job.state)) && (
+      {items.some((job) => job.state === "restore_hold") && (
         <Alert>
           <ShieldQuestion />
           <AlertTitle>{tr("安全恢复任务")}</AlertTitle>
-          <AlertDescription>
-            {tr(
-              "结果待确认的任务不会自动重试。你可以确认风险后重新转写，也可以登记核对结果；恢复待核对的任务须先完成核对。",
-            )}{" "}
-          </AlertDescription>
+          <AlertDescription>{tr("数据库恢复后的远端状态尚未核对。")}</AlertDescription>
         </Alert>
       )}
       <FieldGroup className="mt-5 max-w-xs">
@@ -114,7 +111,7 @@ function TaskList() {
           <FieldLabel htmlFor="job-filter">{tr("任务状态")}</FieldLabel>
           <NativeSelect
             id="job-filter"
-            value={params.get("state") || ""}
+            value={filter || ""}
             onChange={(e) => {
               const next = new URLSearchParams(params);
               e.target.value ? next.set("state", e.target.value) : next.delete("state");
@@ -126,7 +123,6 @@ function TaskList() {
               "queued",
               "running",
               "retry_wait",
-              "uncertain",
               "restore_hold",
               "succeeded",
               "failed",
@@ -157,6 +153,16 @@ function TaskList() {
                   </CardTitle>
                   <Status value={job.state} />
                 </div>
+                {job.recording_title != null ? (
+                  <Link
+                    to={`/recordings/${job.recording_id}`}
+                    className="break-words underline-offset-4 hover:underline"
+                  >
+                    {job.recording_title}
+                  </Link>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{tr("录音不可用")}</p>
+                )}
                 <CardDescription>
                   {date(job.created_at)} {tr("· 失败")} {job.attempt} {tr("次 · 阶段：")}
                   {stateName(job.stage)}
@@ -176,7 +182,7 @@ function TaskList() {
                     </p>
                   </div>
                 )}
-                {["uncertain", "restore_hold"].includes(job.state) && (
+                {job.state === "restore_hold" && (
                   <p className="mt-2 text-sm text-muted-foreground">
                     {tr("此任务可能已在服务商受理，不能安全重试或宣称清理完成。")}{" "}
                   </p>
@@ -190,23 +196,6 @@ function TaskList() {
                   render={<Link to={`/jobs?view=calls&job_id=${job.id}`} />}
                 >
                   {tr("查看调用记录")}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  nativeButton={false}
-                  render={
-                    <Link
-                      to={
-                        job.transcription_id
-                          ? `/recordings/${job.recording_id}/transcriptions/${job.transcription_id}`
-                          : `/recordings/${job.recording_id}`
-                      }
-                    />
-                  }
-                >
-                  <ExternalLink data-icon="inline-start" />
-                  {tr("查看录音")}{" "}
                 </Button>
                 {canRetry(job) && !session.restore_mode && (
                   <Button
@@ -242,7 +231,7 @@ function TaskList() {
                       {tr("重新转写")}
                     </Button>
                   )}
-                {["uncertain", "restore_hold"].includes(job.state) && (
+                {job.state === "restore_hold" && (
                   <Button
                     variant="outline"
                     size="sm"

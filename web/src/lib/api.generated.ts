@@ -1893,6 +1893,7 @@ export interface paths {
             parameters: {
                 query?: {
                     recording_id?: string;
+                    /** @description One state or comma-separated states. Omit to include all states. */
                     state?: string;
                     cursor?: string;
                     limit?: number;
@@ -5401,6 +5402,8 @@ export interface components {
             } | null;
             /** @description Whether current resource state permits retry; server revalidates transactionally and rejects restore mode. */
             retry_allowed?: boolean;
+            /** @description Current title of the associated recording owned by the job owner; null when unavailable or deleting. */
+            recording_title?: string | null;
         };
         Model: {
             id: string;

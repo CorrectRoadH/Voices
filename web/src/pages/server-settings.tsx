@@ -61,11 +61,12 @@ function SecretField({
         onChange={(event) => onChange({ value: event.target.value, clear: false })}
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <FieldDescription>
-          {tr("当前实例：")}
-          {active ? tr("已配置") : tr("未配置")}
-          {tr("。密钥不会回显。")}
-        </FieldDescription>
+        {active !== configured && (
+          <FieldDescription>
+            {tr("当前实例：")}
+            {active ? tr("已配置") : tr("未配置")}
+          </FieldDescription>
+        )}
         {configured && (
           <Button
             type="button"
@@ -344,10 +345,12 @@ export function ServerSettingsForm({
                     onChange={(e) => update("baseURL", e.target.value)}
                     placeholder="https://voices.example.com"
                   />
-                  <FieldDescription className="break-all">
-                    {tr("当前生效：")}
-                    {data.active.public_base_url}
-                  </FieldDescription>
+                  {data.active.public_base_url !== data.saved.public_base_url && (
+                    <FieldDescription className="break-all">
+                      {tr("当前生效：")}
+                      {data.active.public_base_url}
+                    </FieldDescription>
+                  )}
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="allowed-origins">{tr("额外可信来源")}</FieldLabel>
@@ -377,7 +380,6 @@ export function ServerSettingsForm({
           <Card>
             <CardHeader>
               <CardTitle>{tr("语音转写 · STT")}</CardTitle>
-              <CardDescription>{tr("所有账号共用服务器配置的转写服务额度。")}</CardDescription>
             </CardHeader>
             <CardContent>
               <FieldGroup>
@@ -399,18 +401,11 @@ export function ServerSettingsForm({
                 />
               </FieldGroup>
             </CardContent>
-            <CardFooter>
-              <p className="text-sm text-muted-foreground">
-                {tr("更换服务商账号前，先完成旧账号的转写及远端清理。已配置不代表连接已验证。")}
-              </p>
-            </CardFooter>
           </Card>
           <Card>
             <CardHeader>
               <CardTitle>{tr("语言模型 · LLM")}</CardTitle>
-              <CardDescription>
-                {tr("配置兼容 OpenAI Chat Completions 的服务，用于手动生成录音摘要和主题目录。")}
-              </CardDescription>
+              <CardDescription>{tr("用于生成摘要和目录，支持 OpenAI 兼容服务。")}</CardDescription>
             </CardHeader>
             <CardContent>
               <FieldGroup>
@@ -424,9 +419,6 @@ export function ServerSettingsForm({
                     onChange={(e) => update("llmURL", e.target.value)}
                     placeholder="https://your-provider.example/v1"
                   />
-                  <FieldDescription>
-                    {tr("填写服务提供的 API 基础地址，可包含 /v1。")}
-                  </FieldDescription>
                 </Field>
                 <SecretField
                   id="llm-key"
@@ -447,18 +439,11 @@ export function ServerSettingsForm({
                 />
               </FieldGroup>
             </CardContent>
-            <CardFooter>
-              <p className="text-sm text-muted-foreground">
-                {tr("保存不会调用模型，也不会产生模型调用费用。")}
-              </p>
-            </CardFooter>
           </Card>
         </div>
       </FieldSet>
       <div className="flex flex-col gap-3">
-        <p className="text-sm text-muted-foreground">
-          {tr("测试会发送一段固定示例，产生一次模型调用，可能产生费用。不会发送你的录音。")}
-        </p>
+        <p className="text-sm text-muted-foreground">{tr("测试会调用模型，可能产生费用。")}</p>
         <div className="flex flex-wrap items-center gap-3">
           <Button
             loading={testing}
@@ -532,9 +517,6 @@ export function ServerSettingsForm({
                   : dirty
                     ? tr("修改待保存…")
                     : tr("所有修改已保存")}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          {tr("修改后自动保存。密钥保存在数据库中，数据库及备份需按含凭据保护。")}
         </p>
       </div>
     </form>

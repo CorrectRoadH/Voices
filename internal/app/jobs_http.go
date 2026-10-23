@@ -19,7 +19,7 @@ func (a *App) listJobs(w http.ResponseWriter, r *http.Request) error {
 	if r.URL.Query().Get("recording_id") != "" {
 		rid = r.URL.Query().Get("recording_id")
 	}
-	items, err := many(r.Context(), a.DB, "SELECT "+jobColumns+", COALESCE((SELECT json_agg(json_build_object('id',o.id,'kind',o.kind,'state',o.state,'remote_id',o.remote_id,'resolution_note',o.resolution_note) ORDER BY o.created_at) FROM provider_operations o WHERE o.job_id=j.id),'[]'::json) AS operations FROM jobs j WHERE j.owner_id=$5 AND ($1::uuid IS NULL OR j.recording_id=$1) AND ($2='' OR j.state=$2) ORDER BY j.created_at DESC,j.id LIMIT $3 OFFSET $4", rid, r.URL.Query().Get("state"), limit+1, offset, persistence.UserID(r.Context()))
+	items, err := many(r.Context(), a.DB, "SELECT "+jobColumns+", COALESCE((SELECT json_agg(json_build_object('id',o.id,'kind',o.kind,'state',o.state,'remote_id',o.remote_id,'resolution_note',o.resolution_note) ORDER BY o.created_at) FROM provider_operations o WHERE o.job_id=j.id),'[]'::json) AS operations FROM jobs j WHERE j.owner_id=$5 AND ($1::uuid IS NULL OR j.recording_id=$1) AND ($2='' OR j.state=ANY(string_to_array($2,','))) ORDER BY j.created_at DESC,j.id LIMIT $3 OFFSET $4", rid, r.URL.Query().Get("state"), limit+1, offset, persistence.UserID(r.Context()))
 	if err != nil {
 		return err
 	}

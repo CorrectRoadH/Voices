@@ -171,7 +171,7 @@ UPDATE RETURNING 写入唯一实例 ID 与递增租约代次，限制对所有�
 认证失败与参数不支持不自动重试。已有远端 ID 的恢复只查询原任务，不创建新任务。
 上传或提交请求超时、响应丢失，或在 uploading/submitting 阶段崩溃且远端操作无 ID 时进入 uncertain。
 适配器若有可证明的幂等键或查询能力才自动恢复；否则用户查看服务商控制台后决定继续等待或明确新建可能重复计费的任务。
-未知远端资源不能谎报清理完成；保留 uncertain 提示。初版不承诺外部服务 exactly-once。
+未知远端资源不能谎报清理完成；保留内部 uncertain 状态，界面统一显示失败。初版不承诺外部服务 exactly-once。
 
 资源登记是受限例外：旧执行者可凭已有 operation ID 幂等补记该操作的 remote_id，并建立待清理资源；不得改变任务或发布结果。
 登记事务锁定 provider_operations，验证 provider、kind 与归属；remote_id 首次写入后不可改成另一个值，冲突转人工处理。
@@ -311,6 +311,8 @@ restore_hold 禁止普通 retry、自动提交与硬删除；恢复模式不得�
 
 沿用现有任务状态与操作所有权。jobs 增加可空 error_detail JSONB，仅保存最近失败的 reason（固定枚举）与可选 http_status（100–599）；历史行保持 NULL。providers.Error 在既有 Code/Definitive 之外携带 Reason/HTTPStatus，应用持久化前通过白名单裁剪；不保存原始 error、URL、响应正文。开始下一阶段及显式重试时清除诊断。新增字段为可独立回滚的展示数据，不参与重试、隔离、清理或计费判断。
 
-Job API 附带 error_detail 与 retry_allowed。retry_allowed 根据 failed/retry_wait、录音未删除、无 sent/uncertain 操作及远端资源尚未开始清理计算；写入入口仍在事务中重新验证。恢复模式由会话限制入口，服务端仍拒绝写入。任务页重新转写导航到录音的 new_transcription 查询入口，仅打开既有确认表单，不能因导航自动发送请求；风险确认默认关闭，使用已有幂等请求键创建独立版本。
+Job API 附带 error_detail 与 retry_allowed。retry_allowed 根据 failed/retry_wait、录音未删除、无 sent/uncertain 操作及远端资源尚未开始清理计算；写入入口仍在事务中重新验证。恢复模式由会话限制入口，服务端仍拒绝写入。任务页重新转写导航到录音的 new_transcription 查询入口，仅打开既有确认表单，不能因导航自动发送请求；确认弹窗提示重复收费风险，点击开始转写即传入 acknowledge_duplicate_risk=true，使用已有幂等请求键创建独立版本。
 
 验收覆盖服务商错误分类与敏感数据排除、真实 PostgreSQL 中失败诊断的保存/读取/重试清除、旧 uncertain 不重放及确认后新建版本，以及浏览器入口、确认取消与恢复限制。
+
+任务列表展示由内部状态映射：uncertain 显示失败，失败筛选请求 `state=failed,uncertain`；API 的 state 查询支持逗号分隔多个状态，原单状态查询含义不变。底层状态、远端操作、重试与清理约束保持不变。Job 响应附加可空 recording_title，从同 owner 且未删除的关联录音读取，不可用时为 null；前端用录音名称链接到 `/recordings/{recording_id}`，不跳入某个失败转写版本。

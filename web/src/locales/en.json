@@ -877,5 +877,8 @@
   "OpenAI Compatible": "OpenAI Compatible",
   "全部": "All",
   "服务商": "Provider",
-  "音频时长": "Audio duration"
+  "音频时长": "Audio duration",
+  "录音不可用": "Recording unavailable",
+  "用于生成摘要和目录，支持 OpenAI 兼容服务。": "Generate summaries and chapters using an OpenAI-compatible service.",
+  "测试会调用模型，可能产生费用。": "Testing calls the model and may incur charges."
 }

@@ -118,9 +118,6 @@ export function LLMModelPicker({
             <RefreshCw data-icon="inline-start" />
             {busy ? tr("正在获取模型…") : tr("获取 LLM 模型")}
           </Button>
-          <FieldDescription>
-            {tr("使用当前填写的地址和密钥，只获取列表，不生成内容。")}
-          </FieldDescription>
         </div>
         <ErrorBox message={current?.error || ""} />
         {current?.items && (
