@@ -19,6 +19,13 @@ func TestInteractionBrowser(t *testing.T) {
 	remote := fakeRemote(t)
 	f := setup(t)
 	f.a.Config.WebDir = "../../web/dist"
+	other := anotherAccount(t, f, "ui_reviewer")
+	for range 51 {
+		_, err := f.db.Exec(context.Background(), `INSERT INTO external_calls(id,owner_id,category,operation,provider,model,deadline_at,state,request_started,http_status) VALUES($1,$2,'stt','upload','soniox','ui-pagination',clock_timestamp(),'succeeded',true,200)`, uuid.NewString(), userID(t, f))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 	out := f.upload(t, wav(20), map[string]any{"title": "加载与编辑验收", "auto_transcribe": true, "transcription_options": options()}, uuid.NewString(), 201)
 	id := out["recording"].(map[string]any)["id"].(string)
 	gate := filepath.Join(t.TempDir(), "start-worker")
@@ -46,6 +53,7 @@ func TestInteractionBrowser(t *testing.T) {
 	cmd := exec.CommandContext(cmdCtx, "vp", "exec", "e2e", "run", "--config", "e2e.interaction.config.ts")
 	cmd.Dir = "../../web"
 	cmd.Env = append(os.Environ(), "E2E_TELEMETRY_DISABLED=1", "VOICES_TEST_URL="+f.server.URL, "VOICES_TEST_RECORDING="+id, "VOICES_TEST_WORKER_GATE="+gate)
+	cmd.Env = append(cmd.Env, "VOICES_TEST_UI_USER="+userID(t, other))
 	output, err := cmd.CombinedOutput()
 	t.Log(string(output))
 	if err != nil {

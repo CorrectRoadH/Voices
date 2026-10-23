@@ -22,7 +22,6 @@ const jobNames: Record<string, string> = {
   running: "运行中",
   retry_wait: "等待重试",
   failed: "失败",
-  uncertain: "状态待核对",
   restore_hold: "恢复暂停",
   stale_running: "运行租约过期",
 };
@@ -105,7 +104,9 @@ export function AdminOverviewPage() {
                     <div key={key} className="rounded-md bg-muted p-3">
                       <dt className="text-sm text-muted-foreground">{tr(label)}</dt>
                       <dd className="text-xl font-semibold">
-                        {d.jobs[key as keyof Overview["jobs"]]}
+                        {key === "failed"
+                          ? d.jobs.failed + d.jobs.uncertain
+                          : d.jobs[key as keyof Overview["jobs"]]}
                       </dd>
                     </div>
                   ))}

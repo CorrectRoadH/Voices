@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { EmptyState, ErrorBox, Loading, Modal, More, PageHeading } from "@/components/shared";
 import { useAction, useApp, useResource } from "@/lib/hooks";
@@ -52,7 +52,7 @@ function PersonEditor({
         if (!v && !action.busy) onClose();
       }}
       title={person ? tr("编辑人物") : tr("新建人物")}
-      description={tr("显示名可以相同；归档后保留原有引用，不再新增关联。")}
+      description={tr("设置姓名、头像和备注。")}
     >
       <form
         onSubmit={(e) => {
@@ -100,8 +100,15 @@ function PersonEditor({
                   .finally(() => setPreparing(false));
               }}
             />
+            {preparing && <Loading compact title={tr("正在处理头像…")} />}
             {(avatar || (avatar === undefined && person?.has_avatar)) && (
-              <Button type="button" variant="ghost" size="sm" onClick={() => setAvatar(null)}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={action.busy || preparing}
+                onClick={() => setAvatar(null)}
+              >
                 {tr("移除头像")}
               </Button>
             )}
@@ -125,9 +132,12 @@ function PersonEditor({
             />
           </Field>
           {person && (
-            <Field orientation="horizontal">
-              <FieldLabel htmlFor="person-archive">{tr("归档人物")}</FieldLabel>
-              <Switch id="person-archive" checked={archived} onCheckedChange={setArchived} />
+            <Field>
+              <Field orientation="horizontal">
+                <FieldLabel htmlFor="person-archive">{tr("归档人物")}</FieldLabel>
+                <Switch id="person-archive" checked={archived} onCheckedChange={setArchived} />
+              </Field>
+              <FieldDescription>{tr("归档后保留已有引用，不再新增关联。")}</FieldDescription>
             </Field>
           )}
           <Button loading={action.busy} type="submit" disabled={action.busy || preparing}>
@@ -166,6 +176,7 @@ export function PeoplePage() {
     value ? next.set(key, value) : next.delete(key);
     setParams(next, { replace: true });
   };
+  const filtered = !!params.get("q") || params.get("archived") === "true";
   return (
     <>
       <PageHeading title={tr("人物")}>
@@ -215,13 +226,13 @@ export function PeoplePage() {
                     {p.is_self && <Badge>{tr("本人")}</Badge>}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="line-clamp-2 text-sm text-muted-foreground">
-                    {p.archived_at
-                      ? tr("已归档")
-                      : p.notes || (p.builtin_key ? tr("内置人物") : tr("暂无备注"))}
-                  </p>
-                </CardContent>
+                {(p.archived_at || p.notes) && (
+                  <CardContent>
+                    <p className="line-clamp-2 text-sm text-muted-foreground">
+                      {p.archived_at ? tr("已归档") : p.notes}
+                    </p>
+                  </CardContent>
+                )}
               </Card>
             </Link>
           ))}
@@ -229,13 +240,26 @@ export function PeoplePage() {
       ) : (
         !data.error && (
           <EmptyState
-            title={tr("暂无人物")}
-            description={tr("新建人物后，在录音详情里关联说话人标签。")}
+            title={filtered ? tr("没有匹配的人物") : tr("暂无人物")}
+            description={
+              filtered
+                ? tr("试试其他关键词或筛选条件。")
+                : tr("新建人物后，在录音详情里关联说话人标签。")
+            }
           >
-            <Button onClick={() => setEditing("new")}>
-              <Users data-icon="inline-start" />
-              {tr("新建人物")}{" "}
-            </Button>
+            {filtered ? (
+              <Button
+                variant="outline"
+                onClick={() => setParams(new URLSearchParams(), { replace: true })}
+              >
+                {tr("清除筛选")}
+              </Button>
+            ) : (
+              <Button onClick={() => setEditing("new")}>
+                <Users data-icon="inline-start" />
+                {tr("新建人物")}{" "}
+              </Button>
+            )}
           </EmptyState>
         )
       )}

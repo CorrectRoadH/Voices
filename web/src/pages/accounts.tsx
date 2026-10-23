@@ -18,6 +18,7 @@ import { ThemeSelect } from "@/components/theme";
 import { AccountLanguageSelect } from "@/components/language-select";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 import { EmptyState, ErrorBox, Loading, PageHeading } from "@/components/shared";
 import { useApp, useAction, useResource } from "@/lib/hooks";
 import { write, query } from "@/lib/api";
@@ -54,16 +55,13 @@ export function AccountPage() {
         <Card>
           <CardHeader>
             <CardTitle>{tr("外观设置")}</CardTitle>
-            <CardDescription>{tr("选择适合你的界面主题，即时生效。")}</CardDescription>
           </CardHeader>
           <CardContent>
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="account-theme">{tr("界面主题")}</FieldLabel>
                 <ThemeSelect id="account-theme" />
-                <FieldDescription>
-                  {tr("仅保存在当前浏览器；选择“跟随系统”可自动切换浅色与深色。")}
-                </FieldDescription>
+                <FieldDescription>{tr("主题仅保存在当前浏览器。")}</FieldDescription>
               </Field>
               <AccountLanguageSelect />
             </FieldGroup>
@@ -198,11 +196,15 @@ export function AdminAccountsPage() {
   const registration = useResource<{ registration_open: boolean }>("/admin/registration");
   const action = useAction();
   function update(user: User, patch: Partial<Pick<User, "role" | "status">>) {
-    void action.run(async () => {
-      await write(`/admin/users/${user.id}`, "PATCH", patch);
-      users.refresh();
-      if (user.id === session.user.id) refreshSession();
-    }, tr("账号已更新"));
+    void action.run(
+      async () => {
+        await write(`/admin/users/${user.id}`, "PATCH", patch);
+        users.refresh();
+        if (user.id === session.user.id) refreshSession();
+      },
+      tr("账号已更新"),
+      `${user.id}:${patch.role ? "role" : "status"}`,
+    );
   }
   return (
     <>
@@ -219,7 +221,7 @@ export function AdminAccountsPage() {
           <CardHeader>
             <CardTitle>{tr("开放注册")}</CardTitle>
             <CardDescription>
-              {tr("新账号默认为普通用户。所有已启用账号共用实例配置的转写服务额度。")}{" "}
+              {tr("新账号默认为普通用户，关闭注册不影响已有账号登录。")}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -234,20 +236,30 @@ export function AdminAccountsPage() {
                     const previous = registration.data;
                     registration.setData({ registration_open: open });
                     void action
-                      .run(async () => {
-                        await write("/admin/registration", "PATCH", { registration_open: open });
-                      }, tr("注册设置已保存"))
+                      .run(
+                        async () => {
+                          await write("/admin/registration", "PATCH", { registration_open: open });
+                        },
+                        tr("注册设置已保存"),
+                        "registration",
+                      )
                       .then((ok) => {
                         if (!ok) registration.setData(previous);
                       });
                   }}
                 />
+                {action.pendingKey === "registration" && (
+                  <span
+                    role="status"
+                    className="flex items-center gap-2 text-sm text-muted-foreground"
+                  >
+                    <Spinner />
+                    {tr("正在保存…")}
+                  </span>
+                )}
               </Field>
             </FieldGroup>
           </CardContent>
-          <CardFooter>
-            <p className="text-sm text-muted-foreground">{tr("关闭后已有账号仍可登录。")}</p>
-          </CardFooter>
         </Card>
         <AccountFilters
           onApply={(next) => {
@@ -281,6 +293,7 @@ export function AdminAccountsPage() {
               </CardContent>
               <CardFooter className="flex flex-wrap gap-2">
                 <Button
+                  loading={action.pendingKey === `${user.id}:role`}
                   variant="outline"
                   disabled={action.busy || session.restore_mode}
                   onClick={() => update(user, { role: user.role === "admin" ? "user" : "admin" })}
@@ -288,6 +301,7 @@ export function AdminAccountsPage() {
                   {user.role === "admin" ? tr("设为普通用户") : tr("设为管理员")}
                 </Button>
                 <Button
+                  loading={action.pendingKey === `${user.id}:status`}
                   variant="outline"
                   disabled={action.busy || session.restore_mode}
                   onClick={() =>

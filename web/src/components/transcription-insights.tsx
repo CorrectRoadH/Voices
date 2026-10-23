@@ -2,6 +2,8 @@
 // @concord-implements docs/feature/insights/README.md
 // @concord-implements docs/feature/insights/use-case/generate-insights.md
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { useApp } from "@/lib/hooks";
 import { tr, interfaceLocale } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,12 +48,17 @@ export function InsightOutline({
   onJump: (id: string) => void;
 }) {
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const { session } = useApp();
+  const emptyTitle = view === "summary" ? tr("尚未生成摘要") : tr("尚未生成主题目录");
+  const generatingTitle = view === "summary" ? tr("摘要生成中…") : tr("主题目录生成中…");
   if (!hasTranscription)
     return (
       <Empty>
         <EmptyHeader>
-          <EmptyTitle>{tr("尚未生成主题目录")}</EmptyTitle>
-          <EmptyDescription>{tr("完成转写后可生成目录。")}</EmptyDescription>
+          <EmptyTitle>{emptyTitle}</EmptyTitle>
+          <EmptyDescription>
+            {view === "summary" ? tr("完成转写后可生成摘要。") : tr("完成转写后可生成目录。")}
+          </EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -61,12 +68,7 @@ export function InsightOutline({
   const succeeded = data?.configured && insight?.state === "succeeded";
   if (!data && !error) return <Loading />;
   if (pending && !error)
-    return (
-      <Loading
-        title={insight.state === "queued" ? tr("等待生成…") : tr("主题目录生成中…")}
-        description={tr("生成完成后将在这里显示主题目录。")}
-      />
-    );
+    return <Loading title={insight.state === "queued" ? tr("等待生成…") : generatingTitle} />;
   const generate = (
     <Button
       loading={busy || pending}
@@ -111,25 +113,41 @@ export function InsightOutline({
                     : failed
                       ? tr("摘要与目录生成失败")
                       : pending
-                        ? tr("主题目录生成中…")
-                        : tr("尚未生成主题目录")}
+                        ? generatingTitle
+                        : emptyTitle}
               </EmptyTitle>
               <EmptyDescription role="status">
                 {!data
                   ? null
                   : !data.configured
-                    ? tr("请管理员在服务器设置中配置 LLM 地址和模型。")
+                    ? session.user?.role === "admin"
+                      ? tr("配置语言模型后即可生成。")
+                      : tr("请管理员在服务器设置中配置 LLM 地址和模型。")
                     : failed
                       ? tr(failures[insight.error_code || ""] || "生成失败")
                       : pending
-                        ? tr("生成完成后将在这里显示主题目录。")
-                        : tr("生成主题目录，快速定位录音内容。")}
+                        ? generatingTitle
+                        : view === "summary"
+                          ? tr("生成摘要，快速了解录音内容。")
+                          : tr("生成主题目录，快速定位录音内容。")}
               </EmptyDescription>
             </EmptyHeader>
             {data?.configured && (
               <EmptyContent>
                 {generate}
                 {!pending && notice}
+              </EmptyContent>
+            )}
+            {data && !data.configured && session.user?.role === "admin" && (
+              <EmptyContent>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  nativeButton={false}
+                  render={<Link to="/admin/server" />}
+                >
+                  {tr("配置语言模型")}
+                </Button>
               </EmptyContent>
             )}
           </Empty>

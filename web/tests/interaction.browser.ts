@@ -14,6 +14,10 @@ test("加载阶段、行内编辑快捷键、保存状态与真实并发冲突",
   await browser.goto(`${fixture("VOICES_TEST_URL")}/recordings/${id}`);
   await expect(screen.getByRole("status", { name: "正在准备音频" })).toBeVisible();
   await expect(screen.getByText("暂无转写", { exact: true })).toHaveCount(0);
+  await screen.getByRole("tab", { name: "摘要", exact: true }).click();
+  await expect(screen.getByText("尚未生成摘要", { exact: true })).toBeVisible();
+  await expect(screen.getByText("完成转写后可生成摘要。", { exact: true })).toBeVisible();
+  await screen.getByRole("tab", { name: "目录", exact: true }).click();
   await app.screenshot("音频预处理加载状态");
 
   let writes = 0;
@@ -172,4 +176,153 @@ test("加载阶段、行内编辑快捷键、保存状态与真实并发冲突",
   await expect(browser.locator(`#${visibleIds[1]} .segment-avatar`)).toBeVisible();
   await expect(browser.locator(`#${visibleIds[3]} .segment-top`)).toBeVisible();
   await app.screenshot("隐藏系统片段后保留说话人头像");
+  await screen.getByRole("tab", { name: "摘要", exact: true }).click();
+  await expect(screen.getByRole("button", { name: "配置语言模型", exact: true })).toHaveAttribute(
+    "href",
+    "/admin/server",
+  );
+});
+
+// @feature docs/feature/appearance/README.md
+test("异步操作反馈、筛选空态与刷新保留内容", async ({ app, browser, screen }) => {
+  const base = fixture("VOICES_TEST_URL");
+  const target = fixture("VOICES_TEST_UI_USER");
+  await app.open();
+  await screen.getByLabel("用户名或邮箱").fill("tester@example.test");
+  await screen.getByLabel("密码", { exact: true }).fill("acceptance-password");
+  await screen.getByRole("button", { name: "进入工作台" }).click();
+  await expect(screen.getByRole("button", { name: "导入录音" }).first()).toBeVisible();
+  await browser.goto(`${base}/admin/accounts`);
+  const card = browser
+    .locator('[data-slot="card"]')
+    .filter({ hasText: "ui_reviewer@example.test" });
+  const promote = card.getByRole("button", { name: "设为管理员", exact: true });
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let writes = 0;
+  await browser.route(`**/api/v1/admin/users/${target}`, async (route) => {
+    if (route.request.method === "PATCH") {
+      writes++;
+      await gate;
+    }
+    await route.continue();
+  });
+  try {
+    await promote.click();
+    await expect(promote).toHaveAttribute("aria-busy", "true");
+    await expect(promote).toBeDisabled();
+    await expect(card.getByRole("button", { name: "停用账号", exact: true })).toBeDisabled();
+    await expect(browser.locator('button[aria-busy="true"]')).toHaveCount(1);
+    await app.screenshot("只有当前账号操作显示加载");
+    expect(writes).toBe(1);
+  } finally {
+    release();
+  }
+  await expect(card.getByRole("button", { name: "设为普通用户", exact: true })).toBeEnabled();
+  await browser.unroute(`**/api/v1/admin/users/${target}`);
+
+  // 注册开关的延迟失败不能静默，也不能留下乐观更新后的错误值。
+  const registration = screen.getByRole("switch", { name: "允许创建新账号", exact: true });
+  const failedGate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await browser.route("**/api/v1/admin/registration", async (route) => {
+    if (route.request.method === "PATCH") {
+      await failedGate;
+      await route.abort();
+    } else await route.continue();
+  });
+  try {
+    await expect(registration).toHaveAttribute("aria-checked", "true");
+    await registration.click();
+    await expect(screen.getByRole("status").filter({ hasText: "正在保存…" })).toBeVisible();
+    await expect(registration).toBeDisabled();
+  } finally {
+    release();
+  }
+  await expect(registration).toBeEnabled();
+  await expect(registration).toHaveAttribute("aria-checked", "true");
+  await expect(
+    browser.locator('[data-slot="alert"]').filter({ hasText: "网络连接中断或请求超时" }),
+  ).toBeVisible();
+  expect((await (await api(browser, "/admin/registration")).json()).registration_open).toBe(true);
+  await browser.unroute("**/api/v1/admin/registration");
+
+  await browser.goto(`${base}/people?q=ui-no-such-person`);
+  await expect(screen.getByText("没有匹配的人物", { exact: true })).toBeVisible();
+  await screen.getByRole("button", { name: "清除筛选", exact: true }).click();
+  await expect(screen.getByText("没有匹配的人物", { exact: true })).toHaveCount(0);
+  await expect(screen.getByText("暂无备注", { exact: true })).toHaveCount(0);
+  await expect(
+    screen.getByRole("link", { name: "背景声 内置", exact: false }).first(),
+  ).toBeVisible();
+  await browser.setViewport({ width: 375, height: 812 });
+  await browser.emulateMedia({ colorScheme: "dark" });
+  await noOverflow(browser);
+  await app.screenshot("手机人物列表减少重复说明");
+  await browser.setViewport({ width: 1440, height: 1000 });
+  await browser.goto(`${base}/settings`);
+  await expect(screen.getByRole("heading", { name: "转写偏好", exact: true })).toBeVisible();
+  await expect(screen.getByRole("button", { name: "管理服务商连接", exact: true })).toHaveAttribute(
+    "href",
+    "/admin/server",
+  );
+  await app.screenshot("简化转写偏好");
+
+  await browser.goto(`${base}/jobs?view=calls&model=ui-pagination`);
+  const rows = screen.getByText("HTTP: 200", { exact: true });
+  await expect(rows).toHaveCount(50);
+  const refresh = screen.getByRole("button", { name: "刷新", exact: true });
+  const more = screen.getByRole("button", { name: "加载更多", exact: true });
+  let hold: Promise<void> | undefined;
+  await browser.route("**/api/v1/calls?**", async (route) => {
+    if (hold) await hold;
+    await route.continue();
+  });
+  hold = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  try {
+    await refresh.click();
+    await expect(refresh).toHaveAttribute("aria-busy", "true");
+    await expect(rows).toHaveCount(50);
+    await expect(more).not.toHaveAttribute("aria-busy", "true");
+    await expect(more).toBeDisabled();
+  } finally {
+    release();
+    hold = undefined;
+  }
+  await expect(refresh).toBeEnabled();
+  hold = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  try {
+    await more.click();
+    await expect(screen.getByRole("button", { name: "加载中…", exact: true })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    await expect(refresh).not.toHaveAttribute("aria-busy", "true");
+    await expect(rows).toHaveCount(50);
+  } finally {
+    release();
+    hold = undefined;
+  }
+  await expect(rows).toHaveCount(51);
+  await expect(more).toHaveCount(0);
+  hold = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  try {
+    await screen.getByLabel("模型 ID", { exact: true }).fill("ui-no-such-model");
+    await expect(rows).toHaveCount(0);
+    await expect(screen.getByRole("status", { name: "正在加载", exact: true })).toBeVisible();
+  } finally {
+    release();
+    hold = undefined;
+  }
+  await expect(screen.getByText("暂无调用记录", { exact: true })).toBeVisible();
+  await browser.unroute("**/api/v1/calls?**");
 });

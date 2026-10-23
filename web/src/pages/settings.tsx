@@ -2,6 +2,7 @@
 // @concord-implements docs/feature/transcription/README.md
 import { tr } from "@/lib/i18n";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { LockKeyhole, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,19 +35,18 @@ export function SettingsPage() {
   const invalid = optionError(options, providers.data?.items || []);
   return (
     <>
-      <PageHeading title={tr("设置")} />
+      <PageHeading title={tr("转写偏好")} />
       {settings.loading || providers.loading ? (
         <Loading />
       ) : (
         <div className="settings-grid">
           <Card>
             <CardHeader>
-              <CardTitle>{tr("转写偏好")}</CardTitle>
-              <CardDescription>
-                {tr("新设置只用于未来的导入，不改变已接受任务的选项快照。")}{" "}
-              </CardDescription>
+              <CardTitle>{tr("默认转写选项")}</CardTitle>
+              <CardDescription>{tr("用于新录音。")}</CardDescription>
             </CardHeader>
             <CardContent>
+              <ErrorBox message={action.error} />
               <ErrorBox
                 message={settings.error || providers.error}
                 retry={() => {
@@ -86,9 +86,9 @@ export function SettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>{tr("服务商连接")}</CardTitle>
-                <CardDescription>
-                  {tr("密钥由管理员在服务器设置中管理，浏览器仅显示当前实例的配置状态。")}
-                </CardDescription>
+                {session.user?.role !== "admin" && (
+                  <CardDescription>{tr("由管理员管理服务商连接。")}</CardDescription>
+                )}
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 {providers.data?.items.map((p) => (
@@ -100,11 +100,17 @@ export function SettingsPage() {
                   </div>
                 ))}
               </CardContent>
-              <CardFooter>
-                <p className="text-xs text-muted-foreground">
-                  {tr("已配置表示存在服务端凭据，实际可用性由转写响应确认。")}{" "}
-                </p>
-              </CardFooter>
+              {session.user?.role === "admin" && (
+                <CardFooter>
+                  <Button
+                    variant="outline"
+                    nativeButton={false}
+                    render={<Link to="/admin/server" />}
+                  >
+                    {tr("管理服务商连接")}
+                  </Button>
+                </CardFooter>
+              )}
             </Card>
             {session.restore_mode && (
               <Alert>

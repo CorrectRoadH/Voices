@@ -12,6 +12,11 @@ test("任务原因、安全重试与确认风险后重新转写", async ({ app, 
   await screen.getByLabel("密码", { exact: true }).fill("acceptance-password");
   await screen.getByRole("button", { name: "进入工作台" }).click();
   await expect(screen.getByRole("button", { name: "导入录音" }).first()).toBeVisible();
+  await browser.goto(`${base}/admin/overview`);
+  await expect(
+    browser.locator("dl > div").filter({ hasText: "失败" }).getByText("2", { exact: true }),
+  ).toBeVisible();
+  await expect(screen.getByText("状态待核对", { exact: true })).toHaveCount(0);
   for (const [key, label] of [
     ["UPLOADING", "上传服务商"],
     ["SUBMITTING", "提交转写"],
@@ -36,6 +41,10 @@ test("任务原因、安全重试与确认风险后重新转写", async ({ app, 
   await recordingLink.click();
   await expect(screen.getByRole("heading", { name: "待确认恢复验收", exact: true })).toBeVisible();
   await browser.goto(`${base}/jobs?recording_id=${id}&state=failed`);
+  await expect(screen.getByText(`任务 ID：${job}`, { exact: true })).not.toBeVisible();
+  await screen.getByText("任务详情", { exact: true }).click();
+  await expect(screen.getByText(`任务 ID：${job}`, { exact: true })).toBeVisible();
+  await screen.getByText("任务详情", { exact: true }).click();
   await expect(screen.getByRole("button", { name: "重试", exact: true })).toHaveCount(0);
   await app.screenshot("任务显示具体原因与重新转写入口");
   await screen.getByRole("button", { name: "重新转写", exact: true }).click();

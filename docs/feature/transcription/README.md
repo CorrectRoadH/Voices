@@ -34,3 +34,5 @@ kind: feature
 [转写用例](use-case/transcribe.md) · [架构](../../architecture.md)
 
 当前转写支持[正文搜索](use-case/transcribe.md#正文搜索)，跨分页查找并定位匹配片段，不依赖 LLM。
+
+转写偏好说明仅强调对新录音生效；服务商状态保留配置标记，管理员可直接进入服务器设置管理连接。保存失败在表单中保留原因。

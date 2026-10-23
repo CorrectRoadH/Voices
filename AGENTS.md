@@ -18,6 +18,10 @@ Before planning, implementing, or reviewing governed work:
 Follow the returned instructions and the repository's current `docs/constitution.md`. A gap result means an explicit Concord relationship is absent; it is not code coverage, and undocumented CLI commands require the product's own inventory. Do not infer completion or test coverage from document structure or command receipts alone.
 <!-- END CONCORD AGENT INSTRUCTIONS -->
 
+## UI design
+
+- Before changing UI, read `web/DESIGN.md` and the owning Concord Feature / Use Case. Keep UI guidance and implemented behavior aligned.
+
 ## JavaScript / TypeScript toolchain
 
 - Use Vite+ 1.3.0 (`vp`) for JS/TS commands: `vp install`, `vp run <script>`, `vp exec <tool>`, and `vp exec node <file>`. pnpm remains the underlying package manager.

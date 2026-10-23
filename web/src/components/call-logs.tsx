@@ -52,11 +52,13 @@ export function CallLogs({ admin = false }: { admin?: boolean }) {
   const [params, setParams] = useSearchParams();
   const [items, setItems] = useState<Call[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [pending, setPending] = useState<"refresh" | "page" | null>("refresh");
+  const loading = pending !== null;
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const requestVersion = useRef(0);
   const controller = useRef<AbortController | null>(null);
+  const loadedScope = useRef("");
   const query = new URLSearchParams();
   for (const key of [...filterKeys, ...(admin ? ["account", "owner_id"] : [])]) {
     const value = params.get(key);
@@ -69,12 +71,14 @@ export function CallLogs({ admin = false }: { admin?: boolean }) {
     const abort = new AbortController();
     controller.current = abort;
     const version = ++requestVersion.current;
-    setLoading(true);
+    setPending(more ? "page" : "refresh");
     setError("");
-    if (!more) {
+    const scope = `${endpoint}?${filter}`;
+    if (loadedScope.current !== scope) {
       setItems([]);
       setCursor(null);
     }
+    loadedScope.current = scope;
     const q = new URLSearchParams(filter);
     if (more && cursor) q.set("cursor", cursor);
     try {
@@ -94,7 +98,7 @@ export function CallLogs({ admin = false }: { admin?: boolean }) {
     } catch (e) {
       if (!abort.signal.aborted && version === requestVersion.current) setError(errorMessage(e));
     } finally {
-      if (version === requestVersion.current) setLoading(false);
+      if (version === requestVersion.current) setPending(null);
     }
   }
   useEffect(() => {
@@ -139,14 +143,24 @@ export function CallLogs({ admin = false }: { admin?: boolean }) {
             : "查看自己的 STT 与 AI 调用，调用记录永久保存。",
         )}
       >
-        <Button variant="outline" disabled={loading} onClick={() => setRevision((n) => n + 1)}>
+        <Button
+          variant="outline"
+          loading={pending === "refresh"}
+          disabled={loading}
+          onClick={() => setRevision((n) => n + 1)}
+        >
           <RefreshCw data-icon="inline-start" />
           {tr("刷新")}
         </Button>
       </PageHeading>
-      <p className="text-sm text-muted-foreground">
-        {tr("调用成功不代表任务完成；音频时长和 token 用量不是费用账单。未返回的用量显示为未知。")}
-      </p>
+      <details className="text-sm text-muted-foreground">
+        <summary>{tr("关于调用记录")}</summary>
+        <p className="mt-2">
+          {tr(
+            "调用成功不代表任务完成；音频时长和 token 用量不是费用账单。未返回的用量显示为未知。",
+          )}
+        </p>
+      </details>
       <div className="my-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {select("category", "调用类别", { stt: "STT", ai: "AI" })}
         {select("operation", "调用操作", operations)}
@@ -222,10 +236,11 @@ export function CallLogs({ admin = false }: { admin?: boolean }) {
         <Button
           className="mt-4"
           variant="outline"
+          loading={pending === "page"}
           disabled={loading}
           onClick={() => void load(true)}
         >
-          {tr(loading ? "加载中…" : "加载更多")}
+          {tr(pending === "page" ? "加载中…" : "加载更多")}
         </Button>
       )}
     </>

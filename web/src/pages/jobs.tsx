@@ -164,24 +164,31 @@ function TaskList() {
                   <p className="text-sm text-muted-foreground">{tr("录音不可用")}</p>
                 )}
                 <CardDescription>
-                  {date(job.created_at)} {tr("· 失败")} {job.attempt} {tr("次 · 阶段：")}
-                  {stateName(job.stage)}
+                  {date(job.created_at)}
+                  {job.attempt > 0 && <> · {tr("失败 {{count}} 次", { count: job.attempt })}</>}
+                  {job.stage !== job.state &&
+                    !(job.kind === "prepare" && job.state === "succeeded") && (
+                      <> · {stateName(job.stage)}</>
+                    )}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="break-all text-xs text-muted-foreground">
-                  {tr("任务 ID：")}
-                  {job.id}
-                </p>
-                {job.error_code && (
-                  <div className="mt-2 flex flex-col gap-1 text-sm">
-                    <p className="text-destructive">{jobError(job)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {tr("错误代码：")}
-                      {job.error_code}
+                {job.error_code && <p className="mb-2 text-sm text-destructive">{jobError(job)}</p>}
+                <details className="text-xs text-muted-foreground">
+                  <summary>{tr("任务详情")}</summary>
+                  <div className="mt-2 flex flex-col gap-1 break-all">
+                    <p>
+                      {tr("任务 ID：")}
+                      {job.id}
                     </p>
+                    {job.error_code && (
+                      <p>
+                        {tr("错误代码：")}
+                        {job.error_code}
+                      </p>
+                    )}
                   </div>
-                )}
+                </details>
                 {job.state === "restore_hold" && (
                   <p className="mt-2 text-sm text-muted-foreground">
                     {tr("此任务可能已在服务商受理，不能安全重试或宣称清理完成。")}{" "}
