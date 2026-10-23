@@ -431,14 +431,20 @@ export function SegmentText({
   searchQuery = "",
   disabled,
   onSaved,
+  open,
+  onOpenChange,
 }: {
   segment: Segment;
   searchQuery?: string;
   disabled: boolean;
   onSaved: (segment: Segment) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
   return (
     <InlineEdit
+      open={open}
+      onOpenChange={onOpenChange}
       value={segment.text}
       displayValue={
         (segment.text ? <HighlightedText text={segment.text} query={searchQuery} /> : null) || (

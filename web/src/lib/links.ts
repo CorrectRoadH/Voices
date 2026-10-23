@@ -55,6 +55,14 @@ export function referenceMarkdown(
     })
     .join("\n\n");
 }
+export function referenceText(reference: Schema["TranscriptReference"]) {
+  return reference.segments
+    .map((segment, index, segments) => {
+      const omitted = index > 0 && segment.ordinal !== segments[index - 1].ordinal + 1;
+      return `${omitted ? `${tr("〔中间有省略〕")}\n\n` : ""}${segmentSpeakerName(segment)}: ${segment.text}`;
+    })
+    .join("\n\n");
+}
 export function sentenceMarkdown(publicBase: string, segment: Segment, origin: string) {
   return `[${escapeMarkdown(segment.speaker_name || tr("未知说话人"))}: ${escapeMarkdown(segment.text)}](${sentenceUrl(publicBase, segment, origin)})`;
 }

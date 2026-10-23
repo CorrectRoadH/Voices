@@ -144,7 +144,7 @@ test("加载阶段、行内编辑快捷键、保存状态与真实并发冲突",
 
   // 启动真实后台 worker，预处理、转写、自动激活走实际 Go/PostgreSQL。
   await writeFile(fixture("VOICES_TEST_WORKER_GATE"), "start");
-  const segment = screen.getByRole("button", { name: "编辑这段文字", exact: true }).first();
+  const segment = browser.locator(".segment-text").first();
   await expect(segment).toBeVisible({ timeout: 30000 });
   await expect(screen.getByRole("status", { name: "正在准备音频" })).toHaveCount(0);
   await browser.evaluate(() => {
@@ -153,6 +153,9 @@ test("加载阶段、行内编辑快捷键、保存状态与真实并发冲突",
     return null;
   });
   await segment.click();
+  await expect(screen.getByLabel("片段文字", { exact: true })).toHaveCount(0);
+  await browser.locator(".message-more").first().click();
+  await screen.getByRole("menuitem", { name: "编辑文字", exact: true }).click();
   await screen.getByLabel("片段文字", { exact: true }).fill("共用组件修改的转写正文");
   await browser.keyboard.press("Control+Enter");
   await expect(segment).toHaveText("共用组件修改的转写正文");

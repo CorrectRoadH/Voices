@@ -21,6 +21,11 @@ test("Obsidian 多段短引用、登录返回、跨分页与复制取消", async
   await expect(screen.getByText("已选 5 段", { exact: true })).toBeVisible();
   await agent.act("取消当前多选，再打开第一段以原文开头的消息的更多操作菜单，选择多选。");
   await expect(screen.getByText("已选 1 段", { exact: true })).toBeVisible();
+  await browser.locator(`#segment-${ids[2]} .segment-text`).click({ modifiers: ["Shift"] });
+  await expect(screen.getByText("已选 3 段", { exact: true })).toBeVisible();
+  await browser.locator(`#segment-${ids[1]} .segment-text`).click();
+  await browser.locator(`#segment-${ids[2]} .segment-text`).click();
+  await expect(screen.getByText("已选 1 段", { exact: true })).toBeVisible();
   await agent.act("在多选模式中勾选正文为句子2。的消息，保留第一段的选择。");
   await expect(screen.getByText("已选 2 段", { exact: true })).toBeVisible();
   await expect(browser.locator(".segment-editor")).toHaveCount(0);
@@ -30,6 +35,9 @@ test("Obsidian 多段短引用、登录返回、跨分页与复制取消", async
     await expect.poll(() => browser.locator(".segments > article").count()).toBeGreaterThan(count);
   }
   await agent.act("在多选模式中勾选正文为句子110。的消息，保留其他已选段。");
+  await expect(screen.getByText("已选 3 段", { exact: true })).toBeVisible();
+  await browser.locator(`#segment-${ids[0]} .segment-text`).click({ modifiers: ["Shift"] });
+  await expect(screen.getByText("每次最多选择 100 段。", { exact: true }).first()).toBeVisible();
   await expect(screen.getByText("已选 3 段", { exact: true })).toBeVisible();
   // Only the OS clipboard boundary is replaced; generation and persistence are real.
   const denyClipboard = async () => {
@@ -66,6 +74,51 @@ test("Obsidian 多段短引用、登录返回、跨分页与复制取消", async
     ids[110],
   ]);
   await agent.act("关闭手动复制窗口。");
+  await expect(screen.getByText("已选 3 段", { exact: true })).toBeVisible();
+  // Desktop selection is outside bubbles; every row remains a selection target.
+  expect(
+    await browser.evaluate(() =>
+      [...document.querySelectorAll(".segment-select-control")].every(
+        (control) => !control.closest(".segment-bubble"),
+      ),
+    ),
+  ).toBe(true);
+  await browser.setViewport({ width: 375, height: 812 });
+  await noOverflow(browser);
+  expect(
+    await browser.evaluate(() => {
+      const toolbar = document.querySelector(".selection-toolbar")!.getBoundingClientRect();
+      const player = document.querySelector(".player-panel")!.getBoundingClientRect();
+      return toolbar.top >= 0 && toolbar.bottom <= player.top;
+    }),
+  ).toBe(true);
+  await app.screenshot("手机多选工具栏与气泡外勾选");
+  await screen.getByRole("button", { name: "复制文字", exact: true }).click();
+  await expect(manual).toBeVisible();
+  const plain = await manual.getByRole("textbox").inputValue();
+  expect(plain).toContain("原文 [括号] *星号* <标签> &amp;");
+  expect(plain).not.toContain("/q/");
+  expect(plain.split("〔中间有省略〕")).toHaveLength(3);
+  await browser.keyboard.press("Escape");
+  await expect(screen.getByText("已选 3 段", { exact: true })).toBeVisible();
+  // Replace only the OS clipboard boundary to verify successful retry and exit.
+  await browser.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (text: string) => {
+          (window as unknown as { copied: string }).copied = text;
+        },
+      },
+    });
+    return null;
+  });
+  await screen.getByRole("button", { name: "复制引用", exact: true }).click();
+  await expect(browser.locator(".selection-toolbar")).toHaveCount(0);
+  expect(await browser.evaluate(() => (window as unknown as { copied: string }).copied)).toContain(
+    "?at=3",
+  );
+  await browser.setViewport({ width: 1440, height: 1000 });
   await api(browser, `/segments/${ids[110]}`, "PATCH", {
     revision: 1,
     edited_text: "复制后校正的末段",

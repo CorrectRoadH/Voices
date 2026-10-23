@@ -590,6 +590,37 @@ audio {
 .segment-selected {
   background: color-mix(in oklch, var(--primary) 16%, transparent);
 }
+.segment-selecting {
+  position: relative;
+  padding-left: 36px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.segment-select-control {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+}
+.segment-select-control [data-slot="checkbox"] {
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+}
+.segment-selecting .segment-avatar,
+.segment-selecting .segment-top {
+  pointer-events: none;
+}
+.segment-selecting .segment-text {
+  user-select: none;
+}
+.segment-selecting .segment-bubble {
+  max-width: min(calc(100% - 44px), 540px);
+}
 .reference-toolbar {
   display: flex;
   align-items: center;
@@ -607,6 +638,24 @@ audio {
   top: 0;
   z-index: 1;
   background: var(--background);
+}
+.selection-toolbar {
+  border-bottom: 1px solid var(--border);
+}
+@media (max-width: 760px) {
+  .selection-toolbar {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: calc(var(--selection-player-height, 96px) + 20px);
+    padding: 8px;
+    gap: 4px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .main-content:has(.selection-toolbar) {
+    padding-bottom: 200px;
+  }
 }
 .segment-bubble {
   --bubble-fill: var(--chat-incoming);
@@ -706,7 +755,7 @@ audio {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   margin: 0;
-  user-select: none;
+  user-select: text;
 }
 .message-meta {
   display: inline-flex;
@@ -1208,6 +1257,11 @@ html:has(.player-panel) {
 }
 body:has(.player-panel) [data-slot="toast-viewport"] {
   bottom: calc(125px + env(safe-area-inset-bottom));
+}
+@media (max-width: 760px) {
+  body:has(.selection-toolbar) [data-slot="toast-viewport"] {
+    bottom: calc(var(--selection-toast-bottom, 200px) + env(safe-area-inset-bottom));
+  }
 }
 .detail-aside {
   position: sticky;

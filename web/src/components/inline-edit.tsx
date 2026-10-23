@@ -29,23 +29,41 @@ type InlineEditProps = {
   onSave: (value: string) => Promise<void>;
   onCancel?: () => void;
   successMessage?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 export function InlineEdit(props: InlineEditProps) {
   const trigger = useRef<HTMLButtonElement>(null);
+  const display = useRef<HTMLSpanElement>(null);
   const [session, setSession] = useState<{ props: InlineEditProps; width: number } | null>(null);
   function close() {
     setSession(null);
+    props.onOpenChange?.(false);
+    if (props.onOpenChange) {
+      requestAnimationFrame(() =>
+        display.current
+          ?.closest("article")
+          ?.querySelector<HTMLButtonElement>(".message-more")
+          ?.focus(),
+      );
+    }
     requestAnimationFrame(() => trigger.current?.focus());
   }
-  if (session)
+  if (session || props.open)
     return (
-      <InlineEditForm
-        {...session.props}
+      <InlineEditSession
+        {...(session?.props ?? props)}
         disabled={props.disabled}
-        width={session.width}
+        width={session?.width ?? display.current?.getBoundingClientRect().width ?? 240}
         onClose={close}
       />
+    );
+  if (props.onOpenChange)
+    return (
+      <span ref={display} className={props.className}>
+        {props.displayValue ?? props.value}
+      </span>
     );
   const control = (
     <button
@@ -69,6 +87,12 @@ export function InlineEdit(props: InlineEditProps) {
   ) : (
     control
   );
+}
+
+function InlineEditSession(props: InlineEditProps & { width: number; onClose: () => void }) {
+  // Keep the revision-bearing save callback from the moment editing began.
+  const [initial] = useState(props);
+  return <InlineEditForm {...initial} disabled={props.disabled} onClose={props.onClose} />;
 }
 
 function InlineEditForm({

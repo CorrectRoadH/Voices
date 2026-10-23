@@ -927,5 +927,10 @@
   "新版本状态": "New version status",
   "查看新版本": "View new version",
   "查看旧版本": "View previous version",
-  "复制失败，请手动选择文字复制。": "Copy failed. Select the text and copy it manually."
+  "复制失败，请手动选择文字复制。": "Copy failed. Select the text and copy it manually.",
+  "编辑文字": "Edit text",
+  "取消多选": "Cancel selection",
+  "再次复制": "Copy again",
+  "已复制 {{count}} 段文字": "Copied {{count}} passages",
+  "已复制 {{count}} 段引用": "Copied {{count}} references"
 }

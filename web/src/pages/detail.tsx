@@ -21,6 +21,7 @@ import {
   CheckSquare,
   ChevronLeft,
   ChevronRight,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -48,7 +49,13 @@ import { LabelsEditor, RecordingField, SegmentEditor, SegmentText } from "@/comp
 import { OptionsFields, blankOptions, optionError } from "@/components/options";
 import { useAction, useApp, useResource } from "@/lib/hooks";
 import { request, write, apiUrl, errorMessage, downloadExport } from "@/lib/api";
-import { referenceMarkdown, referenceUrl, copyText, validateAnchor } from "@/lib/links";
+import {
+  referenceMarkdown,
+  referenceText,
+  referenceUrl,
+  copyText,
+  validateAnchor,
+} from "@/lib/links";
 import { date, duration, bytes } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type {
@@ -148,6 +155,9 @@ export function DetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [manualCopy, setManualCopy] = useState("");
+  const [inlineSegment, setInlineSegment] = useState<string | null>(null);
+  const selectionAnchor = useRef<string | null>(null);
+  const manualContext = useRef<{ scope: string; count: number } | null>(null);
   const [selection, setSelection] = useState<Set<string> | null>(null);
   const [copyPending, setCopyPending] = useState<string | null>(null);
   const [copyError, setCopyError] = useState("");
@@ -157,6 +167,9 @@ export function DetailPage() {
   liveCopyScope.current = copyScope;
   useEffect(() => {
     setSelection(null);
+    selectionAnchor.current = null;
+    setInlineSegment(null);
+    manualContext.current = null;
     setManualCopy("");
     setCopyError("");
     setCopyPending(null);
@@ -212,6 +225,15 @@ export function DetailPage() {
     const grid = readingGrid.current;
     if (!grid) return;
     const measure = () => {
+      searchToolbar.current?.style.setProperty(
+        "--selection-player-height",
+        `${playerPanel.current?.getBoundingClientRect().height ?? 0}px`,
+      );
+      const toolbar = searchToolbar.current?.querySelector(".selection-toolbar");
+      document.documentElement.style.setProperty(
+        "--selection-toast-bottom",
+        `${(playerPanel.current?.getBoundingClientRect().height ?? 0) + (toolbar?.getBoundingClientRect().height ?? 0) + 32}px`,
+      );
       const top = grid.getBoundingClientRect().top + window.scrollY;
       grid.style.setProperty(
         "--reading-height",
@@ -223,12 +245,16 @@ export function DetailPage() {
     const heading = document.querySelector(".detail-heading");
     if (heading) observer.observe(heading);
     if (searchToolbar.current) observer.observe(searchToolbar.current);
+    if (playerPanel.current) observer.observe(playerPanel.current);
+    const toolbar = searchToolbar.current?.querySelector(".selection-toolbar");
+    if (toolbar) observer.observe(toolbar);
     window.addEventListener("resize", measure);
     return () => {
       observer.disconnect();
+      document.documentElement.style.removeProperty("--selection-toast-bottom");
       window.removeEventListener("resize", measure);
     };
-  }, [recording.data?.id]);
+  }, [recording.data?.id, !!selection]);
 
   function openNewTranscription() {
     setOptions(version?.options || settings.data?.default_transcription || blankOptions);
@@ -308,20 +334,49 @@ export function DetailPage() {
     copyController.current = null;
     setCopyPending(null);
     setCopyError("");
+    setManualCopy("");
+    manualContext.current = null;
+    selectionAnchor.current = null;
     setSelection(null);
   }
-  function toggleSegment(id: string) {
-    if (copyPending) return;
-    if (selection && !selection.has(id) && selection.size >= 100) {
+  function beginSelection(ids: string[]) {
+    setInlineSegment(null);
+    setSpeakerPicker(null);
+    selectionAnchor.current = ids[0] ?? null;
+    setSelection(new Set(ids));
+  }
+  useEffect(() => {
+    if (!selection || manualCopy) return;
+    const escape = (event: KeyboardEvent) => {
+      if (
+        event.key !== "Escape" ||
+        event.defaultPrevented ||
+        (event.target as HTMLElement).closest("input,textarea,[role=dialog]")
+      )
+        return;
+      event.preventDefault();
+      cancelSelection();
+    };
+    window.addEventListener("keydown", escape);
+    return () => window.removeEventListener("keydown", escape);
+  });
+  function toggleSegment(id: string, range = false) {
+    if (copyPending || !selection) return;
+    const next = new Set(selection);
+    const items = segments?.items ?? [];
+    const start = items.findIndex((item) => item.id === selectionAnchor.current);
+    const end = items.findIndex((item) => item.id === id);
+    if (range && start >= 0 && end >= 0) {
+      for (const item of items.slice(Math.min(start, end), Math.max(start, end) + 1))
+        next.add(item.id);
+    } else if (next.has(id)) next.delete(id);
+    else next.add(id);
+    if (next.size > 100) {
       notify(tr("每次最多选择 100 段。"), true);
       return;
     }
-    setSelection((previous) => {
-      const next = new Set(previous);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    selectionAnchor.current = id;
+    setSelection(next);
   }
   function completeSpeakerGroup(index: number) {
     if (!segments || !recording.data) return [];
@@ -344,7 +399,33 @@ export function DetailPage() {
       return [];
     return items.slice(start, end + 1).map((item) => item.id);
   }
-  async function copy(ids: string[], markdown: boolean, key: string) {
+  async function retryManualCopy() {
+    if (copyController.current) return;
+    const controller = new AbortController();
+    copyController.current = controller;
+    const scope = copyScope;
+    const context = manualContext.current;
+    setCopyPending("manual");
+    try {
+      const copied = await copyText(manualCopy);
+      if (controller.signal.aborted || liveCopyScope.current !== scope) return;
+      if (copied) {
+        notify(tr("文字已复制"));
+        setManualCopy("");
+        manualContext.current = null;
+        if (context) {
+          setSelection(null);
+          selectionAnchor.current = null;
+        }
+      } else document.getElementById("manual-copy")?.focus();
+    } finally {
+      if (copyController.current === controller) {
+        copyController.current = null;
+        setCopyPending(null);
+      }
+    }
+  }
+  async function copy(ids: string[], format: "reference" | "link" | "text", key: string) {
     if (!selected || copyController.current || !ids.length) return;
     const controller = new AbortController();
     copyController.current = controller;
@@ -362,14 +443,28 @@ export function DetailPage() {
         },
       );
       if (!current()) return;
-      const text = markdown
-        ? referenceMarkdown(session.public_base_url, result, location.origin)
-        : referenceUrl(session.public_base_url, result.code, location.origin);
+      const text =
+        format === "reference"
+          ? referenceMarkdown(session.public_base_url, result, location.origin)
+          : format === "text"
+            ? referenceText(result)
+            : referenceUrl(session.public_base_url, result.code, location.origin);
       const copied = await copyText(text);
       if (!current()) return;
-      if (copied) notify(markdown ? tr("句子引用已复制") : tr("句子链接已复制"));
-      else setManualCopy(text);
-      setSelection(null);
+      if (copied) {
+        notify(
+          format === "link"
+            ? tr("句子链接已复制")
+            : format === "text"
+              ? tr("已复制 {{count}} 段文字", { count: ids.length })
+              : tr("已复制 {{count}} 段引用", { count: ids.length }),
+        );
+        setSelection(null);
+        selectionAnchor.current = null;
+      } else {
+        manualContext.current = { scope, count: ids.length };
+        setManualCopy(text);
+      }
     } catch (error) {
       if (current()) {
         const message = errorMessage(error);
@@ -652,19 +747,33 @@ export function DetailPage() {
           />
         )}
         {selection && (
-          <div className="reference-toolbar" aria-label={tr("多选片段")}>
+          <div className="reference-toolbar selection-toolbar" aria-label={tr("多选片段")}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={tr("取消多选")}
+              onClick={cancelSelection}
+            >
+              <X />
+            </Button>
             <span role="status">{tr("已选 {{count}} 段", { count: selection.size })}</span>
             <Button
               size="sm"
-              loading={copyPending === "selection"}
-              disabled={!selection.size || session.restore_mode}
-              onClick={() => void copy([...selection], true, "selection")}
+              loading={copyPending === "selection-reference"}
+              disabled={!selection.size || !!copyPending || session.restore_mode}
+              onClick={() => void copy([...selection], "reference", "selection-reference")}
             >
               <Copy data-icon="inline-start" />
               {tr("复制引用")}
             </Button>
-            <Button variant="ghost" size="sm" onClick={cancelSelection}>
-              {tr("取消")}
+            <Button
+              variant="outline"
+              size="sm"
+              loading={copyPending === "selection-text"}
+              disabled={!selection.size || !!copyPending || session.restore_mode}
+              onClick={() => void copy([...selection], "text", "selection-text")}
+            >
+              {tr("复制文字")}
             </Button>
           </div>
         )}
@@ -767,6 +876,7 @@ export function DetailPage() {
                           key={segment.id}
                           className={cn(
                             "segment",
+                            selection && "segment-selecting",
                             referencedIDs.has(segment.id) && "segment-referenced",
                             selection?.has(segment.id) && "segment-selected",
                             isSpeakerContinuation(previous, segment, r.recorded_at) &&
@@ -781,7 +891,30 @@ export function DetailPage() {
                             ) && "segment-self",
                           )}
                           tabIndex={anchor === segment.id ? -1 : undefined}
+                          onClick={
+                            selection
+                              ? (event) => {
+                                  if (
+                                    !(event.target as HTMLElement).closest("[data-slot=checkbox]")
+                                  )
+                                    toggleSegment(segment.id, event.shiftKey);
+                                }
+                              : undefined
+                          }
                         >
+                          {selection && (
+                            <div className="segment-select-control">
+                              <Checkbox
+                                checked={selection.has(segment.id)}
+                                disabled={!!copyPending}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  toggleSegment(segment.id, event.shiftKey);
+                                }}
+                                aria-label={tr("选择第 {{v0}} 段", { v0: segment.ordinal + 1 })}
+                              />
+                            </div>
+                          )}
                           <div className="segment-avatar">
                             {version.speaker_labels.find(
                               (label) => label.id === segment.speaker_label_id,
@@ -816,14 +949,7 @@ export function DetailPage() {
                           <MessageBubble
                             busy={copyPending === segment.id}
                             metadata={
-                              selection ? (
-                                <Checkbox
-                                  checked={selection.has(segment.id)}
-                                  disabled={!!copyPending}
-                                  onCheckedChange={() => toggleSegment(segment.id)}
-                                  aria-label={tr("选择第 {{v0}} 段", { v0: segment.ordinal + 1 })}
-                                />
-                              ) : (
+                              selection ? null : (
                                 <>
                                   {segment.edited_text !== null &&
                                     segment.edited_text !== segment.source_text && (
@@ -881,21 +1007,21 @@ export function DetailPage() {
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     disabled={!!copyPending || session.restore_mode}
-                                    onClick={() => void copy([segment.id], true, segment.id)}
+                                    onClick={() => void copy([segment.id], "reference", segment.id)}
                                   >
                                     <Copy />
                                     {tr("复制引用")}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     disabled={!!copyPending || session.restore_mode}
-                                    onClick={() => void copy([segment.id], false, segment.id)}
+                                    onClick={() => void copy([segment.id], "link", segment.id)}
                                   >
                                     <Link2 />
                                     {tr("链接")}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     disabled={!!copyPending}
-                                    onClick={() => setSelection(new Set([segment.id]))}
+                                    onClick={() => beginSelection([segment.id])}
                                   >
                                     <CheckSquare />
                                     {tr("多选")}
@@ -903,12 +1029,19 @@ export function DetailPage() {
                                   {group.length > 1 && (
                                     <DropdownMenuItem
                                       disabled={!!copyPending}
-                                      onClick={() => setSelection(new Set(group))}
+                                      onClick={() => beginSelection(group)}
                                     >
                                       <CheckSquare />
                                       {tr("选择这组发言")}
                                     </DropdownMenuItem>
                                   )}
+                                  <DropdownMenuItem
+                                    disabled={blocked}
+                                    onClick={() => setInlineSegment(segment.id)}
+                                  >
+                                    <Pencil />
+                                    {tr("编辑文字")}
+                                  </DropdownMenuItem>
                                   <DropdownMenuItem
                                     disabled={blocked}
                                     onClick={() => setEditSegment(segment)}
@@ -952,17 +1085,13 @@ export function DetailPage() {
                               </div>
                             </div>
                             {selection ? (
-                              <button
-                                type="button"
-                                className="segment-text"
-                                disabled={!!copyPending}
-                                aria-pressed={selection.has(segment.id)}
-                                onClick={() => toggleSegment(segment.id)}
-                              >
+                              <span className="segment-text">
                                 {segment.text || tr("（此段文字已由人工清空）")}
-                              </button>
+                              </span>
                             ) : (
                               <SegmentText
+                                open={inlineSegment === segment.id}
+                                onOpenChange={(open) => setInlineSegment(open ? segment.id : null)}
                                 segment={segment}
                                 searchQuery={textQuery}
                                 disabled={blocked}
@@ -1473,7 +1602,15 @@ export function DetailPage() {
         description={tr("浏览器无法使用剪贴板，请选中下方内容后复制。")}
         open={!!manualCopy}
         onOpenChange={(v) => {
-          if (!v) setManualCopy("");
+          if (!v) {
+            if (copyPending === "manual") {
+              copyController.current?.abort();
+              copyController.current = null;
+              setCopyPending(null);
+            }
+            setManualCopy("");
+            manualContext.current = null;
+          }
         }}
       >
         <FieldGroup>
@@ -1481,6 +1618,7 @@ export function DetailPage() {
             <FieldLabel htmlFor="manual-copy">{tr("引用内容")}</FieldLabel>
             <Textarea
               id="manual-copy"
+              autoFocus
               readOnly
               value={manualCopy}
               rows={5}
@@ -1488,6 +1626,13 @@ export function DetailPage() {
             />
           </Field>
           <FieldDescription>{tr("Windows / Linux 按 Ctrl+C，macOS 按 ⌘C。")}</FieldDescription>
+          <Button
+            variant="outline"
+            loading={copyPending === "manual"}
+            onClick={() => void retryManualCopy()}
+          >
+            {tr("再次复制")}
+          </Button>
         </FieldGroup>
       </Modal>
     </>
