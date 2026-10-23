@@ -8400,7 +8400,9 @@
             "nullable": true
           },
           "retention_days": {
-            "type": "integer"
+            "type": "integer",
+            "nullable": true,
+            "description": "Null means calls are retained permanently."
           }
         }
       }

@@ -28,7 +28,7 @@ type callCursor struct {
 func callQuery(r *http.Request, admin bool) (string, []any, int, error) {
 	q := r.URL.Query()
 	args := []any{}
-	where := []string{"e.started_at>=clock_timestamp()-interval '30 days'"}
+	where := []string{"true"}
 	add := func(clause string, v any) {
 		args = append(args, v)
 		where = append(where, fmt.Sprintf(clause, len(args)))
@@ -179,6 +179,6 @@ func (a *App) queryCalls(w http.ResponseWriter, r *http.Request, admin bool) err
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	writeJSON(w, 200, map[string]any{"items": items, "next_cursor": next, "retention_days": 30})
+	writeJSON(w, 200, map[string]any{"items": items, "next_cursor": next, "retention_days": nil})
 	return nil
 }

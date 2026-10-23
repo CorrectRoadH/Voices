@@ -93,20 +93,20 @@ func TestCallLogsIsolationPaginationAndLifecycle(t *testing.T) {
 		t.Fatal(v)
 	}
 	f.a.finishCall(ctx, ids[0], time.Now(), o, errors.New("SECRET")) // first completion wins
-	_, err = f.db.Exec(ctx, `UPDATE external_calls SET started_at=clock_timestamp()-interval '31 days' WHERE id=$1`, ids[0])
+	_, err = f.db.Exec(ctx, `UPDATE external_calls SET started_at=clock_timestamp()-interval '10 years' WHERE id=$1`, ids[0])
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = f.a.pruneCalls(ctx); err != nil {
+	if err = f.a.interruptExpiredCalls(ctx); err != nil {
 		t.Fatal(err)
 	}
 	f.a.finishCall(ctx, ids[0], time.Now(), o, nil)
 	var n int
-	if err = f.db.QueryRow(ctx, `SELECT count(*) FROM external_calls WHERE id=$1`, ids[0]).Scan(&n); err != nil || n != 0 {
-		t.Fatal("resurrected", err)
+	if err = f.db.QueryRow(ctx, `SELECT count(*) FROM external_calls WHERE id=$1`, ids[0]).Scan(&n); err != nil || n != 1 {
+		t.Fatal("historical call deleted", err)
 	}
 	_, page = f.json(t, "GET", "/api/v1/admin/calls?account=tester", nil, 200, "")
-	if len(page["items"].([]any)) != 2 {
+	if len(page["items"].([]any)) != 3 || page["retention_days"] != nil {
 		t.Fatal(page)
 	}
 	f.json(t, "GET", "/api/v1/admin/calls?account=%25", nil, 200, "")

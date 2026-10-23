@@ -9,7 +9,7 @@ test("个人与管理调用日志共用筛选、详情和分页", async ({ app, 
   await login(agent, "tester@example.test", "acceptance-password");
   await agent.act("进入处理任务页面，再切换到调用日志标签。");
   await expect(
-    screen.getByText("查看自己的 STT 与 AI 调用，仅保留最近 30 天。", { exact: true }),
+    screen.getByText("查看自己的 STT 与 AI 调用，调用记录永久保存。", { exact: true }),
   ).toBeVisible();
   await expect(
     screen.getByText("输入 / 输出 / 总 token: 25 / 7 / 32", { exact: true }),
@@ -19,7 +19,7 @@ test("个人与管理调用日志共用筛选、详情和分页", async ({ app, 
   await expect(browser.locator('[data-slot="badge"]').first()).toHaveText("调用成功");
   await agent.act("通过服务器管理导航进入调用日志页面。");
   await expect(
-    screen.getByText("查看全站 STT 与 AI 调用，仅保留最近 30 天。", { exact: true }),
+    screen.getByText("查看全站 STT 与 AI 调用，调用记录永久保存。", { exact: true }),
   ).toBeVisible();
   await agent.act(
     "在账号搜索中输入 calls_viewer，将调用类别筛选为 STT，将调用结果筛选为调用失败。",

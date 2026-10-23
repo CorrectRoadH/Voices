@@ -2,7 +2,7 @@
 
 ## 目标、现状与取舍
 
-jobs/provider_operations 是 STT 执行与恢复的真源，transcription_insights 每次重建同一转写的生成状态；runtime_events 只保留异常。上述表都不能充当完整请求历史。新增 external_calls 作为外部操作尝试的持久化记录，独立保留 30 天。记录失败和缺失不能改变原任务安全判断；不以调用日志证明资源存在、清理完成或费用结算。
+jobs/provider_operations 是 STT 执行与恢复的真源，transcription_insights 每次重建同一转写的生成状态；runtime_events 只保留异常。上述表都不能充当完整请求历史。新增 external_calls 作为外部操作尝试的持久化记录，永久保存。记录失败和缺失不能改变原任务安全判断；不以调用日志证明资源存在、清理完成或费用结算。
 
 本方案扩展管理员跨账号可见的运维元数据边界，并首次确定调用记录持久模型，需要独立原生 Codex Review。费用价格、账单、完整 HTTP 抓包、内容管理权限及新的自动重试不在本次范围；原 STT 费用研究中的价格模型仍未采用。
 
@@ -71,11 +71,11 @@ claimInsight 把 queued→running 和 generate_insights 调用行写入同一事
 
 succeeded 表示该操作成功返回（包括轮询还在 processing），并非完整业务完成。failed 表示收到明确失败/本地拒绝/结果校验失败；STT Error.Code=uncertain 对应 uncertain。AI 生成若网络请求已经启动且没有完整成功/明确拒绝响应的传输错误，映射 uncertain；有响应的内容验证失败为 failed，仍保存已知用量。用户取消/超时仅表明本地终止，不能声称服务商未计费。
 
-running 超过 deadline_at 后派生为 interrupted，HTTP 查询直接用 effective_state 表达，所以即使后台停了也不显示永远运行。后台每 10 秒最多更新 1000 条 expired 行，记录 error_code=interrupted，不捏造 finished_at/duration。真实晚到 finish 允许覆盖仍无 finished_at 的 interrupted 行，完成单个调用记录，不改变业务恢复状态。完成操作只按调用 ID 更新尚无 finished_at 的行，不 JOIN 当前业务对象，不以 UPSERT 重建已到期删除的记录。
+running 超过 deadline_at 后派生为 interrupted，HTTP 查询直接用 effective_state 表达，所以即使后台停了也不显示永远运行。后台每 10 秒最多更新 1000 条 expired 行，记录 error_code=interrupted，不捏造 finished_at/duration。真实晚到 finish 允许覆盖仍无 finished_at 的 interrupted 行，完成单个调用记录，不改变业务恢复状态。完成操作只按调用 ID 更新尚无 finished_at 的行，不 JOIN 当前业务对象，不以 UPSERT 重建不存在的记录。
 
 Restore 在事务中将 running 行标 interrupted/error_reason=database_restore，不能自动重发；之后晚到结果仍只更新日志，不解除任务隔离。
 
-查询范围固定 started_at>=数据库当前时刻-30天；后台每 10 秒最多删除 1000 条 started_at 早于 30 天的行。最长单次调用为 30 分钟，不需要以保留日志阻塞业务删除。启用前历史不回填；日志不构成财务账本。
+查询不设历史时间下限，调用记录永久保存；后台仅标记中断，不删除调用记录。最长单次调用为 30 分钟，不需要以保留日志阻塞业务删除。启用前历史不回填；日志不构成财务账本。
 
 ## HTTP 与权限
 
@@ -90,7 +90,7 @@ GET /api/v1/calls：强制 owner_id=会话用户，忽略不得变成跨用户�
 
 管理端额外支持 owner_id UUID 和 account（当前邮箱/用户名/显示名的字面不区分大小写子串，转义 %/_，最长 200）。未知筛选值报错，不静默放宽。
 
-返回 {items,next_cursor,retention_days:30}。items 包含上述公开记录字段（不返回内部 deadline），effective state 替换 running 过期状态；管理端附 actor:{id,email,display_name}|null，个人不展示额外用户数据。可返回 recording_available、can_open_recording（当前请求者拥有且未 deleting）；不返回录音标题、文件名、正文、模型输入输出或 remote_id/URL。调用 ID 与关联 ID 是诊断引用，不赋予任何业务读写权限。不存在跨账号任务详情、核对、重试或删除接口。
+返回 {items,next_cursor,retention_days:null（无期限）}。items 包含上述公开记录字段（不返回内部 deadline），effective state 替换 running 过期状态；管理端附 actor:{id,email,display_name}|null，个人不展示额外用户数据。可返回 recording_available、can_open_recording（当前请求者拥有且未 deleting）；不返回录音标题、文件名、正文、模型输入输出或 remote_id/URL。调用 ID 与关联 ID 是诊断引用，不赋予任何业务读写权限。不存在跨账号任务详情、核对、重试或删除接口。
 
 客户端只对本人仍存在资源提供录音或任务入口；管理员可对任意 job_id 筛选调用历史，不导航个人任务 API 来尝试越权。记录元数据不包含“HTTP 401 也泄漏原始内容”的例外。
 
@@ -101,7 +101,7 @@ GET /api/v1/calls：强制 owner_id=会话用户，忽略不得变成跨用户�
 ## 验收与剩余风险
 
 - 真实应用入口运行 STT 上传/提交/多次查询/结果读取/资源清理与 AI 生成/模型目录/测试模型，实际 fake HTTP 次数与日志逐条匹配。成功、HTTP 401、503、异常 JSON、输出校验失败均可见；错误原因无秘密。
-- 崩溃窗口、DB 写入失败、租约丢失/晚到响应、Restore、生成再次执行、录音删除后的行保留与到期清理用集成测试验证；调用记录不得造成额外创建请求。
+- 崩溃窗口、DB 写入失败、租约丢失/晚到响应、Restore、生成再次执行、录音删除后的行永久保留用集成测试验证；调用记录不得造成额外创建请求。
 - 服务端直接测试个人越权、管理员降级、非法筛选/游标、同时间戳分页，以及记录/API 中不存在原始 prompt/密钥/URL/音频标题。
 - 新增中文自然语言 E2E 验证个人入口、管理员全站筛选、查看原因和用量、刷新/加载更多、窄屏。测试代理显式配置；被测 STT/LLM fake。
-- vp run check、针对性浏览器入口、Concord 检查及 diff 核对。每轮查询均有一次短 DB 操作，30 天轮询记录可能较多；本版本不合并轮询或伪造请求数，后续可根据实际量添加分区。
+- vp run check、针对性浏览器入口、Concord 检查及 diff 核对。每轮查询均有一次短 DB 操作，长期积累的轮询记录可能较多；本版本不合并轮询或伪造请求数，后续可根据实际量添加分区。

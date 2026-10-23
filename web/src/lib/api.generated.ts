@@ -5810,7 +5810,8 @@ export interface components {
         ExternalCallList: {
             items: components["schemas"]["ExternalCall"][];
             next_cursor: string | null;
-            retention_days: number;
+            /** @description Null means calls are retained permanently. */
+            retention_days: number | null;
         };
     };
     responses: never;

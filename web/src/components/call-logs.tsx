@@ -135,8 +135,8 @@ export function CallLogs({ admin = false }: { admin?: boolean }) {
         title={tr("调用日志")}
         description={tr(
           admin
-            ? "查看全站 STT 与 AI 调用，仅保留最近 30 天。"
-            : "查看自己的 STT 与 AI 调用，仅保留最近 30 天。",
+            ? "查看全站 STT 与 AI 调用，调用记录永久保存。"
+            : "查看自己的 STT 与 AI 调用，调用记录永久保存。",
         )}
       >
         <Button variant="outline" disabled={loading} onClick={() => setRevision((n) => n + 1)}>

@@ -99,13 +99,9 @@ func observedSTT[T any](ctx context.Context, a *App, tid, operation string, call
 	a.finishCall(ctx, id, started, o, err)
 	return result, err
 }
-func (a *App) pruneCalls(ctx context.Context) error {
+func (a *App) interruptExpiredCalls(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	_, err := a.DB.Exec(ctx, `UPDATE external_calls SET state='interrupted',error_code='interrupted' WHERE id IN (SELECT id FROM external_calls WHERE state='running' AND deadline_at<=clock_timestamp() LIMIT 1000 FOR UPDATE SKIP LOCKED)`)
-	if err != nil {
-		return err
-	}
-	_, err = a.DB.Exec(ctx, `DELETE FROM external_calls WHERE id IN (SELECT id FROM external_calls WHERE started_at<clock_timestamp()-interval '30 days' ORDER BY started_at LIMIT 1000 FOR UPDATE SKIP LOCKED)`)
 	return err
 }

@@ -59,8 +59,8 @@ func (a *App) runRuntimeCleanup(ctx context.Context) {
 	tick := time.NewTicker(10 * time.Second)
 	defer tick.Stop()
 	for {
-		if err := a.pruneCalls(ctx); err != nil && ctx.Err() == nil {
-			slog.Error("call cleanup failed", "error_type", errorType(err))
+		if err := a.interruptExpiredCalls(ctx); err != nil && ctx.Err() == nil {
+			slog.Error("call interruption update failed", "error_type", errorType(err))
 		}
 		if err := a.pruneRuntime(ctx); err != nil && ctx.Err() == nil {
 			slog.Error("runtime cleanup failed", "error_type", errorType(err))
