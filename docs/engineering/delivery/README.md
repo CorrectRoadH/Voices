@@ -56,6 +56,8 @@ CI 的可执行入口为 `.github/workflows/ci.yml`。本地通过单元/集成/
 
 若镜像成功但 Release 失败，可以重跑同 tag。不要在部分发布尚未处理时发布低版本。若 Release 已成功，则不要重复整条发布流程。
 
+发布调用 CI 时显式传递 E2E 测试密钥。若需修复工作流后恢复发布，可从 main 手动运行 Release 并指定已有稳定标签 `release_tag`。工作流将标签解析为固定提交，CI、镜像、前端、二进制与发布说明均使用该提交；版本仍取该标签，不移动标签或跳过检查。
+
 Worker 通过 `Deploy update worker` 手动部署，与应用版本发布分离。需要 Cloudflare secrets；具体配置、公告格式和首次连接步骤见 [Worker 操作说明](../../../update-worker/README.md)。
 
 ## 发布产物
