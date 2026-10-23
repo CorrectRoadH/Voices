@@ -5,13 +5,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { api, fixture, login, logout, noOverflow } from "./support/session";
 
+const workbenchTitle = "真实上传转写、编辑与人物归属、导出及登录后恢复句子链接";
 // @use-case docs/feature/sentence-links/use-case/copy-sentence-link.md
-test("真实上传转写、编辑与人物归属、导出及登录后恢复句子链接", async ({
-  app,
-  agent,
-  browser,
-  screen,
-}) => {
+test(workbenchTitle, { timeout: 12 * 60_000 }, async ({ app, agent, browser, screen }) => {
   const base = fixture("VOICES_TEST_URL");
   await app.open();
   await login(agent, "tester@example.test", "acceptance-password");

@@ -25,7 +25,8 @@ func TestBrowserFullStack(t *testing.T) {
 	done := make(chan struct{})
 	go func() { defer close(done); f.a.Run(ctx) }()
 	defer func() { cancel(); <-done }()
-	cmdCtx, cmdCancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	// The full workbench journey has a 12-minute attempt deadline plus cleanup headroom.
+	cmdCtx, cmdCancel := context.WithTimeout(context.Background(), 14*time.Minute)
 	defer cmdCancel()
 	cmd := exec.CommandContext(cmdCtx, "vp", "exec", "e2e", "run", "tests/workbench.e2e.ts")
 	cmd.Dir = "../../web"

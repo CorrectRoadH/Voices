@@ -156,6 +156,8 @@ test("加载阶段、行内编辑快捷键、保存状态与真实并发冲突",
   await expect(screen.getByLabel("片段文字", { exact: true })).toHaveCount(0);
   await browser.locator(".message-more").first().click();
   await screen.getByRole("menuitem", { name: "编辑文字", exact: true }).click();
+  await expect(screen.getByRole("menu")).toHaveCount(0);
+  await expect(screen.getByLabel("片段文字", { exact: true })).toBeFocused();
   await screen.getByLabel("片段文字", { exact: true }).fill("共用组件修改的转写正文");
   await browser.keyboard.press("Control+Enter");
   await expect(segment).toHaveText("共用组件修改的转写正文");

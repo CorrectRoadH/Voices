@@ -61,13 +61,15 @@ test("访客和账号语言隔离、失败回滚、保留中文内容与移动�
     ),
   ).toBe(true);
   await expect(screen.getByLabel("Display name", { exact: true })).toHaveValue("中文用户名");
-  await agent.act("保存当前个人资料。");
+  // Observe the 4.5-second toast immediately; model round-trips can outlast it.
+  await screen.getByRole("button", { name: "Save profile", exact: true }).click();
   await expect(
     browser.locator("[data-slot=toast-description]").filter({ hasText: "Profile saved" }),
   ).toBeVisible();
   await browser.locator("[data-slot=toast-close]").click();
   await browser.reload();
   await expect(screen.getByLabel("Interface language", { exact: true })).toHaveValue("en");
+  await expect(screen.getByLabel("Display name", { exact: true })).toHaveValue("中文用户名");
 
   // 保留中文用户内容，仅翻译内置标签。
   const person = await api(browser, "/people", "POST", { display_name: "音乐", notes: "中文备注" });
