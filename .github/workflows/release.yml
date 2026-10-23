@@ -41,6 +41,8 @@ jobs:
     with:
       ref: ${{ needs.validate.outputs.sha }}
     secrets:
+      E2E_MODEL_BASE_URL: ${{ secrets.E2E_MODEL_BASE_URL }}
+      TS_AUTHKEY: ${{ secrets.TS_AUTHKEY }}
       E2E_MODEL_API_KEY: ${{ secrets.E2E_MODEL_API_KEY }}
   image:
     needs: [validate, ci]

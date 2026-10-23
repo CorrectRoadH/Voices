@@ -10,6 +10,10 @@ on:
         type: string
         default: ''
     secrets:
+      E2E_MODEL_BASE_URL:
+        required: true
+      TS_AUTHKEY:
+        required: true
       E2E_MODEL_API_KEY:
         required: true
 permissions:
@@ -56,19 +60,49 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
+      # Release may test an older tag; network/privacy helpers belong to this
+      # workflow revision, not to the historical application checkout.
+      - name: Checkout CI support
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .ci-support
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - name: Refuse untrusted browser execution
+        if: matrix.suite == 'browser' && github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name != github.repository || github.event.pull_request.user.login == 'dependabot[bot]')
+        run: |
+          echo '::error::Browser acceptance requires a trusted repository event.'
+          exit 1
       - name: Require browser model configuration
+        id: model-config
         if: matrix.suite == 'browser'
         env:
           E2E_MODEL: ${{ vars.E2E_MODEL }}
-          E2E_MODEL_BASE_URL: ${{ vars.E2E_MODEL_BASE_URL }}
+          E2E_MODEL_BASE_URL: ${{ secrets.E2E_MODEL_BASE_URL }}
           E2E_MODEL_API_KEY: ${{ secrets.E2E_MODEL_API_KEY }}
+          TS_AUTHKEY: ${{ secrets.TS_AUTHKEY }}
         run: |
-          for name in E2E_MODEL E2E_MODEL_BASE_URL E2E_MODEL_API_KEY; do
+          for name in E2E_MODEL E2E_MODEL_BASE_URL E2E_MODEL_API_KEY TS_AUTHKEY; do
             if [ -z "${!name}" ]; then
               echo "::error::Missing $name for browser acceptance"
               exit 1
             fi
           done
+          node .ci-support/.github/scripts/model-privacy.mjs mask
+      - name: Connect model network
+        id: tailnet
+        if: matrix.suite == 'browser'
+        uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf # v4.3.0
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+          args: --accept-dns=false --accept-routes=false
+          log-mode: quiet
+      - name: Check model connectivity
+        if: matrix.suite == 'browser'
+        env:
+          E2E_MODEL_BASE_URL: ${{ secrets.E2E_MODEL_BASE_URL }}
+        run: node .ci-support/.github/scripts/model-connectivity.mjs
       - uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
@@ -77,6 +111,7 @@ jobs:
         run: |
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           actionlint
+          node --test .ci-support/.github/scripts/model-privacy.test.mjs
           python3 scripts/check-e2e-shards.py
       - uses: voidzero-dev/setup-vp@v1.21.2
         with:
@@ -152,17 +187,35 @@ jobs:
         env:
           E2E_FILTER: ${{ matrix.e2e_filter }}
           E2E_MODEL: ${{ vars.E2E_MODEL }}
-          E2E_MODEL_BASE_URL: ${{ vars.E2E_MODEL_BASE_URL }}
+          E2E_MODEL_BASE_URL: ${{ secrets.E2E_MODEL_BASE_URL }}
           E2E_MODEL_API_KEY: ${{ secrets.E2E_MODEL_API_KEY }}
       - run: vp run test:worker:runtime
         if: matrix.suite == 'checks'
+      - name: Prepare private failure report
+        id: redact
+        if: failure() && matrix.suite == 'browser' && steps.model-config.outcome == 'success'
+        env:
+          E2E_MODEL_BASE_URL: ${{ secrets.E2E_MODEL_BASE_URL }}
+          E2E_MODEL_API_KEY: ${{ secrets.E2E_MODEL_API_KEY }}
+          TS_AUTHKEY: ${{ secrets.TS_AUTHKEY }}
+          ARTIFACT_SOURCE: web/.e2e
+          ARTIFACT_SAFE: ${{ runner.temp }}/voices-e2e-safe
+        run: node .ci-support/.github/scripts/model-privacy.mjs artifacts
       - uses: actions/upload-artifact@v7.0.2
-        if: failure() && matrix.suite == 'browser'
+        if: failure() && matrix.suite == 'browser' && steps.redact.outcome == 'success'
         with:
           name: browser-failure-traces${{ matrix.shard }}
-          path: web/.e2e
+          path: ${{ runner.temp }}/voices-e2e-safe
           include-hidden-files: true
           if-no-files-found: ignore
+      - name: Disconnect model network
+        if: always() && steps.tailnet.outcome == 'success'
+        run: |
+          if ! sudo tailscale logout > /dev/null 2>&1; then
+            echo '::error::Model network logout failed.'
+            exit 1
+          fi
+          echo 'Model network logged out.'
   docker:
     runs-on: ubuntu-latest
     steps:

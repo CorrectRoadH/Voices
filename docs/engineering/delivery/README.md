@@ -44,7 +44,9 @@ Go fixture 创建隔离 schema、测试账号与外部服务，启动应用任�
 
 浏览器业务操作统一使用中文 `agent.act(...)`，用精确断言验证结果。文件上传、下载捕获、剪贴板故障、并发时序和网络故障注入由确定性代码控制；不允许代理通过额外重试掩盖预期失败。每个独立场景由 Go fixture 创建独立 schema，不能依赖上一条场景留下的业务状态。
 
-测试代理使用独立的 `E2E_MODEL_BASE_URL`、`E2E_MODEL`（gpt-6.1-sol）与 `E2E_MODEL_API_KEY`，通过 OpenAI Responses 协议调用。e2e 配置用 dotenv 自动加载根目录 `.env`，已导出的环境变量优先；缺少配置直接失败，不切换模型、不降级执行。测试代理会产生真实模型调用；被测应用的 STT/LLM 仍使用 fake。CI 在 E2E 步骤读取同名仓库 variables 和 API Key secret，须由维护者配置；没有凭据时不跳过或宣称验收通过。e2e 产物位于 `web/.e2e/`，CI 失败时上传；本地可指定 `E2E_CHROMIUM_EXECUTABLE_PATH` 使用系统 Chromium。
+测试代理使用独立的 `E2E_MODEL_BASE_URL`、`E2E_MODEL`（gpt-6.1-sol）与 `E2E_MODEL_API_KEY`，通过 OpenAI Responses 协议调用。e2e 配置用 dotenv 自动加载根目录 `.env`，已导出的环境变量优先；缺少配置直接失败，不切换模型、不降级执行。测试代理会产生真实模型调用；被测应用的 STT/LLM 仍使用 fake。
+
+CI 从仓库 variable 读取 E2E_MODEL，从 Secrets 读取 E2E_MODEL_BASE_URL 与 E2E_MODEL_API_KEY；没有凭据时不跳过或宣称验收通过。e2e 原始产物位于 `web/.e2e/`，CI 失败时仅上传另行生成的脱敏文本副本；压缩包、二进制 trace、图片与符号链接不上传。本地原始诊断产物保持不变。本地可指定 `E2E_CHROMIUM_EXECUTABLE_PATH` 使用系统 Chromium。
 
 正式 tag `vX.Y.Z` 通过 CI 后构建 amd64/arm64 镜像，注入应用版本，推送 Docker Hub，最后生成 GitHub Release。版本日志由 `cliff.toml` 从提交生成。CI 仅只读权限，发布 job 单独获取 Docker Hub secrets/contents 写入权限。发布与部署命令须由操作者主动执行；本地实现或测试不构成发布授权。
 
@@ -66,7 +68,7 @@ CI 的可执行入口为 `.github/workflows/ci.yml`。本地通过单元/集成/
 
 若镜像成功但 Release 失败，可以重跑同 tag。不要在部分发布尚未处理时发布低版本。若 Release 已成功，则不要重复整条发布流程。
 
-发布调用 CI 时显式传递 E2E 测试密钥。若需修复工作流后恢复发布，可从 main 手动运行 Release 并指定已有稳定标签 `release_tag`。工作流将标签解析为固定提交，CI、镜像、前端、二进制与发布说明均使用该提交；版本仍取该标签，不移动标签或跳过检查。
+发布调用 CI 时显式传递 E2E_MODEL_BASE_URL、E2E_MODEL_API_KEY 与 TS_AUTHKEY。若需修复工作流后恢复发布，可从 main 手动运行 Release 并指定已有稳定标签 `release_tag`。工作流将标签解析为固定提交，CI、镜像、前端、二进制与发布说明均使用该提交；版本仍取该标签，不移动标签或跳过检查。
 
 Worker 通过 `Deploy update worker` 手动部署，与应用版本发布分离。需要 Cloudflare secrets；具体配置、公告格式和首次连接步骤见 [Worker 操作说明](../../../update-worker/README.md)。
 
@@ -75,3 +77,11 @@ Worker 通过 `Deploy update worker` 手动部署，与应用版本发布分离�
 沿用 OpenTickly 的 tag 发版流程：Docker Hub 仓库 correctroad/voices，镜像标签为 X.Y.Z、X.Y、SHA 和 latest。DOCKERHUB_USERNAME 与 DOCKERHUB_TOKEN 仅在 image job 使用。Registry 查询错误不视为首次发布；仅明确 latest 不存在可跳过镜像版本比较。
 
 GitHub Release 同时提供 voices-linux-amd64.tar.gz、voices-linux-arm64.tar.gz 和 SHA256SUMS。每个压缩包包含对应架构的 voices 可执行文件、同一 tag 构建的 web/ 静态资源及运行说明；运行需要 PostgreSQL 与 ffmpeg，默认从解压目录启动并设置 WEB_DIR=web。前端只构建一次供两个发布包共享。发布等待镜像和发布包都成功，不自动创建或推送 tag。
+
+## 模型私网接入
+
+浏览器验收通过官方 Tailscale action 使用本仓 TS_AUTHKEY 加入 Tailnet；采用用户指定的 tag:ci 临时节点，结束时由 action post logout 回收。该身份继承基础设施现有 CI 权限，不是仅能访问模型的隔离身份。新增网络授权仅允许 Studio HTTPS；普通检查与 Docker 构建不入网。fork 与 Dependabot PR 没有模型或 Tailnet 凭据，缺配置仍明确失败，不降级为虚假通过。
+
+模型地址保存在 Secret，不出现在源码默认值。网络请求前为完整地址、origin、hostname 和密钥注册日志掩码；连接探针只报告受控结果，不打印原始异常、URL 或响应。访问新模型地址前先完成基础设施 ACL 发布。流水线不配置 exit node 或接受子网路由，不修改 runner 的 DNS 设置。
+
+日志掩码不保护 Actions artifact。上传前对允许的 UTF-8 文本文件替换完整地址、域名、密钥以及 URL 编码形式，跳过包含敏感值的文件路径、非 UTF-8 文件和二进制文件。仅在脱敏步骤成功后上传新目录，不能回退上传原始目录。更新或撤销 Auth Key 通过 Secret 独立完成；网络失败不切回公网模型地址。
