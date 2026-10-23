@@ -15,10 +15,12 @@ export function MessageBubble({
   children,
   metadata,
   actions,
+  busy = false,
 }: {
   children: ReactNode;
   metadata: ReactNode;
   actions: ReactNode;
+  busy?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const triggerId = useId();
@@ -35,10 +37,11 @@ export function MessageBubble({
   return (
     <div
       className="segment-bubble"
-      data-menu-open={open || undefined}
+      data-menu-open={open || busy || undefined}
       onPointerDown={(event) => {
         cancel();
         suppressClick.current = false;
+        if (!actions || busy) return;
         if (event.pointerType === "mouse" || !event.isPrimary) return;
         const target = event.target as HTMLElement;
         if (target.closest("input,textarea,a,[role=menu],button:not(.segment-text)")) return;
@@ -72,12 +75,14 @@ export function MessageBubble({
         }
       }}
       onContextMenu={(event) => {
+        if (!actions || busy) return;
         if ((event.target as HTMLElement).closest("input,textarea,[role=menu]")) return;
         event.preventDefault();
         cancel();
         setOpen(true);
       }}
       onKeyDown={(event) => {
+        if (!actions || busy) return;
         if ((event.target as HTMLElement).closest("input,textarea")) return;
         if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
           event.preventDefault();
@@ -88,24 +93,27 @@ export function MessageBubble({
       {children}
       <div className="message-meta">
         {metadata}
-        <DropdownMenu triggerId={triggerId} open={open} onOpenChange={setOpen}>
-          <DropdownMenuTrigger
-            id={triggerId}
-            render={
-              <Button
-                className="message-more"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={tr("更多操作")}
-              />
-            }
-          >
-            <MoreHorizontal />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuGroup>{actions}</DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {actions && (
+          <DropdownMenu triggerId={triggerId} open={open} onOpenChange={setOpen}>
+            <DropdownMenuTrigger
+              id={triggerId}
+              render={
+                <Button
+                  className="message-more"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={tr("更多操作")}
+                  loading={busy}
+                />
+              }
+            >
+              <MoreHorizontal />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuGroup>{actions}</DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </div>
   );

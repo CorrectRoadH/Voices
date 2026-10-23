@@ -18,8 +18,12 @@ import {
   RefreshCw,
   Trash2,
   Users,
+  CheckSquare,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field";
@@ -44,7 +48,7 @@ import { LabelsEditor, RecordingField, SegmentEditor, SegmentText } from "@/comp
 import { OptionsFields, blankOptions, optionError } from "@/components/options";
 import { useAction, useApp, useResource } from "@/lib/hooks";
 import { request, write, apiUrl, errorMessage, downloadExport } from "@/lib/api";
-import { sentenceMarkdown, sentenceUrl, copyText, validateAnchor } from "@/lib/links";
+import { referenceMarkdown, referenceUrl, copyText, validateAnchor } from "@/lib/links";
 import { date, duration, bytes } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type {
@@ -77,6 +81,10 @@ export function DetailPage() {
   const { recordingId = "", transcriptionId } = useParams();
   const [search, setSearch] = useSearchParams();
   const anchor = search.get("segment");
+  const referenceCode = search.get("ref");
+  const reference = useResource<Schema["TranscriptReference"]>(
+    referenceCode ? `/references/${encodeURIComponent(referenceCode)}` : null,
+  );
   const navigate = useNavigate();
   const recording = useResource<Recording>(
     `/recordings/${encodeURIComponent(recordingId)}`,
@@ -133,6 +141,23 @@ export function DetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [manualCopy, setManualCopy] = useState("");
+  const [selection, setSelection] = useState<Set<string> | null>(null);
+  const [copyPending, setCopyPending] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState("");
+  const copyController = useRef<AbortController | null>(null);
+  const copyScope = JSON.stringify([recordingId, selected, showBuiltin, textQuery]);
+  const liveCopyScope = useRef(copyScope);
+  liveCopyScope.current = copyScope;
+  useEffect(() => {
+    setSelection(null);
+    setManualCopy("");
+    setCopyError("");
+    setCopyPending(null);
+    return () => {
+      copyController.current?.abort();
+      copyController.current = null;
+    };
+  }, [copyScope]);
   const [options, setOptions] = useState<Options>(blankOptions);
   const [createKey, setCreateKey] = useState(() => requestKey());
   const action = useAction();
@@ -271,12 +296,85 @@ export function DetailPage() {
       notify(errorMessage(error), true);
     }
   }
-  async function copy(segment: Segment, markdown: boolean) {
-    const text = markdown
-      ? sentenceMarkdown(session.public_base_url, segment, location.origin)
-      : sentenceUrl(session.public_base_url, segment, location.origin);
-    if (await copyText(text)) notify(markdown ? tr("句子引用已复制") : tr("句子链接已复制"));
-    else setManualCopy(text);
+  function cancelSelection() {
+    copyController.current?.abort();
+    copyController.current = null;
+    setCopyPending(null);
+    setCopyError("");
+    setSelection(null);
+  }
+  function toggleSegment(id: string) {
+    if (copyPending) return;
+    if (selection && !selection.has(id) && selection.size >= 100) {
+      notify(tr("每次最多选择 100 段。"), true);
+      return;
+    }
+    setSelection((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  function completeSpeakerGroup(index: number) {
+    if (!segments || !recording.data) return [];
+    const items = segments.items;
+    let start = index;
+    let end = index;
+    while (isSpeakerContinuation(items[start - 1], items[start], recording.data.recorded_at)) {
+      if (end - start >= 99) return [];
+      start--;
+    }
+    while (isSpeakerContinuation(items[end], items[end + 1], recording.data.recorded_at)) {
+      if (end - start >= 99) return [];
+      end++;
+    }
+    if (
+      (start === 0 && segments.previous_cursor) ||
+      (end === items.length - 1 && segments.next_cursor) ||
+      end - start >= 100
+    )
+      return [];
+    return items.slice(start, end + 1).map((item) => item.id);
+  }
+  async function copy(ids: string[], markdown: boolean, key: string) {
+    if (!selected || copyController.current || !ids.length) return;
+    const controller = new AbortController();
+    copyController.current = controller;
+    const scope = copyScope;
+    const current = () => !controller.signal.aborted && liveCopyScope.current === scope;
+    setCopyPending(key);
+    setCopyError("");
+    try {
+      const result = await request<Schema["TranscriptReference"]>(
+        `/transcriptions/${selected}/references`,
+        {
+          method: "POST",
+          body: JSON.stringify({ segment_ids: ids }),
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30000)]),
+        },
+      );
+      if (!current()) return;
+      const text = markdown
+        ? referenceMarkdown(session.public_base_url, result, location.origin)
+        : referenceUrl(session.public_base_url, result.code, location.origin);
+      const copied = await copyText(text);
+      if (!current()) return;
+      if (copied) notify(markdown ? tr("句子引用已复制") : tr("句子链接已复制"));
+      else setManualCopy(text);
+      setSelection(null);
+    } catch (error) {
+      if (current()) {
+        const message = errorMessage(error);
+        setCopyError(message);
+        notify(message, true);
+      }
+    } finally {
+      if (copyController.current === controller) {
+        copyController.current = null;
+        setCopyPending(null);
+      }
+    }
   }
   if (!recording.data)
     return (
@@ -319,6 +417,21 @@ export function DetailPage() {
       </>
     );
   const createError = optionError(options, providers.data?.items || [], r);
+  const referenceMatches =
+    reference.data?.code === referenceCode &&
+    reference.data?.recording_id === recordingId &&
+    reference.data?.transcription_id === selected;
+  const referenceSegments = referenceMatches ? reference.data!.segments : [];
+  const referencedIDs = new Set(referenceSegments.map((item) => item.id));
+  const referenceIndex = referenceSegments.findIndex((item) => item.id === anchor);
+  function jumpReference(index: number) {
+    const target = referenceSegments[index];
+    if (!target) return;
+    playback.pause();
+    const next = new URLSearchParams(search);
+    next.set("segment", target.id);
+    setSearch(next);
+  }
   return (
     <>
       <div className="flex items-center justify-between gap-2">
@@ -443,7 +556,44 @@ export function DetailPage() {
           </div>
         </div>
       )}
-      <div ref={searchToolbar}>
+      <div
+        ref={searchToolbar}
+        className={selection || referenceCode ? "reference-tools" : undefined}
+      >
+        {referenceCode && (
+          <>
+            <ErrorBox message={reference.error} retry={reference.refresh} />
+            {reference.data?.code === referenceCode && !referenceMatches && (
+              <ErrorBox message={tr("该引用的录音、转写版本与片段不匹配，无法打开。")} />
+            )}
+            {referenceMatches && (
+              <div className="reference-toolbar" aria-label={tr("引用片段")}>
+                <span role="status">
+                  {tr("引用 {{count}} 段", { count: referenceSegments.length })}
+                  {referenceIndex >= 0 && ` · ${referenceIndex + 1}/${referenceSegments.length}`}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={referenceIndex <= 0}
+                  onClick={() => jumpReference(referenceIndex - 1)}
+                >
+                  <ChevronLeft data-icon="inline-start" />
+                  {tr("上一引用段")}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={referenceIndex >= referenceSegments.length - 1}
+                  onClick={() => jumpReference(referenceIndex + 1)}
+                >
+                  {tr("下一引用段")}
+                  <ChevronRight data-icon="inline-end" />
+                </Button>
+              </div>
+            )}
+          </>
+        )}
         {selected && (selectedState === "succeeded" || version?.state === "succeeded") && (
           <TranscriptSearch
             key={selected}
@@ -455,6 +605,24 @@ export function DetailPage() {
             onJump={jumpSearch}
           />
         )}
+        {selection && (
+          <div className="reference-toolbar" aria-label={tr("多选片段")}>
+            <span role="status">{tr("已选 {{count}} 段", { count: selection.size })}</span>
+            <Button
+              size="sm"
+              loading={copyPending === "selection"}
+              disabled={!selection.size || session.restore_mode}
+              onClick={() => void copy([...selection], true, "selection")}
+            >
+              <Copy data-icon="inline-start" />
+              {tr("复制引用")}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={cancelSelection}>
+              {tr("取消")}
+            </Button>
+          </div>
+        )}
+        <ErrorBox message={copyError} />
       </div>
       <div className="detail-grid" ref={readingGrid}>
         <Card className="transcript-card" ref={transcriptPanel}>
@@ -515,6 +683,7 @@ export function DetailPage() {
                     </p>
                   )}
                   {segments.items.map((segment, index) => {
+                    const group = completeSpeakerGroup(index);
                     const instant =
                       segment.start_ms === null
                         ? null
@@ -539,6 +708,8 @@ export function DetailPage() {
                           key={segment.id}
                           className={cn(
                             "segment",
+                            referencedIDs.has(segment.id) && "segment-referenced",
+                            selection?.has(segment.id) && "segment-selected",
                             isSpeakerContinuation(previous, segment, r.recorded_at) &&
                               "segment-continuation",
                             isSpeakerContinuation(
@@ -562,7 +733,7 @@ export function DetailPage() {
                                 )!}
                                 name={segmentSpeakerName(segment)}
                                 people={people.data?.items || []}
-                                disabled={blocked}
+                                disabled={blocked || !!selection}
                                 onSaved={refresh}
                                 open={speakerPicker === segment.id}
                                 onOpenChange={(open) => setSpeakerPicker(open ? segment.id : null)}
@@ -584,88 +755,122 @@ export function DetailPage() {
                             )}
                           </div>
                           <MessageBubble
+                            busy={copyPending === segment.id}
                             metadata={
-                              <>
-                                {segment.edited_text !== null &&
-                                  segment.edited_text !== segment.source_text && (
-                                    <span className="message-edited">{tr("已校正")}</span>
-                                  )}
-                                <Button
-                                  className="message-time"
-                                  variant="ghost"
-                                  size="sm"
-                                  disabled={
-                                    segment.start_ms === null || r.state !== "ready" || blocked
-                                  }
-                                  onClick={() => void playSegment(segment)}
-                                  aria-label={tr("播放 {{v0}} 至本句结束", {
-                                    v0: duration(segment.start_ms),
-                                  })}
-                                  title={
-                                    instant
-                                      ? tr("{{v0}} · 音频 {{v1}}", {
-                                          v0: instant.toLocaleString(interfaceLocale(), {
-                                            hour12: false,
-                                          }),
-                                          v1: duration(segment.start_ms),
-                                        })
-                                      : tr("缺少时间")
-                                  }
-                                >
-                                  <Play />
-                                </Button>
-                              </>
+                              selection ? (
+                                <Checkbox
+                                  checked={selection.has(segment.id)}
+                                  disabled={!!copyPending}
+                                  onCheckedChange={() => toggleSegment(segment.id)}
+                                  aria-label={tr("选择第 {{v0}} 段", { v0: segment.ordinal + 1 })}
+                                />
+                              ) : (
+                                <>
+                                  {segment.edited_text !== null &&
+                                    segment.edited_text !== segment.source_text && (
+                                      <span className="message-edited">{tr("已校正")}</span>
+                                    )}
+                                  <Button
+                                    className="message-time"
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={
+                                      segment.start_ms === null || r.state !== "ready" || blocked
+                                    }
+                                    onClick={() => void playSegment(segment)}
+                                    aria-label={tr("播放 {{v0}} 至本句结束", {
+                                      v0: duration(segment.start_ms),
+                                    })}
+                                    title={
+                                      instant
+                                        ? tr("{{v0}} · 音频 {{v1}}", {
+                                            v0: instant.toLocaleString(interfaceLocale(), {
+                                              hour12: false,
+                                            }),
+                                            v1: duration(segment.start_ms),
+                                          })
+                                        : tr("缺少时间")
+                                    }
+                                  >
+                                    <Play />
+                                  </Button>
+                                </>
+                              )
                             }
                             actions={
-                              <>
-                                <DropdownMenuItem
-                                  disabled={
-                                    segment.start_ms === null || r.state !== "ready" || blocked
-                                  }
-                                  onClick={() => void playSegment(segment)}
-                                >
-                                  <Play />
-                                  {tr("播放本句")}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    void copyText(segment.text).then((ok) => {
-                                      if (ok) notify(tr("文字已复制"));
-                                      else setManualCopy(segment.text);
-                                    })
-                                  }
-                                >
-                                  <Copy />
-                                  {tr("复制文字")}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => void copy(segment, true)}>
-                                  <Copy />
-                                  {tr("复制引用")}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => void copy(segment, false)}>
-                                  <Link2 />
-                                  {tr("链接")}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  disabled={blocked}
-                                  onClick={() => setEditSegment(segment)}
-                                >
-                                  <Pencil />
-                                  {tr("编辑当前片段")}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  disabled={
-                                    blocked ||
-                                    !version.speaker_labels.some(
-                                      (label) => label.id === segment.speaker_label_id,
-                                    )
-                                  }
-                                  onClick={() => setSpeakerPicker(segment.id)}
-                                >
-                                  <Users />
-                                  {tr("批量关联说话人")}
-                                </DropdownMenuItem>
-                              </>
+                              selection ? null : (
+                                <>
+                                  <DropdownMenuItem
+                                    disabled={
+                                      segment.start_ms === null || r.state !== "ready" || blocked
+                                    }
+                                    onClick={() => void playSegment(segment)}
+                                  >
+                                    <Play />
+                                    {tr("播放本句")}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      void copyText(segment.text).then((ok) => {
+                                        if (ok) notify(tr("文字已复制"));
+                                        else setManualCopy(segment.text);
+                                      })
+                                    }
+                                  >
+                                    <Copy />
+                                    {tr("复制文字")}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={!!copyPending || session.restore_mode}
+                                    onClick={() => void copy([segment.id], true, segment.id)}
+                                  >
+                                    <Copy />
+                                    {tr("复制引用")}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={!!copyPending || session.restore_mode}
+                                    onClick={() => void copy([segment.id], false, segment.id)}
+                                  >
+                                    <Link2 />
+                                    {tr("链接")}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={!!copyPending}
+                                    onClick={() => setSelection(new Set([segment.id]))}
+                                  >
+                                    <CheckSquare />
+                                    {tr("多选")}
+                                  </DropdownMenuItem>
+                                  {group.length > 1 && (
+                                    <DropdownMenuItem
+                                      disabled={!!copyPending}
+                                      onClick={() => setSelection(new Set(group))}
+                                    >
+                                      <CheckSquare />
+                                      {tr("选择这组发言")}
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem
+                                    disabled={blocked}
+                                    onClick={() => setEditSegment(segment)}
+                                  >
+                                    <Pencil />
+                                    {tr("编辑当前片段")}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={
+                                      blocked ||
+                                      !version.speaker_labels.some(
+                                        (label) => label.id === segment.speaker_label_id,
+                                      )
+                                    }
+                                    onClick={() => setSpeakerPicker(segment.id)}
+                                  >
+                                    <Users />
+                                    {tr("批量关联说话人")}
+                                  </DropdownMenuItem>
+                                </>
+                              )
                             }
                           >
                             <div className="segment-top">
@@ -679,7 +884,7 @@ export function DetailPage() {
                                     )!}
                                     name={segmentSpeakerName(segment)}
                                     people={people.data?.items || []}
-                                    disabled={blocked}
+                                    disabled={blocked || !!selection}
                                     onSaved={refresh}
                                   />
                                 ) : (
@@ -687,16 +892,28 @@ export function DetailPage() {
                                 )}
                               </div>
                             </div>
-                            <SegmentText
-                              segment={segment}
-                              searchQuery={textQuery}
-                              disabled={blocked}
-                              onSaved={(saved) => {
-                                setSearchRevision((value) => value + 1);
-                                replaceSegment(saved);
-                                insights.refresh();
-                              }}
-                            />
+                            {selection ? (
+                              <button
+                                type="button"
+                                className="segment-text"
+                                disabled={!!copyPending}
+                                aria-pressed={selection.has(segment.id)}
+                                onClick={() => toggleSegment(segment.id)}
+                              >
+                                {segment.text || tr("（此段文字已由人工清空）")}
+                              </button>
+                            ) : (
+                              <SegmentText
+                                segment={segment}
+                                searchQuery={textQuery}
+                                disabled={blocked}
+                                onSaved={(saved) => {
+                                  setSearchRevision((value) => value + 1);
+                                  replaceSegment(saved);
+                                  insights.refresh();
+                                }}
+                              />
+                            )}
                           </MessageBubble>
                         </article>
                       </Fragment>

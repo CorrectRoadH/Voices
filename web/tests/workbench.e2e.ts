@@ -155,7 +155,11 @@ test("真实上传转写、编辑与人物归属、导出及登录后恢复句�
   await expect(manual).toBeVisible();
   const citation = await manual.getByRole("textbox").inputValue();
   expect(citation).toContain("浏览器校正 \\[保留\\]。");
-  expect(citation).toContain(`/transcriptions/${tid}?segment=${segmentId}`);
+  const referenceCode = citation.match(/\/q\/([A-Za-z0-9_-]{12})\)/)?.[1];
+  expect(referenceCode).toBeTruthy();
+  const reference = await (await api(browser, `/references/${referenceCode}`)).json();
+  expect(reference.transcription_id).toBe(tid);
+  expect(reference.segments[0].id).toBe(segmentId);
   await agent.act("关闭手动复制窗口。");
   const railTop = await browser.evaluate(
     () => document.querySelector(".sidebar-tabs")!.getBoundingClientRect().top,

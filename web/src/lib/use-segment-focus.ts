@@ -41,8 +41,9 @@ export function useSegmentFocus({
         });
       } else {
         const bottom = playerPanelRef.current?.getBoundingClientRect().top ?? window.innerHeight;
+        const top = document.querySelector(".reference-tools")?.getBoundingClientRect().height ?? 0;
         window.scrollBy({
-          top: rect.top + rect.height / 2 - Math.min(bottom, window.innerHeight) / 2,
+          top: rect.top + rect.height / 2 - (top + Math.min(bottom, window.innerHeight)) / 2,
           behavior: "instant",
         });
       }

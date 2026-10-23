@@ -584,6 +584,30 @@ audio {
 .segment-continuation {
   margin-top: 0;
 }
+.segment-referenced {
+  background: color-mix(in oklch, var(--primary) 8%, transparent);
+}
+.segment-selected {
+  background: color-mix(in oklch, var(--primary) 16%, transparent);
+}
+.reference-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  background: var(--background);
+}
+.reference-toolbar > span {
+  margin-right: auto;
+  font-size: 13px;
+}
+.reference-tools {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--background);
+}
 .segment-bubble {
   --bubble-fill: var(--chat-incoming);
   position: relative;

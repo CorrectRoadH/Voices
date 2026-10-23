@@ -41,7 +41,7 @@ jobs:
             e2e_filter: '^(TestAccountsBrowserFullStack|TestInterfaceLanguageBrowser|TestLLMModelsBrowser)$'
           - suite: browser
             shard: '-settings'
-            e2e_filter: '^(TestServerSettingsBrowser|TestUpdatesBrowser|TestOnboardingBrowser|TestInteractionBrowser|TestJobRecoveryBrowser|TestCallLogsBrowser)$'
+            e2e_filter: '^(TestServerSettingsBrowser|TestUpdatesBrowser|TestOnboardingBrowser|TestInteractionBrowser|TestJobRecoveryBrowser|TestCallLogsBrowser|TestReferencesBrowser)$'
     services:
       postgres:
         image: postgres:18-bookworm

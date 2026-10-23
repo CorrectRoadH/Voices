@@ -21,6 +21,13 @@ export default {
       "check"
     ],
     "sourceFiles": [
+      "internal/app/references.go",
+      "internal/app/references_test.go",
+      "internal/app/references_browser_test.go",
+      "internal/persistence/migrations/016_transcript_references.sql",
+      "web/src/pages/reference.tsx",
+      "web/src/components/ui/checkbox.tsx",
+      "web/tests/references.e2e.ts",
       "internal/app/external_calls.go",
       "internal/app/call_queries.go",
       "internal/app/call_logs_test.go",

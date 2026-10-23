@@ -83,6 +83,8 @@ JSON 快照使用 JSONB，应用校验结构；关系和唯一性使用独立字
 | instance_settings | id=1, bootstrap_completed BOOLEAN, site_setup_completed BOOLEAN, registration_open BOOLEAN | 首位管理员资格、独立站点初始化状态与注册开关，单行 |
 | admin_audit_events | id PK, actor_id? FK users, target_user_id? FK users, action, details JSONB | created_at/id、target_user_id/created_at；记录角色、启停、注册开关与服务器设置字段名，不含秘密 |
 
+短引用表 `transcript_references` 以 12 字符随机 code 为主键，保存 owner_id、transcription_id、按 ordinal 排序的 segment_ids UUID 数组和 created_at；限制 1–100 段。转写删除通过复合归属外键级联清理，transcription_id 有索引。完整约束见[短引用设计](feature/sentence-links/reference-design.md)。
+
 业务表均含不可变 owner_id（触发器禁止修改）；子表由父资源推导归属，跨表引用使用 (owner_id,id) 复合 FK，拒绝跨账号关联。
 options_json、capability_snapshot_json 和 value_json 均为 JSONB；remote_id、服务商标签、摘要和设置键是 TEXT，非 UUID。
 
@@ -207,10 +209,10 @@ Soniox 作为首选，AssemblyAI 作为第二个实现，用它验证适配边�
 ## 逐句深链接
 
 前端采用 shadcn/ui 的 Base UI 组件系列，基础库为 @base-ui/react；按官方 CLI 安装源码组件，保留 Vite+ 工具链。
-逐句行提供“复制引用”和“复制链接”。默认引用为 `[说话人: 句子内容](绝对链接)`，说话人使用当前人物名或标签名，未知显示“未知说话人”。
-Markdown 标签转义反斜杠、方括号，换行折为空格；复制内容取当前校正文。复制的是当时文本快照，页面始终展示该版本当前内容。
+逐句行提供“复制引用”和“复制链接”，支持同版本多段选择。默认引用逐段输出 `[说话人: 句子内容](绝对短链接)`，不附来源行；说话人使用当前人物名或标签名，未知显示“未知说话人”。
+Markdown 标签转义反斜杠、方括号、排版标记与 HTML/实体，换行折为空格；复制内容取当前校正文。复制的是当时文本快照，页面始终展示该版本当前内容。
 
-规范 URL 为 `/recordings/{recording_id}/transcriptions/{transcription_id}?segment={segment_id}`。
+复制 URL 为 `/q/{code}`，后续段落带 `?at=2` 等组内位置。短码由 PostgreSQL 持久化，解析到原版本的固定片段集合；完整设计见[短引用设计](feature/sentence-links/reference-design.md)。内部定位与原有 URL `/recordings/{recording_id}/transcriptions/{transcription_id}?segment={segment_id}` 继续有效。
 使用配置的 PUBLIC_BASE_URL 生成绝对 URL，支持部署路径前缀，不信任任意 Host 或转发头；链接不含正文、人物名或鉴权凭据。
 片段 UUID 是稳定锚点，编辑文字、时间和人物不改 ID；重转生成全新版本与片段，旧链接仍定位旧版本，不跳到最新版本。
 
@@ -245,6 +247,8 @@ Markdown 标签转义反斜杠、方括号，换行折为空格；复制内容�
 | POST /transcriptions/{id}/activate、POST /transcriptions/{id}/cancel | 原子激活与取消请求 |
 | POST /transcriptions/{id}/speaker-labels、PATCH /speaker-labels/{id} | 人工建标签、显示名和人物关联 |
 | GET /segments/{id} | 单片段与归属，用于深链接定位 |
+| POST /transcriptions/{id}/references | 持久化 1–100 个同版本片段的短引用，按原文顺序返回最新正文 |
+| GET /references/{code} | 按当前账号解析短引用；非所属账号、删除或不存在均为 404 |
 | PATCH /segments/{id} | 编辑文本、时间范围与归属，明确区分恢复原文和空文本 |
 | GET /transcriptions/{id}/export?format=txt\|srt\|json | 导出当前人工校正结果；SRT 要求全部待导出片段有合法时间 |
 | GET/POST /people、GET/PATCH /people/{id}、GET /people/{id}/avatar | 人物列表、创建、详情、重命名、归档、本人标记与头像 |

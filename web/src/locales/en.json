@@ -900,5 +900,18 @@
   "关于调用记录": "About call logs",
   "失败 {{count}} 次": "{{count}} failed attempts",
   "任务详情": "Task details",
-  "默认转写选项": "Default transcription options"
+  "默认转写选项": "Default transcription options",
+  "〔中间有省略〕": "[Passages omitted]",
+  "引用位置无效，无法定位。": "This position in the reference is invalid.",
+  "每次最多选择 100 段。": "Select up to 100 segments at a time.",
+  "引用片段": "Referenced segments",
+  "引用 {{count}} 段": "Referenced segments: {{count}}",
+  "上一引用段": "Previous referenced segment",
+  "下一引用段": "Next referenced segment",
+  "多选片段": "Select segments",
+  "已选 {{count}} 段": "Selected segments: {{count}}",
+  "选择第 {{v0}} 段": "Select segment {{v0}}",
+  "多选": "Select multiple",
+  "选择这组发言": "Select this speaker group",
+  "请选择同一转写版本的 1–100 个不同片段。": "Select 1–100 distinct segments from the same transcription version."
 }

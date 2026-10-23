@@ -47,6 +47,7 @@ import { Separator } from "@/components/ui/separator";
 import { ErrorBox, Loading, EmptyState } from "@/components/shared";
 import { LibraryPage } from "@/pages/library";
 import { DetailPage } from "@/pages/detail";
+import { ReferencePage } from "@/pages/reference";
 import { PeoplePage, PersonPage } from "@/pages/people";
 import { CallLogs } from "@/components/call-logs";
 import { JobsPage } from "@/pages/jobs";
@@ -392,6 +393,7 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
             <Route path="/" element={<Navigate to="/recordings" replace />} />
             <Route path="/login" element={<Navigate to="/recordings" replace />} />
             <Route path="/recordings" element={<LibraryPage />} />
+            <Route path="/q/:code" element={<ReferencePage />} />
             <Route path="/recordings/:recordingId" element={<DetailPage key="recording" />} />
             <Route
               path="/recordings/:recordingId/transcriptions/:transcriptionId"

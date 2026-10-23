@@ -6060,6 +6060,258 @@
           }
         ]
       }
+    },
+    "/references/{code}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptReference"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{12}$"
+            }
+          }
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Resolve a short reference within the signed-in recording owner. Unknown, deleted, or foreign references return 404."
+      }
+    },
+    "/transcriptions/{id}/references": {
+      "post": {
+        "responses": {
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptReference"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "description": "Create a fixed reference to 1–100 distinct segments in this transcription; returns current segments ordered by ordinal. Requires CSRF. Restore mode rejects writes.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "segment_ids"
+                ],
+                "properties": {
+                  "segment_ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -8411,6 +8663,37 @@
             "type": "integer",
             "nullable": true,
             "description": "Null means calls are retained permanently."
+          }
+        }
+      },
+      "TranscriptReference": {
+        "type": "object",
+        "required": [
+          "code",
+          "recording_id",
+          "transcription_id",
+          "segments"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{12}$"
+          },
+          "recording_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "transcription_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "segments": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/Segment"
+            }
           }
         }
       }

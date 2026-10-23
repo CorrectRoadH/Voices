@@ -1,7 +1,8 @@
 // @concord-file
 // @concord-implements docs/feature/sentence-links/use-case/copy-sentence-link.md
 import { tr } from "@/lib/i18n";
-import type { Segment, TranscriptionDetail } from "./types";
+import type { Segment, TranscriptionDetail, Schema } from "./types";
+import { segmentSpeakerName } from "./person-name";
 
 export function basePath(value: string) {
   const pathname = new URL(value || "/", "http://localhost").pathname;
@@ -27,10 +28,32 @@ export function sentenceUrl(publicBase: string, segment: Segment, origin: string
 }
 export function escapeMarkdown(value: string) {
   return value
-    .replace(/\\/g, "\\\\")
-    .replace(/\[/g, "\\[")
-    .replace(/\]/g, "\\]")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/([\\[\]`*_~])/g, "\\$1")
     .replace(/[\r\n]+/g, " ");
+}
+export function referenceUrl(publicBase: string, code: string, origin: string, index = 0) {
+  const base = new URL(publicBase || "/", origin);
+  base.pathname = `${base.pathname.replace(/\/$/, "")}/q/${encodeURIComponent(code)}`;
+  base.search = index ? `at=${index + 1}` : "";
+  base.hash = "";
+  // Parentheses are valid URL path characters but delimit Markdown destinations.
+  return base.toString().replace(/\(/g, "%28").replace(/\)/g, "%29");
+}
+export function referenceMarkdown(
+  publicBase: string,
+  reference: Schema["TranscriptReference"],
+  origin: string,
+) {
+  return reference.segments
+    .map((segment, index, segments) => {
+      const omitted = index > 0 && segment.ordinal !== segments[index - 1].ordinal + 1;
+      const text = `${escapeMarkdown(segmentSpeakerName(segment))}: ${escapeMarkdown(segment.text)}`;
+      return `${omitted ? `${tr("〔中间有省略〕")}\n\n` : ""}[${text}](${referenceUrl(publicBase, reference.code, origin, index)})`;
+    })
+    .join("\n\n");
 }
 export function sentenceMarkdown(publicBase: string, segment: Segment, origin: string) {
   return `[${escapeMarkdown(segment.speaker_name || tr("未知说话人"))}: ${escapeMarkdown(segment.text)}](${sentenceUrl(publicBase, segment, origin)})`;

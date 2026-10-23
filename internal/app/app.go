@@ -188,6 +188,8 @@ func (a *App) Handler() http.Handler {
 	protected("POST /api/v1/transcriptions/{id}/cancel", a.cancelTranscription)
 	protected("GET /api/v1/transcriptions/{id}/segments", a.listSegments)
 	protected("GET /api/v1/segments/{id}", a.getSegment)
+	protected("POST /api/v1/transcriptions/{id}/references", a.createReference)
+	protected("GET /api/v1/references/{code}", a.getReference)
 	protected("PATCH /api/v1/segments/{id}", a.patchSegment)
 	protected("POST /api/v1/transcriptions/{id}/speaker-labels", a.createLabel)
 	protected("PATCH /api/v1/speaker-labels/{id}", a.patchLabel)
