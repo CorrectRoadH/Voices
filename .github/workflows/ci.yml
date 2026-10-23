@@ -96,8 +96,15 @@ jobs:
         uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf # v4.3.0
         with:
           authkey: ${{ secrets.TS_AUTHKEY }}
-          args: --accept-dns=false --accept-routes=false
+          args: --accept-dns=false
           log-mode: quiet
+      - name: Disable subnet routes
+        if: matrix.suite == 'browser'
+        run: |
+          if ! sudo tailscale set --accept-routes=false > /dev/null 2>&1; then
+            echo '::error::Could not disable model network subnet routes.'
+            exit 1
+          fi
       - name: Check model connectivity
         if: matrix.suite == 'browser'
         env:

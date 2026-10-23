@@ -80,8 +80,8 @@ GitHub Release 同时提供 voices-linux-amd64.tar.gz、voices-linux-arm64.tar.g
 
 ## 模型私网接入
 
-浏览器验收通过官方 Tailscale action 使用本仓 TS_AUTHKEY 加入 Tailnet；采用用户指定的 tag:ci 临时节点，结束时由 action post logout 回收。该身份继承基础设施现有 CI 权限，不是仅能访问模型的隔离身份。新增网络授权仅允许 Studio HTTPS；普通检查与 Docker 构建不入网。fork 与 Dependabot PR 没有模型或 Tailnet 凭据，缺配置仍明确失败，不降级为虚假通过。
+浏览器验收通过官方 Tailscale action 使用本仓 TS_AUTHKEY 加入 Tailnet；采用用户指定的 tag:ci 临时节点，结束时显式 logout 并检查结果，action post 终止 daemon。该身份继承基础设施现有 CI 权限，不是仅能访问模型的隔离身份。新增网络授权仅允许 Studio HTTPS；普通检查与 Docker 构建不入网。fork 与 Dependabot PR 没有模型或 Tailnet 凭据，缺配置仍明确失败，不降级为虚假通过。
 
-模型地址保存在 Secret，不出现在源码默认值。网络请求前为完整地址、origin、hostname 和密钥注册日志掩码；连接探针只报告受控结果，不打印原始异常、URL 或响应。访问新模型地址前先完成基础设施 ACL 发布。流水线不配置 exit node 或接受子网路由，不修改 runner 的 DNS 设置。
+模型地址保存在 Secret，不出现在源码默认值。网络请求前为完整地址、origin、hostname 和密钥注册日志掩码；连接探针只报告受控结果，不打印原始异常、URL 或响应。访问新模型地址前先完成基础设施 ACL 发布。流水线不配置 exit node，不修改 runner 的 DNS 设置。官方 action 入网后立即通过 tailscale set 关闭子网路由，再执行连接探针与测试；不能在 action args 中重复声明它自带的 accept-routes 参数。
 
 日志掩码不保护 Actions artifact。上传前对允许的 UTF-8 文本文件替换完整地址、域名、密钥以及 URL 编码形式，跳过包含敏感值的文件路径、非 UTF-8 文件和二进制文件。仅在脱敏步骤成功后上传新目录，不能回退上传原始目录。更新或撤销 Auth Key 通过 Secret 独立完成；网络失败不切回公网模型地址。
