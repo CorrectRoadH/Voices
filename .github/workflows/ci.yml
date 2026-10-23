@@ -100,6 +100,9 @@ jobs:
           if [ -f /etc/apt/sources.list ]; then
             sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
           fi
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
+          fi
       - name: Install media dependencies
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - run: vp -C web install --frozen-lockfile
