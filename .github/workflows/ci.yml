@@ -19,13 +19,25 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref_type == 'branch') }}
 jobs:
   test:
-    name: test (${{ matrix.suite }})
+    name: test (${{ matrix.suite }}${{ matrix.shard }})
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        suite: [checks, browser]
+        include:
+          - suite: checks
+            shard: ''
+            e2e_filter: ''
+          - suite: browser
+            shard: '-reading'
+            e2e_filter: '^(TestAdministrationInsightsBrowser|TestBrowserFullStack)$'
+          - suite: browser
+            shard: '-accounts'
+            e2e_filter: '^(TestAccountsBrowserFullStack|TestInterfaceLanguageBrowser|TestLLMModelsBrowser)$'
+          - suite: browser
+            shard: '-settings'
+            e2e_filter: '^(TestServerSettingsBrowser|TestUpdatesBrowser|TestOnboardingBrowser|TestInteractionBrowser|TestJobRecoveryBrowser|TestCallLogsBrowser)$'
     services:
       postgres:
         image: postgres:18-bookworm
@@ -65,6 +77,7 @@ jobs:
         run: |
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           actionlint
+          python3 scripts/check-e2e-shards.py
       - uses: voidzero-dev/setup-vp@v1.21.2
         with:
           node-version: '24'
@@ -135,8 +148,9 @@ jobs:
           git diff --exit-code -- web/src/lib/api.generated.ts
       - name: e2e 真实应用浏览器验收
         if: matrix.suite == 'browser'
-        run: vp run test:e2e
+        run: vp run test:e2e -run "$E2E_FILTER"
         env:
+          E2E_FILTER: ${{ matrix.e2e_filter }}
           E2E_MODEL: ${{ vars.E2E_MODEL }}
           E2E_MODEL_BASE_URL: ${{ vars.E2E_MODEL_BASE_URL }}
           E2E_MODEL_API_KEY: ${{ secrets.E2E_MODEL_API_KEY }}
@@ -145,7 +159,7 @@ jobs:
       - uses: actions/upload-artifact@v7.0.2
         if: failure() && matrix.suite == 'browser'
         with:
-          name: browser-failure-traces
+          name: browser-failure-traces${{ matrix.shard }}
           path: web/.e2e
           include-hidden-files: true
           if-no-files-found: ignore

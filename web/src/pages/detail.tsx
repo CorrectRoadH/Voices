@@ -152,6 +152,7 @@ export function DetailPage() {
     people.refresh();
   };
   const readingGrid = useRef<HTMLDivElement>(null);
+  const searchToolbar = useRef<HTMLDivElement>(null);
   const transcriptPanel = useRef<HTMLDivElement>(null);
   const playerPanel = useRef<HTMLDivElement>(null);
   const {
@@ -190,6 +191,7 @@ export function DetailPage() {
     const observer = new ResizeObserver(measure);
     const heading = document.querySelector(".detail-heading");
     if (heading) observer.observe(heading);
+    if (searchToolbar.current) observer.observe(searchToolbar.current);
     window.addEventListener("resize", measure);
     return () => {
       observer.disconnect();
@@ -444,19 +446,21 @@ export function DetailPage() {
           </div>
         </div>
       )}
+      <div ref={searchToolbar}>
+        {selected && (selectedState === "succeeded" || version?.state === "succeeded") && (
+          <TranscriptSearch
+            key={selected}
+            transcriptionId={selected}
+            revision={reload + searchRevision}
+            query={textQuery}
+            onQuery={setTextQuery}
+            anchor={anchor}
+            onJump={jumpSearch}
+          />
+        )}
+      </div>
       <div className="detail-grid" ref={readingGrid}>
         <Card className="transcript-card" ref={transcriptPanel}>
-          {selected && (selectedState === "succeeded" || version?.state === "succeeded") && (
-            <TranscriptSearch
-              key={selected}
-              transcriptionId={selected}
-              revision={reload + searchRevision}
-              query={textQuery}
-              onQuery={setTextQuery}
-              anchor={anchor}
-              onJump={jumpSearch}
-            />
-          )}
           <CardContent>
             <ErrorBox message={loadError} retry={() => setReload((n) => n + 1)} />
             {loading ? (
