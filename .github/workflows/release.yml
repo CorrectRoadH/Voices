@@ -24,7 +24,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: '[[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]'
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
       - name: Resolve release tag
@@ -48,12 +48,12 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ needs.validate.outputs.sha }}
-      - uses: docker/setup-qemu-action@v4
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
+      - uses: docker/setup-qemu-action@v4.4.0
+      - uses: docker/setup-buildx-action@v4.4.1
+      - uses: docker/login-action@v4.6.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -77,7 +77,7 @@ jobs:
               exit 1
             fi
           fi
-      - uses: docker/metadata-action@v6
+      - uses: docker/metadata-action@v6.2.0
         id: meta
         with:
           images: correctroad/voices
@@ -89,7 +89,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.validate.outputs.tag }}
             type=raw,value=${{ needs.validate.outputs.sha }}
             type=raw,value=latest
-      - uses: docker/build-push-action@v7
+      - uses: docker/build-push-action@v7.4.0
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -103,7 +103,7 @@ jobs:
     needs: [validate, ci]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ needs.validate.outputs.sha }}
       - uses: voidzero-dev/setup-vp@v1.21.2
@@ -115,7 +115,7 @@ jobs:
           cache-dependency-path: web/pnpm-lock.yaml
       - run: vp -C web install --frozen-lockfile
       - run: vp -C web run build
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: release-web
           path: web/dist
@@ -128,13 +128,13 @@ jobs:
       matrix:
         arch: [amd64, arm64]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ needs.validate.outputs.sha }}
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v8.0.2
         with:
           name: release-web
           path: release-package/web
@@ -147,7 +147,7 @@ jobs:
             -ldflags="-s -w -X main.version=$RELEASE_TAG" -o release-package/voices ./cmd/voices
           cp docs/release-package.txt release-package/README.txt
           tar -C release-package -czf "voices-linux-$RELEASE_ARCH.tar.gz" voices web README.txt
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: binary-${{ matrix.arch }}
           path: voices-linux-${{ matrix.arch }}.tar.gz
@@ -159,11 +159,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           ref: ${{ needs.validate.outputs.sha }}
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v8.0.2
         with:
           pattern: binary-*
           path: release-assets
@@ -175,13 +175,13 @@ jobs:
           test -s voices-linux-arm64.tar.gz
           sha256sum voices-linux-amd64.tar.gz voices-linux-arm64.tar.gz > SHA256SUMS
       - name: Generate release notes
-        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff
+        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4.9.1
         id: notes
         with:
           config: cliff.toml
           args: --latest --strip header
       - name: Publish release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ needs.validate.outputs.tag }}
           body: ${{ steps.notes.outputs.content }}

@@ -16,6 +16,16 @@ kind: engineering
 
 `.github/workflows/ci.yml` 也是可复用发布前检查。使用独立 PostgreSQL 服务，执行 `vp run check`、生成 API 无差异检查和 `vp run test:e2e` 真实 Go/数据库浏览器验收。`vp run check` 包含前端与 Worker 的格式、lint、类型检查、常规测试、Go vet、前端类型检查与构建、Worker 类型检查；`vp run test:worker:runtime` 单独构建发布 bundle，在真实 workerd 中验证更新请求及拒绝重定向。Docker 构建检查不推送。
 
+### CI 并行与缓存
+
+常规检查与浏览器验收使用两个独立 job，各自拥有 PostgreSQL 服务。常规检查执行完整 `vp run check`、API 生成检查和 workerd 验收；浏览器 job 只安装 web 依赖并执行完整 `vp run test:e2e`。Docker 检查与两者并行。发布必须等待所有检查通过，不缓存测试结果，也不因缓存命中跳过安装校验或测试。
+
+浏览器 job 在下载依赖前检查模型配置。PR 与 main 上的新提交取消同一 ref 的旧 CI；发布调用不启用此取消策略。浏览器测试保留原有串行场景和超时，避免提高模型并发而改变验收稳定性与费用。
+
+Go、包管理器和 Docker 继续使用各自缓存。APT 仅缓存下载的 `.deb`，键包含 runner 镜像、架构、检查类型与依赖锁文件；不缓存系统安装状态。APT 每次更新索引并正常安装，禁用非必要推荐包，使用 Ubuntu 官方 archive 镜像。下载缓存在环境准备成功后立即保存，后续测试失败不丢失已下载依赖。
+
+Chromium 下载目录按系统、架构和 web 锁文件缓存；仍执行引擎自带安装命令以校验所需版本并安装系统库。缓存恢复与下载的实际收益通过 Actions 步骤耗时比较，不预先承诺加速比例。Actions 引用采用核实过的最新稳定补丁版本；已有 SHA 固定引用保留固定方式并标明对应版本。Vite+ 版本继续遵守本仓库工具链约定。
+
 ### 工具链入口
 
 JS/TS 命令统一通过 Vite+ 1.3.0；pnpm 仍为底层包管理器，根目录、web 与 update-worker 保持独立安装边界。CI 使用固定版本 setup-vp，安装必须使用 frozen lockfile。`vp run check` 为项目完整门禁，`vp check` 仅为内置静态检查；浏览器、数据库和 workerd 验收不缓存。生成 API 文件由生成结果无差异检查负责，不由 Oxfmt 重写。

@@ -14,9 +14,18 @@ on:
         required: true
 permissions:
   contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ inputs.ref || '' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref_type == 'branch') }}
 jobs:
   test:
+    name: test (${{ matrix.suite }})
     runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [checks, browser]
     services:
       postgres:
         image: postgres:18-bookworm
@@ -32,13 +41,27 @@ jobs:
       TEST_DATABASE_URL: postgres://voices:test-only-password@127.0.0.1:5432/voices_test?sslmode=disable
       CGO_ENABLED: '0'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: actions/setup-go@v7
+      - name: Require browser model configuration
+        if: matrix.suite == 'browser'
+        env:
+          E2E_MODEL: ${{ vars.E2E_MODEL }}
+          E2E_MODEL_BASE_URL: ${{ vars.E2E_MODEL_BASE_URL }}
+          E2E_MODEL_API_KEY: ${{ secrets.E2E_MODEL_API_KEY }}
+        run: |
+          for name in E2E_MODEL E2E_MODEL_BASE_URL E2E_MODEL_API_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing $name for browser acceptance"
+              exit 1
+            fi
+          done
+      - uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
       - name: Check workflow syntax
+        if: matrix.suite == 'checks'
         run: |
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           actionlint
@@ -51,24 +74,73 @@ jobs:
           cache-dependency-path: |
             web/pnpm-lock.yaml
             update-worker/pnpm-lock.yaml
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Identify APT cache
+        id: apt-key
+        env:
+          SUITE: ${{ matrix.suite }}
+          LOCK_HASH: ${{ hashFiles('web/pnpm-lock.yaml', 'update-worker/pnpm-lock.yaml') }}
+        run: echo "key=apt-v1-$ImageOS-$ImageVersion-$(uname -m)-$SUITE-$LOCK_HASH" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v6.1.0
+        id: apt-cache
+        with:
+          path: ~/.cache/voices-apt/*.deb
+          key: ${{ steps.apt-key.outputs.key }}
+      - name: Configure APT downloads
+        run: |
+          mkdir -p "$HOME/.cache/voices-apt"
+          sudo tee /etc/apt/apt.conf.d/99voices-ci > /dev/null <<EOF
+          Dir::Cache::archives "$HOME/.cache/voices-apt";
+          APT::Keep-Downloaded-Packages "true";
+          Binary::apt::APT::Keep-Downloaded-Packages "true";
+          APT::Install-Recommends "false";
+          Acquire::Retries "3";
+          EOF
+          sudo find /etc/apt/sources.list.d -type f \( -name '*.sources' -o -name '*.list' \) \
+            -exec sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' {} +
+          if [ -f /etc/apt/sources.list ]; then
+            sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
+          fi
+      - name: Install media dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - run: vp -C web install --frozen-lockfile
       - run: vp -C update-worker install --frozen-lockfile
+        if: matrix.suite == 'checks'
+      - uses: actions/cache/restore@v6.1.0
+        if: matrix.suite == 'browser'
+        id: browser-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: chromium-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('web/pnpm-lock.yaml') }}
       - run: vp -C web exec e2e-web install chromium --with-deps
+        if: matrix.suite == 'browser'
+      - uses: actions/cache/save@v6.1.0
+        if: steps.apt-cache.outputs.cache-hit != 'true'
+        with:
+          path: ~/.cache/voices-apt/*.deb
+          key: ${{ steps.apt-key.outputs.key }}
+      - uses: actions/cache/save@v6.1.0
+        if: matrix.suite == 'browser' && steps.browser-cache.outputs.cache-hit != 'true'
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.browser-cache.outputs.cache-primary-key }}
       - run: vp run check
+        if: matrix.suite == 'checks'
       - name: Verify generated API types
+        if: matrix.suite == 'checks'
         run: |
           vp -C web run generate:api
           git diff --exit-code -- web/src/lib/api.generated.ts
       - name: e2e 真实应用浏览器验收
+        if: matrix.suite == 'browser'
         run: vp run test:e2e
         env:
           E2E_MODEL: ${{ vars.E2E_MODEL }}
           E2E_MODEL_BASE_URL: ${{ vars.E2E_MODEL_BASE_URL }}
           E2E_MODEL_API_KEY: ${{ secrets.E2E_MODEL_API_KEY }}
       - run: vp run test:worker:runtime
-      - uses: actions/upload-artifact@v7
-        if: failure()
+        if: matrix.suite == 'checks'
+      - uses: actions/upload-artifact@v7.0.2
+        if: failure() && matrix.suite == 'browser'
         with:
           name: browser-failure-traces
           path: web/.e2e
@@ -77,11 +149,11 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/build-push-action@v7
+      - uses: docker/setup-buildx-action@v4.4.1
+      - uses: docker/build-push-action@v7.4.0
         with:
           context: .
           push: false
