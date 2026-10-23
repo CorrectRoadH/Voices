@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	"voices/internal/outbound"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -184,7 +185,7 @@ func (a *App) transcribe(ctx context.Context, j job) error {
 	}
 	for {
 		stepCtx, cancel := context.WithTimeout(ctx, a.Config.HTTPTimeout)
-		state, err := p.Poll(stepCtx, remote)
+		state, err := observedSTT(stepCtx, a, *j.TranscriptionID, "poll", func(c context.Context) (providers.RemoteState, error) { return p.Poll(c, remote) })
 		cancel()
 		if err != nil {
 			return err
@@ -207,7 +208,7 @@ completed:
 		return err
 	}
 	stepCtx, cancel := context.WithTimeout(ctx, a.Config.HTTPTimeout)
-	result, err := p.FetchResult(stepCtx, remote)
+	result, err := observedSTT(stepCtx, a, *j.TranscriptionID, "fetch_result", func(c context.Context) (providers.Result, error) { return p.FetchResult(c, remote) })
 	cancel()
 	if err != nil {
 		return err
@@ -282,6 +283,11 @@ func (a *App) knownResource(ctx context.Context, jobID, kind string) (providers.
 }
 func (a *App) remoteCreate(ctx context.Context, j job, provider, kind string, call func(context.Context) (providers.Resource, error)) (providers.Resource, error) {
 	op := uuid.NewString()
+	var callID string
+	deadline := a.Config.HTTPTimeout
+	if kind == "upload" {
+		deadline = 30 * time.Minute
+	}
 	err := persistence.Transaction(ctx, a.DB, func(tx pgx.Tx) error {
 		if err := a.fence(ctx, tx, j); err != nil {
 			return err
@@ -312,17 +318,22 @@ func (a *App) remoteCreate(ctx context.Context, j job, provider, kind string, ca
 		if tag.RowsAffected() != 1 {
 			return storage.ErrLease
 		}
-		return nil
+		c, e := a.transcriptionCall(ctx, tx, *j.TranscriptionID, kind)
+		if e != nil {
+			return e
+		}
+		c.OperationID, c.Job = op, j.ID
+		callID, e = startCall(ctx, tx, c, deadline)
+		return e
 	})
 	if err != nil {
 		return providers.Resource{}, err
 	}
-	deadline := a.Config.HTTPTimeout
-	if kind == "upload" {
-		deadline = 30 * time.Minute
-	}
 	stepCtx, cancel := context.WithTimeout(ctx, deadline)
+	stepCtx, observation := outbound.WithObservation(stepCtx)
+	started := time.Now()
 	resource, remoteErr := call(stepCtx)
+	a.finishCall(ctx, callID, started, observation, remoteErr)
 	cancel()
 	// Late successful responses must be registered even after lease loss or shutdown.
 	saveCtx, saveCancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)

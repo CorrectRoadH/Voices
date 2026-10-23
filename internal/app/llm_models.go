@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
+	"voices/internal/outbound"
 
 	"voices/internal/insights"
 )
@@ -52,7 +54,14 @@ func (a *App) adminLLMModels(w http.ResponseWriter, r *http.Request) error {
 		}
 		key = saved.LLMKey
 	}
-	models, err := insights.ListModels(r.Context(), in.BaseURL, key)
+	callID, logErr := startCall(r.Context(), a.DB, callStart{Owner: currentUser(r.Context()).ID, Category: "ai", Operation: "list_models", Provider: "openai_compatible", Model: ""}, 15*time.Second)
+	if logErr != nil {
+		return logErr
+	}
+	callCtx, observation := outbound.WithObservation(r.Context())
+	started := time.Now()
+	models, err := insights.ListModels(callCtx, in.BaseURL, key)
+	a.finishCall(r.Context(), callID, started, observation, err)
 	if err != nil {
 		messages := map[insights.Error]string{
 			"model_list_timeout":      "获取模型超时，请稍后重试或手动填写模型 ID",

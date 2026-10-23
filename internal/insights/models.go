@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+	"voices/internal/outbound"
 )
 
 type Model struct {
@@ -30,6 +31,7 @@ func ListModels(ctx context.Context, baseURL, key string) ([]Model, error) {
 		req.Header.Set("Authorization", "Bearer "+key)
 	}
 	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	outbound.MarkStarted(ctx)
 	resp, err := client.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -37,6 +39,7 @@ func ListModels(ctx context.Context, baseURL, key string) ([]Model, error) {
 		}
 		return nil, Error("model_list_unavailable")
 	}
+	outbound.MarkStatus(ctx, resp.StatusCode)
 	defer resp.Body.Close()
 	switch {
 	case resp.StatusCode == 401 || resp.StatusCode == 403:

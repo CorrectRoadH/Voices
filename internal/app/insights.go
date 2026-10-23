@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"voices/internal/outbound"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -174,9 +175,9 @@ func (a *App) createInsights(w http.ResponseWriter, r *http.Request) error {
 }
 
 type insightWork struct {
-	TID, Generation, Model string
-	Input                  []insights.Segment
-	Config                 llmConfig
+	TID, Generation, Model, CallID string
+	Input                          []insights.Segment
+	Config                         llmConfig
 }
 
 func (a *App) claimInsight(ctx context.Context) (insightWork, error) {
@@ -224,7 +225,14 @@ func (a *App) claimInsight(ctx context.Context) (insightWork, error) {
 		if tag.RowsAffected() != 1 {
 			return pgx.ErrNoRows
 		}
-		return nil
+		c, e := a.transcriptionCall(ctx, tx, work.TID, "generate_insights")
+		if e != nil {
+			return e
+		}
+		c.Category, c.Provider, c.Model, c.Generation = "ai", "openai_compatible", work.Model, work.Generation
+		c.AudioDuration = nil
+		work.CallID, e = startCall(ctx, tx, c, 180*time.Second)
+		return e
 	})
 	if err == nil && work.TID == "" {
 		err = pgx.ErrNoRows
@@ -232,6 +240,8 @@ func (a *App) claimInsight(ctx context.Context) (insightWork, error) {
 	return work, err
 }
 func (a *App) executeInsight(ctx context.Context, work insightWork) {
+	ctx, observation := outbound.WithObservation(ctx)
+	started := time.Now()
 	var result insights.Result
 	var err error
 	if !work.Config.configured() || work.Model != work.Config.Model {
@@ -239,6 +249,7 @@ func (a *App) executeInsight(ctx context.Context, work insightWork) {
 	} else {
 		result, err = insights.Generate(ctx, work.Config.BaseURL, work.Config.APIKey, work.Model, work.Input)
 	}
+	a.finishCall(ctx, work.CallID, started, observation, err)
 	if err != nil {
 		code := "llm_unavailable"
 		var safe insights.Error

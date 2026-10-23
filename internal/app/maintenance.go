@@ -64,7 +64,7 @@ func (a *App) cleanupRemote(ctx context.Context) error {
 	stepCtx, cancel := context.WithTimeout(ctx, a.Config.HTTPTimeout)
 	defer cancel()
 	if kind == "transcription" {
-		state, err := p.Poll(stepCtx, resource)
+		state, err := observedSTT(stepCtx, a, tid, "poll", func(c context.Context) (providers.RemoteState, error) { return p.Poll(c, resource) })
 		if err == nil && (state.State == "pending" || state.State == "running") {
 			_, err = a.DB.Exec(ctx, "UPDATE provider_resources SET cleanup_state='pending',next_cleanup_at=clock_timestamp()+interval '10 seconds' WHERE id=$1", id)
 			return err
@@ -76,7 +76,7 @@ func (a *App) cleanupRemote(ctx context.Context) error {
 			}
 		}
 	}
-	if err := p.DeleteResource(stepCtx, resource); err != nil {
+	if _, err := observedSTT(stepCtx, a, tid, "delete_"+kind, func(c context.Context) (struct{}, error) { return struct{}{}, p.DeleteResource(c, resource) }); err != nil {
 		return a.cleanupFailure(ctx, id, tid, err)
 	}
 	return persistence.Transaction(ctx, a.DB, func(tx pgx.Tx) error {

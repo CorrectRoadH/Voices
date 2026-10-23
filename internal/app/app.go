@@ -193,6 +193,8 @@ func (a *App) Handler() http.Handler {
 	protected("PATCH /api/v1/speaker-labels/{id}", a.patchLabel)
 	protected("GET /api/v1/transcriptions/{id}/export", a.exportTranscription)
 	protected("GET /api/v1/jobs", a.listJobs)
+	protected("GET /api/v1/calls", a.listCalls)
+	protected("GET /api/v1/admin/calls", a.adminCalls)
 	protected("POST /api/v1/jobs/{id}/retry", a.retryJob)
 	protected("POST /api/v1/jobs/{id}/resolve", a.resolveJob)
 	mux.HandleFunc("/", a.static)

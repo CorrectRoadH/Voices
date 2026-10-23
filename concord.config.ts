@@ -21,6 +21,14 @@ export default {
       "check"
     ],
     "sourceFiles": [
+      "internal/app/external_calls.go",
+      "internal/app/call_queries.go",
+      "internal/app/call_logs_test.go",
+      "internal/app/call_logs_browser_test.go",
+      "internal/outbound/observation.go",
+      "internal/persistence/migrations/015_external_calls.sql",
+      "web/src/components/call-logs.tsx",
+      "web/tests/calls.e2e.ts",
       "internal/app/search_browser_test.go",
       "web/tests/search.e2e.ts",
       "web/src/components/transcript-search.tsx",

@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"voices/internal/outbound"
 )
 
 // @use-case docs/feature/insights/use-case/generate-insights.md
@@ -139,5 +140,29 @@ func Test取消生成会终止请求(t *testing.T) {
 	_, err := Generate(ctx, server.URL, "", "model", []Segment{{ID: "a"}})
 	if err != Error("interrupted") {
 		t.Fatal(err)
+	}
+}
+
+// @use-case docs/feature/call-logs/use-case/inspect-calls.md
+func TestUsagePresenceIsNotEstimated(t *testing.T) {
+	for _, tc := range []struct {
+		usage string
+		want  *int64
+	}{
+		{`{}`, nil}, {`{"prompt_tokens":null}`, nil}, {`{"prompt_tokens":"invalid"}`, nil}, {`{"prompt_tokens":-1}`, nil}, {`{"prompt_tokens":0}`, new(int64)},
+	} {
+		t.Run(tc.usage, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				io.WriteString(w, `{"usage":`+tc.usage+`,"choices":[{"finish_reason":"stop","message":{"content":"{}"}}]}`)
+			}))
+			defer srv.Close()
+			ctx, o := outbound.WithObservation(context.Background())
+			Generate(ctx, srv.URL, "", "model", []Segment{{ID: "a", Text: "x"}})
+			m := o.Snapshot()
+			if (m.InputTokens == nil) != (tc.want == nil) || m.InputTokens != nil && *m.InputTokens != *tc.want || m.OutputTokens != nil || m.TotalTokens != nil {
+				t.Fatalf("usage=%+v", m)
+			}
+		})
 	}
 }

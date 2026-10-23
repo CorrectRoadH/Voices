@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"voices/internal/outbound"
 )
 
 // A response is bounded independently of audio size. Five-hour transcripts fit
@@ -94,10 +95,12 @@ func (h *remoteHTTP) request(ctx context.Context, method, path, contentType stri
 	}
 	client := *h.client
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	outbound.MarkStarted(ctx)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, operationError(creation, transportReason(err))
 	}
+	outbound.MarkStatus(ctx, resp.StatusCode)
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		// Do not read or return an error body: upstream messages may echo secrets.

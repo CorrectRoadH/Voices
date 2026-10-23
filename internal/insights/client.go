@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+	"voices/internal/outbound"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
@@ -59,10 +60,12 @@ func FailureReason(err error) string {
 type boundedTransport struct{}
 
 func (boundedTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	outbound.MarkStarted(r.Context())
 	resp, err := http.DefaultTransport.RoundTrip(r)
 	if err != nil {
 		return nil, err
 	}
+	outbound.MarkStatus(r.Context(), resp.StatusCode)
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
 	if err != nil {
@@ -102,6 +105,17 @@ func Generate(ctx context.Context, baseURL, key, model string, segments []Segmen
 		}
 		return Result{}, Error("llm_unavailable")
 	}
+	var input, output, total *int64
+	if response.Usage.JSON.PromptTokens.Valid() {
+		input = &response.Usage.PromptTokens
+	}
+	if response.Usage.JSON.CompletionTokens.Valid() {
+		output = &response.Usage.CompletionTokens
+	}
+	if response.Usage.JSON.TotalTokens.Valid() {
+		total = &response.Usage.TotalTokens
+	}
+	outbound.MarkUsage(ctx, input, output, total)
 	if len(response.Choices) != 1 {
 		return Result{}, invalid("choice_count")
 	}

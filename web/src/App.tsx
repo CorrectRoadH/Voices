@@ -48,6 +48,7 @@ import { ErrorBox, Loading, EmptyState } from "@/components/shared";
 import { LibraryPage } from "@/pages/library";
 import { DetailPage } from "@/pages/detail";
 import { PeoplePage, PersonPage } from "@/pages/people";
+import { CallLogs } from "@/components/call-logs";
 import { JobsPage } from "@/pages/jobs";
 import { AccountPage, AdminAccountsPage } from "@/pages/accounts";
 import { AdminOverviewPage, AdminLogsPage } from "@/pages/administration";
@@ -310,6 +311,13 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
               <span>{tr("站点概览")}</span>
             </NavLink>
             <NavLink
+              to="/admin/calls"
+              className={({ isActive }) => cn("nav-item", isActive && "nav-active")}
+            >
+              <ListTodo />
+              <span>{tr("调用日志")}</span>
+            </NavLink>
+            <NavLink
               to="/admin/logs"
               className={({ isActive }) => cn("nav-item", isActive && "nav-active")}
             >
@@ -399,6 +407,16 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
               element={
                 session.user.role === "admin" ? (
                   <AdminOverviewPage />
+                ) : (
+                  <Navigate to="/recordings" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/calls"
+              element={
+                session.user.role === "admin" ? (
+                  <CallLogs admin />
                 ) : (
                   <Navigate to="/recordings" replace />
                 )

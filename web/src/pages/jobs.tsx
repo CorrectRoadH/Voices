@@ -1,5 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/transcription/use-case/transcribe.md
+import { CallLogs } from "@/components/call-logs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { tr } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -36,6 +38,29 @@ export function canRetry(job: Job) {
   return job.retry_allowed === true;
 }
 export function JobsPage() {
+  const [params, setParams] = useSearchParams();
+  const calls = params.get("view") === "calls";
+  return (
+    <>
+      <Tabs
+        value={calls ? "calls" : "tasks"}
+        onValueChange={(value) => {
+          const next = new URLSearchParams();
+          if (value === "calls") next.set("view", "calls");
+          setParams(next);
+        }}
+        className="mb-5"
+      >
+        <TabsList>
+          <TabsTrigger value="tasks">{tr("处理任务")}</TabsTrigger>
+          <TabsTrigger value="calls">{tr("调用日志")}</TabsTrigger>
+        </TabsList>
+      </Tabs>
+      {calls ? <CallLogs /> : <TaskList />}
+    </>
+  );
+}
+function TaskList() {
   const { session } = useApp();
   const [params, setParams] = useSearchParams();
   const [cursor, setCursor] = useState("");
@@ -158,6 +183,14 @@ export function JobsPage() {
                 )}
               </CardContent>
               <CardFooter className="flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link to={`/jobs?view=calls&job_id=${job.id}`} />}
+                >
+                  {tr("查看调用记录")}
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"

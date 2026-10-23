@@ -2,6 +2,8 @@
 
 ## 产品契约
 
+- [统一外部调用记录](feature/call-logs/README.md)
+
 - [版本更新与公告](feature/updates/README.md)
 
 - [独立账号与系统管理](feature/accounts/README.md)

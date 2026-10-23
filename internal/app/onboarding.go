@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"time"
+	"voices/internal/outbound"
 
 	"github.com/jackc/pgx/v5"
 	"voices/internal/insights"
@@ -133,7 +134,14 @@ func (a *App) adminLLMTest(w http.ResponseWriter, r *http.Request) error {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
-	_, err = insights.Generate(ctx, config.BaseURL, config.APIKey, config.Model, []insights.Segment{{ID: "sample", Text: "今天讨论了项目安排。我们决定先完成测试，再发布新版本。"}})
+	callID, logErr := startCall(r.Context(), a.DB, callStart{Owner: currentUser(r.Context()).ID, Category: "ai", Operation: "test_model", Provider: "openai_compatible", Model: config.Model}, 20*time.Second)
+	if logErr != nil {
+		return logErr
+	}
+	callCtx, observation := outbound.WithObservation(ctx)
+	started := time.Now()
+	_, err = insights.Generate(callCtx, config.BaseURL, config.APIKey, config.Model, []insights.Segment{{ID: "sample", Text: "今天讨论了项目安排。我们决定先完成测试，再发布新版本。"}})
+	a.finishCall(r.Context(), callID, started, observation, err)
 	if err != nil {
 		var safe insights.Error
 		code := "llm_unavailable"
