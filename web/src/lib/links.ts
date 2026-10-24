@@ -47,13 +47,19 @@ export function referenceMarkdown(
   reference: Schema["TranscriptReference"],
   origin: string,
 ) {
-  return reference.segments
+  const multiple = reference.segments.length > 1;
+  const body = reference.segments
     .map((segment, index, segments) => {
       const omitted = index > 0 && segment.ordinal !== segments[index - 1].ordinal + 1;
       const text = `${escapeMarkdown(segmentSpeakerName(segment))}: ${escapeMarkdown(segment.text)}`;
-      return `${omitted ? `${tr("〔中间有省略〕")}\n\n` : ""}[${text}](${referenceUrl(publicBase, reference.code, origin, index)})`;
+      return `${omitted ? `${tr("〔中间有省略〕")}\n\n` : ""}${multiple ? text : `[${text}](${referenceUrl(publicBase, reference.code, origin, index)})`}`;
     })
     .join("\n\n");
+  if (!multiple) return body;
+  return `> [!quote]+ [${tr("查看原录音")}](${referenceUrl(publicBase, reference.code, origin)})\n${body
+    .split("\n")
+    .map((line) => (line ? `> ${line}` : ">"))
+    .join("\n")}`;
 }
 export function referenceText(reference: Schema["TranscriptReference"]) {
   return reference.segments

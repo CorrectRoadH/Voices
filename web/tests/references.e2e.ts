@@ -63,9 +63,9 @@ test("Obsidian 多段短引用、登录返回、跨分页与复制取消", async
   expect(markdown).not.toContain("transcriptions/");
   expect(markdown.split("〔中间有省略〕")).toHaveLength(3);
   const urls = [...markdown.matchAll(/\]\((https?:\/\/[^)]+)\)/g)].map((match) => match[1]);
-  expect(urls).toHaveLength(3);
-  expect(urls[1]).toBe(`${urls[0]}?at=2`);
-  expect(urls[2]).toBe(`${urls[0]}?at=3`);
+  expect(urls).toHaveLength(1);
+  expect(markdown).toContain(`> [!quote]+ [查看原录音](${urls[0]})\n`);
+  expect(markdown.split("\n").every((line) => line.startsWith(">"))).toBe(true);
   const code = new URL(urls[0]).pathname.split("/").pop()!;
   const reference = await (await api(browser, `/references/${code}`)).json();
   expect(reference.segments.map((segment: { id: string }) => segment.id)).toEqual([
@@ -116,7 +116,7 @@ test("Obsidian 多段短引用、登录返回、跨分页与复制取消", async
   await screen.getByRole("button", { name: "复制引用", exact: true }).click();
   await expect(browser.locator(".selection-toolbar")).toHaveCount(0);
   expect(await browser.evaluate(() => (window as unknown as { copied: string }).copied)).toContain(
-    "?at=3",
+    "> [!quote]+ [查看原录音]",
   );
   await browser.setViewport({ width: 1440, height: 1000 });
   await api(browser, `/segments/${ids[110]}`, "PATCH", {
@@ -124,8 +124,12 @@ test("Obsidian 多段短引用、登录返回、跨分页与复制取消", async
     edited_text: "复制后校正的末段",
   });
   await api(browser, "/session", "DELETE");
-  await browser.goto(urls[2]);
+  await browser.goto(urls[0]);
   await signIn();
+  await expect(browser).toHaveURL(`${base}${path}?ref=${code}&segment=${ids[0]}`);
+  await screen.getByRole("button", { name: "下一引用段", exact: true }).click();
+  await expect(browser).toHaveURL(`${base}${path}?ref=${code}&segment=${ids[2]}`);
+  await screen.getByRole("button", { name: "下一引用段", exact: true }).click();
   await expect(browser).toHaveURL(`${base}${path}?ref=${code}&segment=${ids[110]}`);
   const last = browser.locator(`#segment-${ids[110]}`);
   await expect(last).toContainText("复制后校正的末段");

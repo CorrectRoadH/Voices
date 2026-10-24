@@ -50,22 +50,38 @@ describe("Obsidian 短引用", () => {
     segments: [
       { ...segment, speaker_label_id: "speaker-1", ordinal: 0 },
       { ...segment, id: "s-2", speaker_label_id: "speaker-1", text: "连续发言", ordinal: 1 },
-      { ...segment, id: "s-5", speaker_label_id: "speaker-1", text: "另一段", ordinal: 4 },
+      {
+        ...segment,
+        id: "s-5",
+        speaker_name: "李四",
+        speaker_label_id: "speaker-2",
+        text: "另一段",
+        ordinal: 4,
+      },
     ],
   };
-  it("每段可点击，使用同一短码与组内位置，只在跳过原文时标明省略", () => {
+  it("多人与非连续段落放在同一引用块，标题提供唯一来源链接", () => {
     const markdown = referenceMarkdown(
       "https://voices.example/private/",
       reference,
       "https://untrusted.example",
     );
     expect(markdown).toBe(
-      "[张\\[三\\]: 校正 \\[文字\\]\\\\正文 下一行](https://voices.example/private/q/Ab3kP9x2Lm7Q)\n\n" +
-        "[张\\[三\\]: 连续发言](https://voices.example/private/q/Ab3kP9x2Lm7Q?at=2)\n\n" +
-        "〔中间有省略〕\n\n[张\\[三\\]: 另一段](https://voices.example/private/q/Ab3kP9x2Lm7Q?at=3)",
+      "> [!quote]+ [查看原录音](https://voices.example/private/q/Ab3kP9x2Lm7Q)\n" +
+        "> 张\\[三\\]: 校正 \\[文字\\]\\\\正文 下一行\n>\n" +
+        "> 张\\[三\\]: 连续发言\n>\n> 〔中间有省略〕\n>\n> 李四: 另一段",
     );
     expect(markdown).not.toContain("来源");
     expect(markdown).not.toContain("transcriptions/");
+  });
+  it("单段保留原有正文链接", () => {
+    expect(
+      referenceMarkdown(
+        "/",
+        { ...reference, segments: [reference.segments[0]] },
+        "https://voices.example",
+      ),
+    ).toBe("[张\\[三\\]: 校正 \\[文字\\]\\\\正文 下一行](https://voices.example/q/Ab3kP9x2Lm7Q)");
   });
   it("转义 Markdown 排版、HTML 与实体，编码 URL 括号并保留配置前缀", () => {
     expect(escapeMarkdown("*粗体* `代码` _斜体_ ~~划线~~ <b>&amp;</b> ![图](url)")).toBe(
