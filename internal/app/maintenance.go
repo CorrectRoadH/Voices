@@ -32,6 +32,9 @@ func (a *App) maintenance(ctx context.Context) error {
 	if _, err := a.DB.Exec(ctx, "DELETE FROM rate_limit_buckets WHERE window_start<clock_timestamp()-interval '1 day'"); err != nil {
 		return err
 	}
+	if _, err := a.DB.Exec(ctx, "DELETE FROM oidc_login_flows WHERE expires_at<clock_timestamp()"); err != nil {
+		return err
+	}
 	if err := a.cleanupRemote(ctx); err != nil {
 		return err
 	}

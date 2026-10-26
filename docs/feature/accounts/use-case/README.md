@@ -7,3 +7,5 @@
 - [服务器配置](manage-server.md)
 
 - [初始化站点](setup-site.md)
+
+- [统一身份登录与账号绑定](oidc-login.md)

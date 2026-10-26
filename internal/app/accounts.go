@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -83,8 +84,8 @@ func (a *App) updateMe(w http.ResponseWriter, r *http.Request) error {
 	if err := a.DB.QueryRow(r.Context(), `UPDATE users SET display_name=COALESCE($2,display_name),
 		username=CASE WHEN $3::text IS NULL THEN username ELSE NULLIF($3,'') END,
 		ui_language=COALESCE($4,ui_language),updated_at=clock_timestamp() WHERE id=$1
-		RETURNING id,email,COALESCE(username,''),display_name,role,status,ui_language`,
-		persistence.UserID(r.Context()), name, username, language).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.Role, &u.Status, &u.UILanguage); err != nil {
+		RETURNING id,email,COALESCE(username,''),display_name,role,status,ui_language,password_hash IS NOT NULL`,
+		persistence.UserID(r.Context()), name, username, language).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.Role, &u.Status, &u.UILanguage, &u.HasPassword); err != nil {
 		return err
 	}
 	writeJSON(w, 200, u)
@@ -109,23 +110,37 @@ func (a *App) changePassword(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	err = persistence.Transaction(r.Context(), a.DB, func(tx pgx.Tx) error {
-		var old string
-		if err := tx.QueryRow(r.Context(), "SELECT password_hash FROM users WHERE id=$1 FOR UPDATE", persistence.UserID(r.Context())).Scan(&old); err != nil {
+		var old *string
+		var status string
+		if err := tx.QueryRow(r.Context(), "SELECT password_hash,status FROM users WHERE id=$1 FOR UPDATE", persistence.UserID(r.Context())).Scan(&old, &status); err != nil {
 			return err
 		}
-		if bcrypt.CompareHashAndPassword([]byte(old), []byte(in.Current)) != nil {
+		cookie, err := r.Cookie("voices_session")
+		if err != nil || status != "active" {
+			return &apiError{401, "unauthenticated", "请先登录"}
+		}
+		var active bool
+		err = tx.QueryRow(r.Context(), "SELECT true FROM sessions WHERE id_hash=$1 AND user_id=$2 AND expires_at>clock_timestamp() FOR UPDATE", digest([]byte(cookie.Value)), persistence.UserID(r.Context())).Scan(&active)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return &apiError{401, "unauthenticated", "请先登录"}
+		}
+		if err != nil {
+			return err
+		}
+		if (old != nil && bcrypt.CompareHashAndPassword([]byte(*old), []byte(in.Current)) != nil) || (old == nil && in.Current != "") {
 			return &apiError{403, "invalid_credentials", "当前密码不正确"}
 		}
 		if _, err := tx.Exec(r.Context(), "UPDATE users SET password_hash=$2,updated_at=clock_timestamp() WHERE id=$1", persistence.UserID(r.Context()), string(hash)); err != nil {
 			return err
 		}
-		_, err := tx.Exec(r.Context(), "DELETE FROM sessions WHERE user_id=$1", persistence.UserID(r.Context()))
+		_, err = tx.Exec(r.Context(), "DELETE FROM sessions WHERE user_id=$1", persistence.UserID(r.Context()))
 		return err
 	})
 	if err != nil {
 		return err
 	}
 	a.clearSessionCookies(w)
+	a.setOIDCFlowCookie(w, "", -1)
 	w.WriteHeader(204)
 	return nil
 }
@@ -189,7 +204,7 @@ func (a *App) adminUsers(w http.ResponseWriter, r *http.Request) error {
 	if role != "" && role != "admin" && role != "user" {
 		return bad("invalid_role", "账号角色不正确")
 	}
-	items, err := many(r.Context(), a.DB, `SELECT id,email,COALESCE(username,'') AS username,display_name,role,status,ui_language,created_at
+	items, err := many(r.Context(), a.DB, `SELECT id,email,COALESCE(username,'') AS username,display_name,role,status,ui_language,password_hash IS NOT NULL AS has_password,created_at
 		FROM users WHERE ($3='' OR position(lower($3) in lower(email))>0 OR position(lower($3) in lower(COALESCE(username,'')))>0 OR position(lower($3) in lower(display_name))>0)
 		AND ($4='' OR status=$4) AND ($5='' OR role=$5)
 		ORDER BY created_at,id LIMIT $1 OFFSET $2`, limit+1, offset, q, status, role)
@@ -221,7 +236,7 @@ func (a *App) adminUpdateUser(w http.ResponseWriter, r *http.Request) error {
 		if err := lockAdmin(r.Context(), tx); err != nil {
 			return err
 		}
-		if err := tx.QueryRow(r.Context(), "SELECT id,email,COALESCE(username,''),display_name,role,status,ui_language FROM users WHERE id=$1 FOR UPDATE", r.PathValue("id")).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.Role, &u.Status, &u.UILanguage); err != nil {
+		if err := tx.QueryRow(r.Context(), "SELECT id,email,COALESCE(username,''),display_name,role,status,ui_language,password_hash IS NOT NULL FROM users WHERE id=$1 FOR UPDATE", r.PathValue("id")).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.Role, &u.Status, &u.UILanguage, &u.HasPassword); err != nil {
 			return err
 		}
 		oldRole, oldStatus := u.Role, u.Status

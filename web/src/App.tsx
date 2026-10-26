@@ -60,7 +60,8 @@ import { request, write, configureSession, errorMessage, HttpError } from "@/lib
 import { basePath, safeReturnPath } from "@/lib/links";
 import { SessionProvider } from "@/lib/hooks";
 import { useResource } from "@/lib/hooks";
-import type { Session } from "@/lib/types";
+import type { Session, Schema } from "@/lib/types";
+import { oidcError, oidcLabel } from "@/lib/oidc";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme";
 function Login({
@@ -76,14 +77,11 @@ function Login({
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [registering, setRegistering] = useState(false);
-  const status = useResource<{
-    initialized: boolean;
-    registration_open: boolean;
-    site_setup_completed: boolean;
-  }>("/auth/status");
+  const status = useResource<Schema["AuthStatus"]>("/auth/status");
   const first = status.data?.initialized === false;
   const register = first || registering;
   const [busy, setBusy] = useState(false);
+  const [oidcBusy, setOIDCBusy] = useState(false);
   const [error, setError] = useState("");
   const [errorCode, setErrorCode] = useState("");
   const credentialError = errorCode === "invalid_credentials";
@@ -92,8 +90,28 @@ function Login({
   const passwordError = credentialError || errorCode === "invalid_password";
   const location = useLocation();
   const navigate = useNavigate();
+  const callbackError = oidcError(new URLSearchParams(location.search).get("oidc_error"));
+  useEffect(() => {
+    if (callbackError) notify(callbackError, true);
+  }, [callbackError]);
+  async function loginOIDC() {
+    if (busy || oidcBusy) return;
+    setOIDCBusy(true);
+    setError("");
+    setErrorCode("");
+    try {
+      const result = await write<Schema["OIDCStart"]>("/auth/oidc/start", "POST", {});
+      window.location.assign(result.authorization_url);
+    } catch (cause) {
+      const message = errorMessage(cause);
+      setError(message);
+      notify(message, true);
+      setOIDCBusy(false);
+    }
+  }
   async function login(e: FormEvent) {
     e.preventDefault();
+    if (busy || oidcBusy) return;
     setBusy(true);
     setError("");
     setErrorCode("");
@@ -159,7 +177,7 @@ function Login({
               <GuestLanguageSelect />
             </div>
             <ErrorBox
-              message={initialError || status.error}
+              message={initialError || status.error || callbackError}
               retry={() => {
                 retry();
                 status.refresh();
@@ -229,6 +247,7 @@ function Login({
               form="login-form"
               disabled={
                 busy ||
+                oidcBusy ||
                 !password ||
                 !email ||
                 status.loading ||
@@ -239,10 +258,20 @@ function Login({
               {busy ? tr("提交中…") : register ? tr("创建账号") : tr("进入工作台")}
               <ArrowRight data-icon="inline-end" />
             </Button>
+            {status.data?.oidc_enabled && (
+              <Button
+                variant="outline"
+                loading={oidcBusy}
+                disabled={busy || oidcBusy}
+                onClick={() => void loginOIDC()}
+              >
+                {tr("使用 {{name}} 登录", { name: oidcLabel(status.data.oidc_display_name) })}
+              </Button>
+            )}
             {!first && status.data?.registration_open && (
               <Button
                 variant="ghost"
-                disabled={busy}
+                disabled={busy || oidcBusy}
                 onClick={() => {
                   setRegistering(!registering);
                   setError("");

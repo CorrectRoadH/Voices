@@ -155,6 +155,9 @@ const actions: Record<string, string> = {
   account_updated: "修改账号",
   registration_updated: "修改注册开关",
   server_settings_updated: "修改服务器设置",
+  oidc_settings_updated: "修改统一登录配置",
+  oidc_identity_linked: "绑定统一登录",
+  oidc_identity_unlinked: "解绑统一登录",
   site_setup_completed: "完成站点初始化记录",
   password_reset: "重置密码",
   job_reconciled: "核对任务",
@@ -181,6 +184,11 @@ const detailValues: Record<string, string> = {
   llm_base_url: "LLM 地址",
   llm_model: "LLM 模型",
   llm_api_key: "LLM 密钥",
+  enabled: "启用统一登录",
+  display_name: "登录按钮名称",
+  issuer_url: "Issuer URL",
+  client_id: "Client ID",
+  client_secret: "Client Secret",
 };
 function detailValue(value: unknown): string {
   if (Array.isArray(value)) return value.map(detailValue).join("、");

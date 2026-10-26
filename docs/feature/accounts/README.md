@@ -35,3 +35,5 @@ kind: feature
 账号保存独立的[界面语言](../interface-language/README.md)偏好，支持简体中文与英文，不改变录音或转写内容。
 
 首次管理员创建账号后完成独立的[站点初始化](use-case/setup-site.md)。普通用户注册不包含站点配置；初始化期间暂停后续注册。
+
+站点管理员可配置[统一身份登录](use-case/oidc-login.md)，使用标准 OIDC 完成 OAuth 2.0 登录。已有账号主动绑定，新身份按注册开关创建普通账号，不按邮箱自动合并。保留本地密码登录与操作员恢复入口。实现边界见[OIDC 设计](oidc-design.md)。

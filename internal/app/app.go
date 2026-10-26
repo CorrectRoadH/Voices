@@ -128,6 +128,8 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/session", a.handle(a.login))
 	mux.HandleFunc("POST /api/v1/users", a.handle(a.register))
 	mux.HandleFunc("GET /api/v1/auth/status", a.handle(a.authStatus))
+	mux.HandleFunc("POST /api/v1/auth/oidc/start", a.handle(a.oidcStart))
+	mux.HandleFunc("GET /api/v1/auth/oidc/callback", a.handle(a.oidcCallback))
 	protected := func(pattern string, fn func(http.ResponseWriter, *http.Request) error) {
 		mux.HandleFunc(pattern, a.handle(func(w http.ResponseWriter, r *http.Request) error {
 			if err := a.authenticate(r); err != nil {
@@ -147,6 +149,11 @@ func (a *App) Handler() http.Handler {
 		}))
 	}
 	protected("GET /api/v1/session", a.session)
+	protected("GET /api/v1/admin/oidc", a.adminOIDCSettings)
+	protected("PATCH /api/v1/admin/oidc", a.adminOIDCSettings)
+	protected("GET /api/v1/me/oidc", a.myOIDC)
+	protected("POST /api/v1/me/oidc", a.myOIDC)
+	protected("DELETE /api/v1/me/oidc", a.myOIDC)
 	protected("PATCH /api/v1/me", a.updateMe)
 	protected("PUT /api/v1/me/password", a.changePassword)
 	protected("GET /api/v1/admin/onboarding", a.adminOnboarding)

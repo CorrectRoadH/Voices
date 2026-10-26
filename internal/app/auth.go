@@ -29,6 +29,7 @@ type User struct {
 	Role        string `json:"role"`
 	Status      string `json:"status"`
 	UILanguage  string `json:"ui_language"`
+	HasPassword bool   `json:"has_password"`
 }
 type userKey struct{}
 
@@ -98,7 +99,11 @@ func (a *App) authStatus(w http.ResponseWriter, r *http.Request) error {
 	if err := a.DB.QueryRow(r.Context(), "SELECT bootstrap_completed,registration_open,site_setup_completed FROM instance_settings WHERE id=1").Scan(&initialized, &open, &completed); err != nil {
 		return err
 	}
-	writeJSON(w, 200, map[string]bool{"initialized": initialized, "site_setup_completed": completed, "registration_open": open && (!initialized || completed) && !a.Config.RestoreMode})
+	oidc, err := readOIDCSettings(r.Context(), a.DB, false)
+	if err != nil {
+		return err
+	}
+	writeJSON(w, 200, map[string]any{"initialized": initialized, "site_setup_completed": completed, "registration_open": open && (!initialized || completed) && !a.Config.RestoreMode, "oidc_enabled": initialized && completed && oidc.Enabled, "oidc_display_name": oidc.DisplayName})
 	return nil
 }
 func (a *App) register(w http.ResponseWriter, r *http.Request) error {
@@ -148,7 +153,7 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	u := User{ID: uuid.NewString(), Email: in.Email, Username: in.Username, DisplayName: in.DisplayName, Role: "user", Status: "active", UILanguage: language}
+	u := User{ID: uuid.NewString(), Email: in.Email, Username: in.Username, DisplayName: in.DisplayName, Role: "user", Status: "active", UILanguage: language, HasPassword: true}
 	sid, csrf := token(), token()
 	err = persistence.Transaction(r.Context(), a.DB, func(tx pgx.Tx) error {
 		var initialized, open, completed bool
@@ -182,6 +187,7 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	a.setOIDCFlowCookie(w, "", -1)
 	a.setSessionCookies(w, sid, csrf)
 	a.sessionJSON(w, 201, csrf, u)
 	return nil
@@ -215,11 +221,12 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) error {
 	if strings.Contains(identifier, "@") {
 		column = "email"
 	}
-	err := a.DB.QueryRow(r.Context(), "SELECT id,email,COALESCE(username,''),display_name,role,status,password_hash,ui_language FROM users WHERE "+column+"=$1", identifier).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.Role, &u.Status, &hash, &u.UILanguage)
+	err := a.DB.QueryRow(r.Context(), "SELECT id,email,COALESCE(username,''),display_name,role,status,COALESCE(password_hash,''),ui_language FROM users WHERE "+column+"=$1", identifier).Scan(&u.ID, &u.Email, &u.Username, &u.DisplayName, &u.Role, &u.Status, &hash, &u.UILanguage)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
-	if err != nil {
+	u.HasPassword = hash != ""
+	if err != nil || !u.HasPassword {
 		hash = string(dummyPasswordHash)
 	}
 	limitKey := "identifier:" + identifier
@@ -230,14 +237,14 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	compare := bcrypt.CompareHashAndPassword([]byte(hash), []byte(in.Password))
-	if compare != nil || u.ID == "" || u.Status != "active" {
+	if compare != nil || u.ID == "" || !u.HasPassword || u.Status != "active" {
 		return &apiError{401, "invalid_credentials", "用户名、邮箱或密码不正确"}
 	}
 	sid, csrf := token(), token()
 	err = persistence.Transaction(r.Context(), a.DB, func(tx pgx.Tx) error {
 		// Serialize session creation with password changes and account disable.
 		var currentHash, status string
-		if err := tx.QueryRow(r.Context(), "SELECT password_hash,status,role,display_name,COALESCE(username,''),ui_language FROM users WHERE id=$1 FOR UPDATE", u.ID).Scan(&currentHash, &status, &u.Role, &u.DisplayName, &u.Username, &u.UILanguage); err != nil {
+		if err := tx.QueryRow(r.Context(), "SELECT COALESCE(password_hash,''),status,role,display_name,COALESCE(username,''),ui_language FROM users WHERE id=$1 FOR UPDATE", u.ID).Scan(&currentHash, &status, &u.Role, &u.DisplayName, &u.Username, &u.UILanguage); err != nil {
 			return err
 		}
 		if status != "active" || currentHash != hash {
@@ -248,6 +255,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	a.setOIDCFlowCookie(w, "", -1)
 	a.setSessionCookies(w, sid, csrf)
 	a.sessionJSON(w, 200, csrf, u)
 	return nil
@@ -265,7 +273,7 @@ func (a *App) authenticate(r *http.Request) error {
 	}
 	var csrf string
 	var u User
-	err = a.DB.QueryRow(r.Context(), `SELECT s.csrf_hash,u.id,u.email,COALESCE(u.username,''),u.display_name,u.role,u.status,u.ui_language FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id_hash=$1 AND s.expires_at>clock_timestamp() AND u.status='active'`, digest([]byte(c.Value))).Scan(&csrf, &u.ID, &u.Email, &u.Username, &u.DisplayName, &u.Role, &u.Status, &u.UILanguage)
+	err = a.DB.QueryRow(r.Context(), `SELECT s.csrf_hash,u.id,u.email,COALESCE(u.username,''),u.display_name,u.role,u.status,u.ui_language,u.password_hash IS NOT NULL FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id_hash=$1 AND s.expires_at>clock_timestamp() AND u.status='active'`, digest([]byte(c.Value))).Scan(&csrf, &u.ID, &u.Email, &u.Username, &u.DisplayName, &u.Role, &u.Status, &u.UILanguage, &u.HasPassword)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return &apiError{401, "unauthenticated", "请先登录"}
 	}
@@ -324,6 +332,7 @@ func (a *App) logout(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	a.clearSessionCookies(w)
+	a.setOIDCFlowCookie(w, "", -1)
 	w.WriteHeader(204)
 	return nil
 }

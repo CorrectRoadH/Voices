@@ -21,6 +21,17 @@ export default {
       "check"
     ],
     "sourceFiles": [
+      "internal/app/oidc.go",
+      "internal/app/oidc_provider.go",
+      "internal/app/oidc_settings.go",
+      "internal/app/oidc_test.go",
+      "internal/app/oidc_browser_test.go",
+      "internal/persistence/migrations/017_oidc_login.sql",
+      "web/src/components/oidc-settings.tsx",
+      "web/src/components/oidc-account.tsx",
+      "web/src/lib/oidc.ts",
+      "web/e2e.oidc.config.ts",
+      "web/tests/oidc.browser.ts",
       "internal/app/references.go",
       "internal/app/references_test.go",
       "internal/app/references_browser_test.go",

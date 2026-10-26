@@ -1,6 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/accounts/use-case/manage-server.md
 import { tr } from "@/lib/i18n";
+import { OIDCSettings } from "@/components/oidc-settings";
 import { ServerUpdates } from "@/components/server-updates";
 import { LLMModelPicker } from "@/components/llm-model-picker";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -533,7 +534,12 @@ export function ServerSettingsPage() {
       {resource.loading ? (
         <Loading />
       ) : (
-        resource.data && <ServerSettingsForm data={resource.data} />
+        resource.data && (
+          <div className="flex flex-col gap-5">
+            <ServerSettingsForm data={resource.data} />
+            <OIDCSettings />
+          </div>
+        )
       )}
     </>
   );

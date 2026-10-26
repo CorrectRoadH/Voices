@@ -1,6 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/accounts/use-case/manage-access.md
 import { tr } from "@/lib/i18n";
+import { OIDCAccount } from "@/components/oidc-account";
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -122,23 +123,25 @@ export function AccountPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>{tr("修改密码")}</CardTitle>
+            <CardTitle>{session.user.has_password ? tr("修改密码") : tr("设置本地密码")}</CardTitle>
             <CardDescription>{tr("修改后会退出所有设备，需要使用新密码登录。")}</CardDescription>
           </CardHeader>
           <CardContent>
             <form id="change-password" onSubmit={changePassword}>
               <FieldGroup>
-                <Field>
-                  <FieldLabel htmlFor="current-password">{tr("当前密码")}</FieldLabel>
-                  <Input
-                    id="current-password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    value={current}
-                    onChange={(e) => setCurrent(e.target.value)}
-                  />
-                </Field>
+                {session.user.has_password && (
+                  <Field>
+                    <FieldLabel htmlFor="current-password">{tr("当前密码")}</FieldLabel>
+                    <Input
+                      id="current-password"
+                      type="password"
+                      autoComplete="current-password"
+                      required
+                      value={current}
+                      onChange={(e) => setCurrent(e.target.value)}
+                    />
+                  </Field>
+                )}
                 <Field>
                   <FieldLabel htmlFor="new-password">{tr("新密码")}</FieldLabel>
                   <Input
@@ -177,13 +180,18 @@ export function AccountPage() {
               type="submit"
               form="change-password"
               disabled={
-                action.busy || session.restore_mode || !current || !password || password !== confirm
+                action.busy ||
+                session.restore_mode ||
+                (session.user.has_password && !current) ||
+                !password ||
+                password !== confirm
               }
             >
-              {tr("修改密码并退出")}{" "}
+              {session.user.has_password ? tr("修改密码并退出") : tr("设置密码并退出")}{" "}
             </Button>
           </CardFooter>
         </Card>
+        <OIDCAccount />
       </div>
     </>
   );
