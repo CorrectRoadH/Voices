@@ -1,6 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/insights/README.md
 // @concord-implements docs/feature/insights/use-case/generate-insights.md
+import { Spinner } from "@/components/ui/spinner";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useApp } from "@/lib/hooks";
@@ -36,6 +37,7 @@ export function InsightOutline({
   onGenerate,
   onRefresh,
   onJump,
+  pendingSegment,
 }: {
   view?: "outline" | "summary";
   data: InsightsResponse | null;
@@ -46,6 +48,7 @@ export function InsightOutline({
   onGenerate: () => void;
   onRefresh: () => void;
   onJump: (id: string) => void;
+  pendingSegment?: string | null;
 }) {
   const [summaryOpen, setSummaryOpen] = useState(false);
   const { session } = useApp();
@@ -168,6 +171,7 @@ export function InsightOutline({
         <Button
           key={chapter.segment_id}
           variant="ghost"
+          aria-busy={pendingSegment === chapter.segment_id}
           className="h-auto min-h-9 w-full items-baseline justify-start gap-2 whitespace-normal px-2 py-1.5 text-left text-[13px] leading-snug"
           onClick={() => onJump(chapter.segment_id)}
         >
@@ -179,6 +183,7 @@ export function InsightOutline({
                 : duration(chapter.start_ms)}
           </span>
           <span className="min-w-0 break-words">{chapter.title}</span>
+          {pendingSegment === chapter.segment_id && <Spinner aria-label={tr("正在加载")} />}
         </Button>
       ))}
     </nav>

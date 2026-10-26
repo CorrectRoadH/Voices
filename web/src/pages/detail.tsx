@@ -49,13 +49,7 @@ import { LabelsEditor, RecordingField, SegmentEditor, SegmentText } from "@/comp
 import { OptionsFields, blankOptions, optionError } from "@/components/options";
 import { useAction, useApp, useResource } from "@/lib/hooks";
 import { request, write, apiUrl, errorMessage, downloadExport } from "@/lib/api";
-import {
-  referenceMarkdown,
-  referenceText,
-  referenceUrl,
-  copyText,
-  validateAnchor,
-} from "@/lib/links";
+import { referenceMarkdown, referenceText, referenceUrl, copyText } from "@/lib/links";
 import { date, duration, bytes } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type {
@@ -199,12 +193,15 @@ export function DetailPage() {
   const searchToolbar = useRef<HTMLDivElement>(null);
   const transcriptPanel = useRef<HTMLDivElement>(null);
   const playerPanel = useRef<HTMLDivElement>(null);
+  const chapterTarget = useRef<string | null>(null);
   const {
     version,
+    target: navigationTarget,
     segments,
     loadError,
     loading,
     paging,
+    pendingAnchor,
     topSentinel,
     bottomSentinel,
     position: positionSegment,
@@ -221,6 +218,16 @@ export function DetailPage() {
     queueSeek,
     flushSeek,
   });
+  useEffect(() => {
+    if (!navigationTarget || chapterTarget.current !== navigationTarget.id) return;
+    chapterTarget.current = null;
+    if (
+      navigationTarget.start_ms === null ||
+      navigationTarget.end_ms === null ||
+      navigationTarget.end_ms <= navigationTarget.start_ms
+    )
+      notify(tr("该片段没有有效时间，仅定位正文。"));
+  }, [navigationTarget, notify]);
   useLayoutEffect(() => {
     const grid = readingGrid.current;
     if (!grid) return;
@@ -311,22 +318,24 @@ export function DetailPage() {
       "insights",
     );
   }
-  async function jumpChapter(id: string) {
-    try {
-      const segment = await request<Segment>(`/segments/${id}`);
-      if (!version) return;
-      validateAnchor(recordingId, selected!, version, segment);
-      setOutlineOpen(false);
-      playback.pause();
-      const timed =
-        segment.start_ms !== null && segment.end_ms !== null && segment.end_ms > segment.start_ms;
-      if (timed) {
-        playback.seek(segment.start_ms!);
-      } else notify(tr("该片段没有有效时间，仅定位正文。"));
-      if (anchor === id) positionSegment(id);
-      else navigate(`/recordings/${recordingId}/transcriptions/${selected}?segment=${id}`);
-    } catch (error) {
-      notify(errorMessage(error), true);
+  function jumpChapter(id: string) {
+    if (!selected || pendingAnchor === id) return;
+    setOutlineOpen(false);
+    playback.pause();
+    if (anchor === id) {
+      const segment = segments?.items.find((item) => item.id === id);
+      if (!segment || !positionSegment(id)) {
+        setReload((n) => n + 1);
+        return;
+      }
+      if (segment.start_ms !== null && segment.end_ms !== null && segment.end_ms > segment.start_ms)
+        playback.seek(segment.start_ms);
+      else notify(tr("该片段没有有效时间，仅定位正文。"));
+    } else {
+      chapterTarget.current = id;
+      void navigate(
+        `/recordings/${recordingId}/transcriptions/${selected}?segment=${encodeURIComponent(id)}`,
+      );
     }
   }
   function cancelSelection() {
@@ -647,7 +656,8 @@ export function DetailPage() {
                         }
                         onGenerate={() => void generateInsights()}
                         onRefresh={insights.refresh}
-                        onJump={(id) => void jumpChapter(id)}
+                        pendingSegment={pendingAnchor}
+                        onJump={jumpChapter}
                       />
                     </TabsContent>
                     <TabsContent value="summary">
@@ -665,7 +675,8 @@ export function DetailPage() {
                         }
                         onGenerate={() => void generateInsights()}
                         onRefresh={insights.refresh}
-                        onJump={(id) => void jumpChapter(id)}
+                        pendingSegment={pendingAnchor}
+                        onJump={jumpChapter}
                       />
                     </TabsContent>
                   </Tabs>
@@ -1166,7 +1177,8 @@ export function DetailPage() {
                   }
                   onGenerate={() => void generateInsights()}
                   onRefresh={insights.refresh}
-                  onJump={(id) => void jumpChapter(id)}
+                  pendingSegment={pendingAnchor}
+                  onJump={jumpChapter}
                 />
               </div>
             </TabsContent>
@@ -1182,7 +1194,8 @@ export function DetailPage() {
                 }
                 onGenerate={() => void generateInsights()}
                 onRefresh={insights.refresh}
-                onJump={(id) => void jumpChapter(id)}
+                pendingSegment={pendingAnchor}
+                onJump={jumpChapter}
               />
             </TabsContent>
             <TabsContent value="info" keepMounted>

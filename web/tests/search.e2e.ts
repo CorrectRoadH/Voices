@@ -35,7 +35,8 @@ test("跨页正文搜索与桌面手机句子定位", async ({ app, agent, brows
       const element = document.getElementById(`segment-${id}`)!;
       const panel = document.querySelector(".transcript-card")!;
       const rect = element.getBoundingClientRect();
-      const toolbar = panel.querySelector(".transcript-search")!.getBoundingClientRect().height;
+      const toolbar =
+        panel.querySelector(".transcript-search")?.getBoundingClientRect().height ?? 0;
       const midpoint =
         getComputedStyle(panel).overflowY === "auto"
           ? panel.getBoundingClientRect().top + (panel.clientHeight + toolbar) / 2
