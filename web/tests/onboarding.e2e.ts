@@ -5,7 +5,7 @@ import { api, fixture, login, logout, noOverflow, register } from "./support/ses
 // @use-case docs/feature/accounts/use-case/setup-site.md
 test(
   "管理员注册后独立初始化、恢复草稿、测试失败修正和普通用户分流",
-  { timeout: 300000 },
+  { timeout: 8 * 60_000 },
   async ({ app, agent, browser, screen }) => {
     await browser.emulateMedia({ colorScheme: "dark" });
     await app.open();

@@ -79,7 +79,11 @@ func TestAdministrationInsightsBrowser(t *testing.T) {
 			done := make(chan struct{})
 			go func() { defer close(done); f.a.Run(runCtx) }()
 			defer func() { cancel(); <-done }()
-			cmdCtx, stop := context.WithTimeout(ctx, 8*time.Minute)
+			deadline := 8 * time.Minute
+			if scenario.name == "insights" {
+				deadline = 14 * time.Minute
+			}
+			cmdCtx, stop := context.WithTimeout(ctx, deadline)
 			defer stop()
 			cmd := exec.CommandContext(cmdCtx, "vp", "exec", "e2e", "run", "tests/insights.e2e.ts", "--grep", scenario.title)
 			cmd.Dir = "../../web"

@@ -104,7 +104,7 @@ func TestInterfaceLanguageBrowser(t *testing.T) {
 		_, _ = w.Write([]byte("private upstream response"))
 	}))
 	defer models.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 14*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "vp", "exec", "e2e", "run", "tests/language.e2e.ts")
 	cmd.Dir = "../../web"

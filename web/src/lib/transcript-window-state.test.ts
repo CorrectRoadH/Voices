@@ -81,6 +81,19 @@ describe("正文窗口导航和缓存边界", () => {
     expect(plain.pending?.hideBuiltin).toBe(true);
     expect(plain.pending?.cursor).toBe("");
   });
+  it("相同片段版本的刷新采用最新人物归属，而不复用改字时的人物快照", () => {
+    const edited = { ...segment("0", 2), text: "edited", speaker_name: "说话人 A" };
+    const saved = windowReducer(initial(), { type: "replace", segment: edited });
+    const refresh = sync(saved, null, 1);
+    const fresh = windowReducer(refresh, {
+      type: "loaded",
+      load: refresh.pending!,
+      version,
+      page: { ...page("0"), items: [{ ...edited, speaker_name: "新建批量人物" }] },
+    });
+    expect(fresh.segments?.items[0].speaker_name).toBe("新建批量人物");
+    expect(fresh.segments?.items[0].text).toBe("edited");
+  });
   it("窗口缓存有界，刷新及切换版本隔离旧数据", () => {
     let state = initial();
     for (let i = 1; i < 12; i++) state = loaded(sync(state, String(i)), String(i));

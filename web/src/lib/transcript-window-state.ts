@@ -150,7 +150,9 @@ export function windowReducer(state: WindowState, action: Action): WindowState {
         ...page,
         items: page.items.map((item) => {
           const edited = state.edits.get(item.id);
-          return edited && edited.revision >= item.revision ? edited : item;
+          // Person/label changes do not increment the segment revision. At the
+          // same revision the fetched row has the current joined person data.
+          return edited && edited.revision > item.revision ? edited : item;
         }),
       };
       return {

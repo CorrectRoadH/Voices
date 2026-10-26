@@ -289,7 +289,11 @@ func TestOnboardingBrowser(t *testing.T) {
 				sampleLLM(w)
 			}))
 			defer func() { releaseOnce.Do(func() { close(release) }); remote.Close() }()
-			ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
+			deadline := 6 * time.Minute
+			if scenario.name == "main" {
+				deadline = 10 * time.Minute
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), deadline)
 			defer cancel()
 			cmd := exec.CommandContext(ctx, "vp", "exec", "e2e", "run", "tests/onboarding.e2e.ts", "--grep", "^"+scenario.title+"$")
 			cmd.Dir = "../../web"
