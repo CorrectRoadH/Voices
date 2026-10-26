@@ -1,9 +1,10 @@
 // @concord-file
 // @concord-implements docs/feature/transcription/use-case/transcribe.md
+import { usePagedResource } from "@/lib/use-paged-resource";
 import { CallLogs } from "@/components/call-logs";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { tr } from "@/lib/i18n";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { RefreshCw, ShieldQuestion } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,11 +30,11 @@ import {
   Modal,
   Status,
 } from "@/components/shared";
-import { useAction, useApp, useResource } from "@/lib/hooks";
+import { useAction, useApp } from "@/lib/hooks";
 import { query, write } from "@/lib/api";
 import { date, stateName } from "@/lib/format";
 import { jobError } from "@/lib/job-error";
-import type { Job, Page } from "@/lib/types";
+import type { Job } from "@/lib/types";
 export function canRetry(job: Job) {
   return job.retry_allowed === true;
 }
@@ -63,38 +64,22 @@ export function JobsPage() {
 function TaskList() {
   const { session } = useApp();
   const [params, setParams] = useSearchParams();
-  const [cursor, setCursor] = useState("");
-  const [items, setItems] = useState<Job[]>([]);
   const [resolve, setResolve] = useState<Job | null>(null);
   const [operationId, setOperationId] = useState("");
   const [remoteId, setRemoteId] = useState("");
   const [note, setNote] = useState("");
   const filter = params.get("state") === "uncertain" ? "failed" : params.get("state");
-  const data = useResource<Page<Job>>(
-    `/jobs${query({ state: filter === "failed" ? "failed,uncertain" : filter, recording_id: params.get("recording_id"), cursor, limit: 50 })}`,
-    0,
+  const data = usePagedResource<Job>(
+    `/jobs${query({ state: filter === "failed" ? "failed,uncertain" : filter, recording_id: params.get("recording_id"), limit: 50 })}`,
+    "jobs",
     7000,
   );
+  const items = data.items;
   const action = useAction();
-  useEffect(() => {
-    setCursor("");
-    setItems([]);
-  }, [params]);
-  useEffect(() => {
-    if (data.data)
-      setItems((old) =>
-        cursor
-          ? [
-              ...old.filter((j) => !data.data!.items.some((n) => n.id === j.id)),
-              ...data.data!.items,
-            ]
-          : data.data!.items,
-      );
-  }, [data.data, cursor]);
   return (
     <>
       <PageHeading title={tr("处理任务")}>
-        <Button variant="outline" onClick={data.refresh}>
+        <Button variant="outline" loading={data.updating} onClick={data.refresh}>
           <RefreshCw data-icon="inline-start" />
           {tr("刷新")}{" "}
         </Button>
@@ -135,6 +120,8 @@ function TaskList() {
           </NativeSelect>
         </Field>
       </FieldGroup>
+      {data.updating && items.length > 0 && <p role="status">{tr("正在更新…")}</p>}
+      {data.stale && data.error && <p role="status">{tr("筛选未更新，显示上次结果。")}</p>}
       <ErrorBox message={data.error} retry={data.refresh} />
       {data.loading && !items.length ? (
         <Loading />
@@ -264,7 +251,7 @@ function TaskList() {
           />
         )
       )}
-      <More cursor={data.data?.next_cursor} loading={data.loading} onLoad={setCursor} />
+      <More cursor={data.nextCursor} loading={data.loading} onLoad={data.loadMore} />
       <Modal
         title={tr("登记远端 ID 或查询观察")}
         description={tr("仅登记已核实的信息，不触发新的付费请求。“暂未查到”会保留待确认状态。")}

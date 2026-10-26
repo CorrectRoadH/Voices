@@ -1,9 +1,10 @@
 // @concord-file
 // @concord-implements docs/feature/people/use-case/link-person.md
+import { usePagedResource } from "@/lib/use-paged-resource";
 import { personName } from "@/lib/person-name";
 import { tr } from "@/lib/i18n";
 import { requestKey } from "@/lib/request-key";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,9 +23,9 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { EmptyState, ErrorBox, Loading, Modal, More, PageHeading } from "@/components/shared";
-import { useAction, useApp, useResource } from "@/lib/hooks";
+import { useAction, useApp, useResource, useDebouncedValue } from "@/lib/hooks";
 import { write, query, errorMessage } from "@/lib/api";
-import type { Person, Recording, Page } from "@/lib/types";
+import type { Person, Recording } from "@/lib/types";
 import { PersonAvatar, prepareAvatar } from "@/components/person-avatar";
 import { RecordingRows } from "./library";
 function PersonEditor({
@@ -150,27 +151,14 @@ function PersonEditor({
 }
 export function PeoplePage() {
   const [params, setParams] = useSearchParams();
-  const [cursor, setCursor] = useState("");
-  const [items, setItems] = useState<Person[]>([]);
   const [editing, setEditing] = useState<Person | "new" | null>(null);
-  const data = useResource<Page<Person>>(
-    `/people${query({ include_builtin: true, q: params.get("q"), archived: params.get("archived") || "false", cursor, limit: 30 })}`,
+  const settledQuery = useDebouncedValue(params.get("q") || "");
+  const data = usePagedResource<Person>(
+    `/people${query({ include_builtin: true, q: settledQuery, archived: params.get("archived") || "false", limit: 30 })}`,
+    "people",
   );
-  useEffect(() => {
-    setCursor("");
-    setItems([]);
-  }, [params]);
-  useEffect(() => {
-    if (data.data)
-      setItems((old) =>
-        cursor
-          ? [
-              ...old.filter((p) => !data.data!.items.some((n) => n.id === p.id)),
-              ...data.data!.items,
-            ]
-          : data.data!.items,
-      );
-  }, [data.data, cursor]);
+  const items = data.items;
+  const updating = data.updating || settledQuery !== (params.get("q") || "");
   const filter = (key: string, value: string) => {
     const next = new URLSearchParams(params);
     value ? next.set(key, value) : next.delete(key);
@@ -211,6 +199,8 @@ export function PeoplePage() {
           </NativeSelect>
         </Field>
       </FieldGroup>
+      {updating && items.length > 0 && <p role="status">{tr("正在更新…")}</p>}
+      {data.stale && data.error && <p role="status">{tr("筛选未更新，显示上次结果。")}</p>}
       <ErrorBox message={data.error} retry={data.refresh} />
       {data.loading && !items.length ? (
         <Loading />
@@ -263,13 +253,16 @@ export function PeoplePage() {
           </EmptyState>
         )
       )}
-      <More cursor={data.data?.next_cursor} loading={data.loading} onLoad={setCursor} />
+      <More
+        cursor={updating ? null : data.nextCursor}
+        loading={data.loading}
+        onLoad={data.loadMore}
+      />
       {editing && (
         <PersonEditor
           person={editing === "new" ? undefined : editing}
           onClose={() => setEditing(null)}
           onSaved={() => {
-            if (editing === "new") setCursor("");
             data.refresh();
           }}
         />
@@ -280,24 +273,13 @@ export function PeoplePage() {
 export function PersonPage() {
   const { personId = "" } = useParams();
   const person = useResource<Person>(`/people/${encodeURIComponent(personId)}`);
-  const [cursor, setCursor] = useState("");
-  const [items, setItems] = useState<Recording[]>([]);
-  const recordings = useResource<Page<Recording>>(
-    `/recordings${query({ person_id: personId, limit: 30, cursor })}`,
+  const recordings = usePagedResource<Recording>(
+    `/recordings${query({ person_id: personId, limit: 30 })}`,
+    `person:${personId}`,
   );
+  const items = recordings.items;
   const [editing, setEditing] = useState(false);
   const selfAction = useAction();
-  useEffect(() => {
-    if (recordings.data)
-      setItems((old) =>
-        cursor
-          ? [
-              ...old.filter((r) => !recordings.data!.items.some((n) => n.id === r.id)),
-              ...recordings.data!.items,
-            ]
-          : recordings.data!.items,
-      );
-  }, [recordings.data, cursor]);
   return (
     <>
       <Button variant="ghost" nativeButton={false} render={<Link to="/people" />}>
@@ -363,9 +345,9 @@ export function PersonPage() {
             </CardContent>
             <CardFooter>
               <More
-                cursor={recordings.data?.next_cursor}
+                cursor={recordings.nextCursor}
                 loading={recordings.loading}
-                onLoad={setCursor}
+                onLoad={recordings.loadMore}
               />
             </CardFooter>
           </Card>

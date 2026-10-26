@@ -118,26 +118,40 @@ export function CallLogs({ admin = false }: { admin?: boolean }) {
   ]
     .sort()
     .join(",");
+  const nameCache = useRef<{ endpoint: string; revision: number; values: Map<string, string> }>({
+    endpoint,
+    revision,
+    values: new Map(),
+  });
   useEffect(() => {
     const abort = new AbortController();
-    setNames({});
-    void Promise.all(
-      recordingIds
-        .split(",")
-        .filter(Boolean)
-        .map(async (id) => {
-          try {
-            const recording = await request<Schema["Recording"]>(`/recordings/${id}`, {
-              signal: abort.signal,
-            });
-            if (!abort.signal.aborted) setNames((old) => ({ ...old, [id]: recording.title }));
-          } catch {
-            /* A deleted or inaccessible recording keeps its neutral label. */
-          }
-        }),
-    );
+    if (nameCache.current.endpoint !== endpoint || nameCache.current.revision !== revision) {
+      nameCache.current = { endpoint, revision, values: new Map() };
+      setNames({});
+    }
+    const cache = nameCache.current.values;
+    const missing = recordingIds.split(",").filter((id) => id && !cache.has(id));
+    async function worker() {
+      while (missing.length && !abort.signal.aborted) {
+        const id = missing.shift()!;
+        try {
+          const recording = await request<Schema["Recording"]>(`/recordings/${id}`, {
+            signal: abort.signal,
+          });
+          if (abort.signal.aborted) return;
+          cache.set(id, recording.title);
+        } catch {
+          if (abort.signal.aborted) return;
+          // Do not retain an outdated title after access is lost; retry on the next refresh.
+          cache.set(id, "");
+        }
+        while (cache.size > 500) cache.delete(cache.keys().next().value!);
+        setNames(Object.fromEntries(cache));
+      }
+    }
+    void Promise.all(Array.from({ length: Math.min(4, missing.length) }, () => worker()));
     return () => abort.abort();
-  }, [recordingIds, endpoint]);
+  }, [recordingIds, endpoint, revision]);
   function change(key: string, value: string) {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);

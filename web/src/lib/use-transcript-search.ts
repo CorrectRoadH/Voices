@@ -1,11 +1,11 @@
 // @concord-file
 // @concord-implements docs/feature/transcription/use-case/transcribe.md
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { errorMessage, requestAll } from "./api";
 import type { Segment } from "./types";
 
 type SearchLoad =
-  | { key: string; status: "ready"; items: Segment[] }
+  | { key: string; status: "ready"; items: Segment[]; cacheable: boolean }
   | { key: string; status: "error"; error: string };
 
 export function useTranscriptSearch({
@@ -20,12 +20,17 @@ export function useTranscriptSearch({
   anchor: string | null;
 }) {
   const [load, setLoad] = useState<SearchLoad | null>(null);
+  const latest = useRef(load);
+  latest.current = load;
   const [attempt, setAttempt] = useState(0);
   const needle = query.trim();
   const enabled = needle.length > 0;
-  const key = JSON.stringify([transcriptionId, revision, attempt, enabled]);
+  const key = JSON.stringify([transcriptionId, revision, attempt]);
 
   useEffect(() => {
+    const previous = latest.current;
+    if (previous?.key === key && previous.status === "ready" && (enabled || previous.cacheable))
+      return;
     setLoad(null);
     if (!enabled) return;
     const controller = new AbortController();
@@ -35,7 +40,16 @@ export function useTranscriptSearch({
         controller.signal,
       )
         .then((page) => {
-          if (!controller.signal.aborted) setLoad({ key, status: "ready", items: page.items });
+          if (!controller.signal.aborted)
+            setLoad({
+              key,
+              status: "ready",
+              items: page.items,
+              cacheable:
+                page.items.length <= 20000 &&
+                page.items.reduce((size, item) => size + item.text.length * 2, 0) <=
+                  8 * 1024 * 1024,
+            });
         })
         .catch((error) => {
           if (!controller.signal.aborted)

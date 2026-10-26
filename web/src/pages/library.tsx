@@ -1,7 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/recording-library/README.md
 import { tr } from "@/lib/i18n";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { AudioLines, ArrowUpRight, CalendarDays, Plus, Search, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,10 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { UploadDialog } from "@/components/upload";
 import { PageHeading, EmptyState, ErrorBox, Loading, More, Status } from "@/components/shared";
-import { useResource } from "@/lib/hooks";
+import { useDebouncedValue, useResource } from "@/lib/hooks";
 import { duration, bytes, date, localDateValue } from "@/lib/format";
 import type { Recording, Person, Provider, Settings, Page } from "@/lib/types";
+import { usePagedResource } from "@/lib/use-paged-resource";
 export function RecordingRows({ items }: { items: Recording[] }) {
   return (
     <div className="recording-list">
@@ -58,43 +59,28 @@ export function RecordingRows({ items }: { items: Recording[] }) {
 }
 export function LibraryPage() {
   const [search, setSearch] = useSearchParams();
-  const [cursor, setCursor] = useState("");
-  const [items, setItems] = useState<Recording[]>([]);
-  const [revision, setRevision] = useState(0);
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState<File[]>();
   const params = search.toString();
-  useEffect(() => {
-    setCursor("");
-    setItems([]);
-  }, [params]);
-  const recordings = useResource<Page<Recording>>(
-    `/recordings?${params}&limit=30${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
-    revision,
+  const settledQuery = useDebouncedValue(search.get("q") || "");
+  const requestParams = new URLSearchParams(search);
+  if (settledQuery) requestParams.set("q", settledQuery);
+  else requestParams.delete("q");
+  const recordings = usePagedResource<Recording>(
+    `/recordings?${requestParams}&limit=30`,
+    "library",
   );
+  const items = recordings.items;
+  const updating = recordings.updating || settledQuery !== (search.get("q") || "");
   const people = useResource<Page<Person>>("/people?archived=false&limit=100", 0, 0, true);
   const providers = useResource<Page<Provider>>("/providers");
   const settings = useResource<Settings>("/settings");
-  useEffect(() => {
-    if (recordings.data)
-      setItems((old) =>
-        cursor
-          ? [
-              ...old.filter((r) => !recordings.data!.items.some((n) => n.id === r.id)),
-              ...recordings.data!.items,
-            ]
-          : recordings.data!.items,
-      );
-  }, [recordings.data, cursor]);
   const filter = (key: string, value: string) => {
     const next = new URLSearchParams(search);
     value ? next.set(key, value) : next.delete(key);
-    setSearch(next);
+    setSearch(next, { replace: true });
   };
-  const refresh = () => {
-    setCursor("");
-    setRevision((n) => n + 1);
-  };
+  const refresh = recordings.refresh;
   return (
     <>
       <PageHeading title={tr("录音库")}>
@@ -137,7 +123,7 @@ export function LibraryPage() {
             <div>
               <CardTitle>{tr("全部录音")}</CardTitle>
             </div>
-            <Button size="sm" variant="ghost" onClick={refresh}>
+            <Button size="sm" variant="ghost" loading={recordings.updating} onClick={refresh}>
               {tr("刷新")}{" "}
             </Button>
           </div>
@@ -228,6 +214,10 @@ export function LibraryPage() {
               </Field>
             </FieldGroup>
           </details>
+          {updating && items.length > 0 && <p role="status">{tr("正在更新…")}</p>}
+          {recordings.stale && recordings.error && (
+            <p role="status">{tr("筛选未更新，显示上次结果。")}</p>
+          )}
           <ErrorBox message={recordings.error} retry={recordings.refresh} />
           <ErrorBox message={people.error} retry={people.refresh} />
           <ErrorBox message={providers.error} retry={providers.refresh} />
@@ -257,9 +247,9 @@ export function LibraryPage() {
           </p>
           <div className="ml-auto">
             <More
-              cursor={recordings.data?.next_cursor}
+              cursor={updating ? null : recordings.nextCursor}
               loading={recordings.loading}
-              onLoad={setCursor}
+              onLoad={recordings.loadMore}
             />
           </div>
         </CardFooter>

@@ -87,15 +87,16 @@ export function DetailPage() {
     referenceCode ? `/references/${encodeURIComponent(referenceCode)}` : null,
   );
   const navigate = useNavigate();
+  const [detailPoll, setDetailPoll] = useState(7000);
   const recording = useResource<Recording>(
     `/recordings/${encodeURIComponent(recordingId)}`,
     0,
-    7000,
+    detailPoll,
   );
   const versions = useResource<Page<Transcription>>(
     `/recordings/${encodeURIComponent(recordingId)}/transcriptions?limit=100`,
     0,
-    7000,
+    detailPoll,
     true,
   );
   const people = useResource<Page<Person>>("/people?limit=100&include_builtin=true", 0, 0, true);
@@ -104,9 +105,22 @@ export function DetailPage() {
   const jobs = useResource<Page<Job>>(
     `/jobs?recording_id=${encodeURIComponent(recordingId)}&limit=100`,
     0,
-    7000,
+    detailPoll,
     true,
   );
+  useEffect(() => {
+    const active = (state: string) =>
+      !["succeeded", "failed", "cancelled", "uncertain", "restore_hold"].includes(state);
+    const settled = recording.data && versions.data && jobs.data;
+    setDetailPoll(
+      !settled ||
+        recording.data?.state === "preparing" ||
+        versions.data?.items.some((item) => active(item.state)) ||
+        jobs.data?.items.some((item) => active(item.state))
+        ? 7000
+        : 60000,
+    );
+  }, [recording.data, versions.data, jobs.data]);
   const selected = transcriptionId || recording.data?.active_transcription_id || undefined;
   const selectedState = versions.data?.items.find((t) => t.id === selected)?.state;
   const selectedIndex = versions.data?.items.findIndex((t) => t.id === selected) ?? -1;
