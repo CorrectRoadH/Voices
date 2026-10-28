@@ -52,6 +52,8 @@ export default {
       "web/src/components/transcript-search.tsx",
       "web/src/components/highlighted-text.tsx",
       "web/src/lib/use-transcript-search.ts",
+      "web/src/lib/transcript-store.ts",
+      "web/src/lib/transcript-store.test.ts",
       "web/src/lib/use-paged-resource.ts",
       "web/tests/loading.e2e.ts",
       "internal/app/loading_browser_test.go",

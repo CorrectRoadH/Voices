@@ -811,6 +811,7 @@
   "仅修改当前片段，不影响同一说话人的其他片段。": "Only changes this segment. Other segments from the same speaker are unaffected.",
   "搜索转写正文": "Search transcript",
   "搜索转写正文…": "Search transcript…",
+  "显示更多结果": "Show more results",
   "搜索失败": "Search failed",
   "正在搜索…": "Searching…",
   "没有匹配片段": "No matching segments",

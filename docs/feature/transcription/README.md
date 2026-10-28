@@ -31,7 +31,7 @@ kind: feature
 
 真实服务商样本验证语言选择、时间跳转与说话人区分；测试服务商边界的超时、限流和不确定提交。
 
-[转写用例](use-case/transcribe.md) · [架构](../../architecture.md)
+[转写用例](use-case/transcribe.md) · [架构](../../architecture.md) · [转写读取设计](architecture.md)
 
 当前转写支持[正文搜索](use-case/transcribe.md#正文搜索)，跨分页查找并定位匹配片段，不依赖 LLM。
 

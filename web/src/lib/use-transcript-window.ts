@@ -6,11 +6,13 @@ import { request, errorMessage } from "./api";
 import { validateAnchor } from "./links";
 import { tr } from "./i18n";
 import { useSegmentFocus } from "./use-segment-focus";
+import type { TranscriptStore } from "./transcript-store";
 import type { Segment, TranscriptionDetail } from "./types";
 
 import { emptyWindow, windowReducer, type WindowPage } from "./transcript-window-state";
 
 export function useTranscriptWindow({
+  store,
   recordingId,
   selected,
   selectedState,
@@ -22,6 +24,7 @@ export function useTranscriptWindow({
   queueSeek,
   flushSeek,
 }: {
+  store: TranscriptStore;
   recordingId: string;
   selected: string | undefined;
   selectedState: string | undefined;
@@ -81,14 +84,23 @@ export function useTranscriptWindow({
             opts,
           ));
         validateAnchor(recordingId, selected, version);
-        const fetchPage = (cursor: string, initial = false) =>
-          request<WindowPage>(
-            `/transcriptions/${encodeURIComponent(selected)}/segments?limit=50&hide_builtin=${load.hideBuiltin}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : initial && load.anchor ? `&anchor_id=${encodeURIComponent(load.anchor)}` : ""}`,
-            opts,
-          );
+        const fetchPage = async (cursor: string, initial = false): Promise<WindowPage> => {
+          const page = await store.page(cursor, initial ? load.anchor : null);
+          return {
+            ...page,
+            items: load.hideBuiltin
+              ? page.items.filter((item) => !item.person_builtin_key)
+              : page.items,
+          };
+        };
         let page = await fetchPage(load.cursor, !load.direction);
         if (!load.direction) {
+          const seen = new Set<string>();
           while (page.next_cursor && page.items.length < load.count) {
+            if (controller.signal.aborted) return;
+            if (seen.has(page.next_cursor))
+              throw new Error(tr("服务器返回重复分页游标，请刷新后重试。"));
+            seen.add(page.next_cursor);
             const next = await fetchPage(page.next_cursor);
             page = {
               ...page,
@@ -117,7 +129,7 @@ export function useTranscriptWindow({
       }
     })();
     return () => controller.abort();
-  }, [state.pending, key, selected, recordingId, anchor, panelRef]);
+  }, [state.pending, key, selected, recordingId, anchor, panelRef, store]);
 
   useLayoutEffect(() => {
     if (!ready || !anchor) return;
@@ -178,6 +190,9 @@ export function useTranscriptWindow({
     topSentinel,
     bottomSentinel,
     position: focus.position,
-    replaceSegment: (segment: Segment) => dispatch({ type: "replace", segment }),
+    replaceSegment: (segment: Segment) => {
+      store.replace(segment);
+      dispatch({ type: "replace", segment });
+    },
   };
 }

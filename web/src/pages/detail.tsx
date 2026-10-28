@@ -1,10 +1,11 @@
 // @concord-file
 // @concord-implements docs/feature/sentence-links/use-case/copy-sentence-link.md
 // @concord-implements docs/feature/transcription/use-case/transcribe.md
+import { TranscriptStore } from "@/lib/transcript-store";
 import { segmentSpeakerName, labelName } from "@/lib/person-name";
 import { tr, interfaceLocale } from "@/lib/i18n";
 import { requestKey } from "@/lib/request-key";
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -131,6 +132,11 @@ export function DetailPage() {
     (t) => t.state === "succeeded" && t.id !== selected,
   );
   const [reload, setReload] = useState(0);
+  const transcriptStore = useMemo(
+    () => new TranscriptStore(selected || ""),
+    [recordingId, selected, reload, selectedState],
+  );
+  useEffect(() => () => transcriptStore.dispose(), [transcriptStore]);
   const [textQuery, setTextQuery] = useState("");
   const [searchRevision, setSearchRevision] = useState(0);
   useEffect(() => setTextQuery(""), [recordingId, selected]);
@@ -221,6 +227,7 @@ export function DetailPage() {
     position: positionSegment,
     replaceSegment,
   } = useTranscriptWindow({
+    store: transcriptStore,
     recordingId,
     selected,
     selectedState,
@@ -309,10 +316,11 @@ export function DetailPage() {
   function jumpSearch(id: string) {
     playback.pause();
     if (anchor === id) positionSegment(id);
-    else
-      void navigate(
-        `/recordings/${recordingId}/transcriptions/${selected}?segment=${encodeURIComponent(id)}`,
-      );
+    else {
+      const next = new URLSearchParams(search);
+      next.set("segment", id);
+      setSearch(next);
+    }
   }
   async function generateInsights() {
     if (!selected) return;
@@ -347,9 +355,9 @@ export function DetailPage() {
       else notify(tr("该片段没有有效时间，仅定位正文。"));
     } else {
       chapterTarget.current = id;
-      void navigate(
-        `/recordings/${recordingId}/transcriptions/${selected}?segment=${encodeURIComponent(id)}`,
-      );
+      const next = new URLSearchParams(search);
+      next.set("segment", id);
+      setSearch(next);
     }
   }
   function cancelSelection() {
@@ -763,7 +771,7 @@ export function DetailPage() {
         {selected && (selectedState === "succeeded" || version?.state === "succeeded") && (
           <TranscriptSearch
             key={selected}
-            transcriptionId={selected}
+            store={transcriptStore}
             revision={reload + searchRevision}
             query={textQuery}
             onQuery={setTextQuery}
