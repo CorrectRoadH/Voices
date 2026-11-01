@@ -983,5 +983,13 @@
   "请先设置本地密码，再解绑统一登录": "Set a local password before unlinking single sign-on",
   "修改统一登录配置": "Update single sign-on settings",
   "绑定统一登录": "Link single sign-on",
-  "解绑统一登录": "Unlink single sign-on"
+  "解绑统一登录": "Unlink single sign-on",
+  "调用记录": "Call records",
+  "筛选调用记录": "Filter call logs",
+  "调用 ID": "Call ID",
+  "录音 ID": "Recording ID",
+  "转写 ID": "Transcription ID",
+  "生成 ID": "Generation ID",
+  "服务商 / 模型": "Provider / model",
+  "请求状态": "Request status"
 }
