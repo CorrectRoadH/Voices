@@ -3,7 +3,8 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 export default defineConfig(({ mode }) => {
   const envDir = fileURLToPath(new URL("..", import.meta.url));
   const env = loadEnv(mode, envDir, "");
@@ -12,10 +13,17 @@ export default defineConfig(({ mode }) => {
   // Vite+ input globs cannot reach outside this separate installation root.
   // Include parent environment files in the task key without logging their contents.
   const buildEnvHash = createHash("sha256");
-  for (const name of [".env", ".env.local", ".env.production", ".env.production.local"]) {
-    const path = new URL(`../${name}`, import.meta.url);
-    buildEnvHash.update(name);
-    buildEnvHash.update(existsSync(path) ? readFileSync(path) : "missing");
+  for (const entry of readdirSync(envDir, { withFileTypes: true }).sort((a, b) =>
+    a.name.localeCompare(b.name),
+  )) {
+    if (
+      (entry.isFile() || entry.isSymbolicLink()) &&
+      (entry.name === ".env" || entry.name.startsWith(".env."))
+    ) {
+      const path = join(envDir, entry.name);
+      if (!statSync(path, { throwIfNoEntry: false })?.isFile()) continue;
+      buildEnvHash.update(JSON.stringify([entry.name, readFileSync(path, "utf8")]));
+    }
   }
   return {
     run: {

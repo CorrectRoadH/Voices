@@ -64,21 +64,18 @@ jobs:
           - suite: checks
             shard: ''
             e2e_filter: ''
-            cache_lockfiles: |
-              web/pnpm-lock.yaml
-              update-worker/pnpm-lock.yaml
           - suite: browser
             shard: '-reading'
-            e2e_filter: '^(TestBrowserFullStack|TestReferencesBrowser)$'
+            e2e_filter: '^(TestBrowserFullStack|TestReferencesBrowser|TestOIDCBrowser)$'
           - suite: browser
             shard: '-accounts'
             e2e_filter: '^(TestAccountsBrowserFullStack|TestInterfaceLanguageBrowser|TestLLMModelsBrowser)$'
           - suite: browser
             shard: '-settings'
-            e2e_filter: '^(TestServerSettingsBrowser|TestUpdatesBrowser|TestOnboardingBrowser|TestInteractionBrowser|TestJobRecoveryBrowser|TestTranscriptNavigationBrowser|TestTranscriptSearchBrowser|TestLoadingBrowser)$'
+            e2e_filter: '^(TestServerSettingsBrowser|TestUpdatesBrowser|TestOnboardingBrowser|TestInteractionBrowser|TestCallLogsBrowser|TestTranscriptNavigationBrowser|TestTranscriptSearchBrowser|TestLoadingBrowser)$'
           - suite: browser
             shard: '-insights'
-            e2e_filter: '^(TestAdministrationInsightsBrowser|TestOIDCBrowser|TestCallLogsBrowser)$'
+            e2e_filter: '^(TestAdministrationInsightsBrowser|TestJobRecoveryBrowser)$'
     services:
       postgres:
         image: postgres:18-bookworm
@@ -158,13 +155,26 @@ jobs:
           node --test .ci-support/.github/scripts/model-privacy.test.mjs
           python3 .ci-support/.github/scripts/ci-paths.test.py
           python3 scripts/check-e2e-shards.py
+      - name: Identify dependency cache
+        id: dependency-cache
+        env:
+          SUITE: ${{ matrix.suite }}
+        run: |
+          if [ "$SUITE" = checks ]; then
+            # setup-vp accepts one file, not a glob or a multiline path list.
+            # This file selects the cache only; installs use the real lockfiles.
+            sha256sum web/pnpm-lock.yaml update-worker/pnpm-lock.yaml > .ci-pnpm-lock.yaml
+            echo 'path=.ci-pnpm-lock.yaml' >> "$GITHUB_OUTPUT"
+          else
+            echo 'path=web/pnpm-lock.yaml' >> "$GITHUB_OUTPUT"
+          fi
       - uses: voidzero-dev/setup-vp@v1.21.2
         with:
           node-version: '24'
           version: '1.3.0'
           run-install: false
           cache: true
-          cache-dependency-path: ${{ matrix.cache_lockfiles || 'web/pnpm-lock.yaml' }}
+          cache-dependency-path: ${{ steps.dependency-cache.outputs.path }}
       - name: Identify APT cache
         id: apt-key
         env:
