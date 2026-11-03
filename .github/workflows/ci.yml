@@ -69,19 +69,19 @@ jobs:
             e2e_filter: '^(TestBrowserFullStack|TestTranscriptNavigationBrowser|TestLoadingBrowser)$'
           - suite: browser
             shard: '-accounts'
-            e2e_filter: '^(TestAccountsBrowserFullStack|TestLLMModelsBrowser|TestAccountFiltersBrowser)$'
+            e2e_filter: '^(TestAccountsBrowserFullStack|TestLLMModelsBrowser)$'
           - suite: browser
             shard: '-settings'
-            e2e_filter: '^(TestServerSettingsBrowser|TestOnboardingBrowser|TestOnboardingRevisionBrowser|TestInteractionBrowser)$'
+            e2e_filter: '^(TestServerSettingsBrowser|TestOnboardingBrowser|TestOnboardingRevisionBrowser|TestInteractionBrowser|TestAccountFiltersBrowser)$'
           - suite: browser
             shard: '-insights'
-            e2e_filter: '^(TestAdministrationInsightsBrowser|TestJobRecoveryBrowser)$'
+            e2e_filter: '^(TestAdministrationInsightsBrowser|TestJobRecoveryBrowser|TestOnboardingSkipBrowser|TestTranscriptSearchBrowser)$'
           - suite: browser
             shard: '-language'
             e2e_filter: '^(TestInterfaceLanguageBrowser|TestAdministrationBrowser|TestUpdatesBrowser)$'
           - suite: browser
             shard: '-references'
-            e2e_filter: '^(TestReferencesBrowser|TestCallLogsBrowser|TestOIDCBrowser|TestOnboardingSkipBrowser|TestTranscriptSearchBrowser)$'
+            e2e_filter: '^(TestReferencesBrowser|TestCallLogsBrowser|TestOIDCBrowser)$'
     services:
       postgres:
         image: postgres:18-bookworm
