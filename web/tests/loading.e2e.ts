@@ -178,6 +178,10 @@ test("筛选保留内容、分页刷新全范围、搜索与名称复用、后�
   ).toBe(initial);
   await browser.locator("#transcript-search").fill("句子110");
   await expect(browser.locator(".transcript-search [role=status]")).toContainText("1 个匹配片段");
+  // Closing the autocomplete exposes the adjacent toolbar in the accessibility tree.
+  // One Escape preserves the query; the next-match button still performs the jump.
+  await browser.keyboard.press("Escape");
+  await expect(browser.locator("#transcript-search")).toHaveValue("句子110");
   await browser
     .locator("body")
     .getByRole("button", { name: "下一个匹配片段", exact: true })

@@ -347,18 +347,20 @@ test("异步操作反馈、筛选空态与刷新保留内容", async ({ app, bro
   await expect(screen.getByText("没有匹配的调用记录", { exact: true })).toBeVisible();
   await browser.unroute("**/api/v1/calls?**");
   await browser.goto(`${base}/jobs?view=calls&model=ui-fold`);
-  await expect(screen.getByText("查询成功 · 已加载 3 次", { exact: true })).toBeVisible();
-  await expect(screen.getByText("HTTP: 200", { exact: true }).first()).not.toBeVisible();
-  await screen.getByText("更多筛选", { exact: true }).click();
-  await app.screenshot("桌面紧凑调用日志");
-  await screen.getByText("查询成功 · 已加载 3 次", { exact: true }).click();
+  await expect(screen.getByText("已加载 3 次", { exact: true })).toBeVisible();
+  await expect(screen.getByLabel("模型 ID", { exact: true })).toBeVisible();
   await expect(screen.getByText("HTTP: 200", { exact: true })).toHaveCount(3);
-  await expect(screen.getByText("音频时长: 1:26:02", { exact: true })).toHaveCount(3);
+  for (let index = 0; index < 3; index++) {
+    await expect(screen.getByText("HTTP: 200", { exact: true }).nth(index)).toBeVisible();
+  }
+  await expect(screen.getByText("音频时长", { exact: true })).toHaveCount(3);
+  await expect(screen.getByText("1:26:02", { exact: true })).toHaveCount(3);
+  await app.screenshot("桌面调用日志与直接可见的详情");
   await browser.setViewport({ width: 375, height: 812 });
   await noOverflow(browser);
   await browser.evaluate(() => {
     document.querySelector("article")?.scrollIntoView();
     return null;
   });
-  await app.screenshot("紧凑调用日志与展开查询记录");
+  await app.screenshot("窄屏调用日志与直接可见的详情");
 });

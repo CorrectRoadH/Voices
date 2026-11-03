@@ -64,15 +64,18 @@ jobs:
           - suite: checks
             shard: ''
             e2e_filter: ''
+            cache_lockfiles: |
+              web/pnpm-lock.yaml
+              update-worker/pnpm-lock.yaml
           - suite: browser
             shard: '-reading'
-            e2e_filter: '^(TestBrowserFullStack|TestReferencesBrowser|TestTranscriptNavigationBrowser|TestTranscriptSearchBrowser|TestLoadingBrowser)$'
+            e2e_filter: '^(TestBrowserFullStack|TestReferencesBrowser)$'
           - suite: browser
             shard: '-accounts'
             e2e_filter: '^(TestAccountsBrowserFullStack|TestInterfaceLanguageBrowser|TestLLMModelsBrowser)$'
           - suite: browser
             shard: '-settings'
-            e2e_filter: '^(TestServerSettingsBrowser|TestUpdatesBrowser|TestOnboardingBrowser|TestInteractionBrowser|TestJobRecoveryBrowser)$'
+            e2e_filter: '^(TestServerSettingsBrowser|TestUpdatesBrowser|TestOnboardingBrowser|TestInteractionBrowser|TestJobRecoveryBrowser|TestTranscriptNavigationBrowser|TestTranscriptSearchBrowser|TestLoadingBrowser)$'
           - suite: browser
             shard: '-insights'
             e2e_filter: '^(TestAdministrationInsightsBrowser|TestOIDCBrowser|TestCallLogsBrowser)$'
@@ -161,7 +164,7 @@ jobs:
           version: '1.3.0'
           run-install: false
           cache: true
-          cache-dependency-path: ${{ matrix.suite == 'checks' && '**/pnpm-lock.yaml' || 'web/pnpm-lock.yaml' }}
+          cache-dependency-path: ${{ matrix.cache_lockfiles || 'web/pnpm-lock.yaml' }}
       - name: Identify APT cache
         id: apt-key
         env:
