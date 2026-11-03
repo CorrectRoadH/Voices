@@ -34,6 +34,8 @@ JS/TS 命令统一通过 Vite+ 1.3.0；pnpm 仍为底层包管理器，根目录
 
 `typecheck` 保持为单个 shell task，避免嵌套 `vp exec` 被展开为未启用缓存的独立命令。Vite+ 的输入 glob 不能越过 web 安装根目录，因此父目录环境文件的内容摘要加入构建任务键；只记录摘要，不记录文件内容。`setup-vp` 只接受一个锁文件路径，不接受 glob 或多行列表。常规检查用 web 与 Worker 两份锁文件的摘要生成临时 `.ci-pnpm-lock.yaml` 作为缓存键输入；浏览器直接使用 web 锁文件。安装始终使用各自真实锁文件。
 
+父目录 `.env*` 文件的新增、修改和删除均参与构建失效，包括通过 `vp run build --mode <mode>` 选择的自定义环境。分片完整性按 Go 测试入口核对；一个入口可以包含多个浏览器场景，入口数量不代表行为覆盖率。
+
 ### 测试分工
 
 浏览器统一使用 [tester-army/e2e](https://github.com/tester-army/e2e)，固定 SDK 与 web engine 版本。用例位于 `web/tests/*.e2e.ts`，名称、自然语言操作目标和诊断说明用中文。通过真实页面、Go HTTP 和隔离 PostgreSQL 验证操作结果；仅外部 STT、LLM、OIDC 身份平台和更新服务使用 fake。网络故障可在浏览器 HTTP 边界注入。
