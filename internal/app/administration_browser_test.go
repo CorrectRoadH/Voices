@@ -17,6 +17,21 @@ import (
 
 // @use-case docs/feature/insights/use-case/generate-insights.md
 func TestAdministrationInsightsBrowser(t *testing.T) {
+	runAdministrationBrowserScenario(t, "insights")
+}
+
+// @use-case docs/feature/administration/use-case/inspect-instance.md
+func TestAdministrationBrowser(t *testing.T) {
+	runAdministrationBrowserScenario(t, "administration")
+}
+
+// @use-case docs/feature/administration/use-case/inspect-instance.md
+func TestAccountFiltersBrowser(t *testing.T) {
+	runAdministrationBrowserScenario(t, "account-filters")
+}
+
+func runAdministrationBrowserScenario(t *testing.T, selected string) {
+	t.Helper()
 	if os.Getenv("VOICES_BROWSER_TEST") != "1" {
 		t.Skip("set VOICES_BROWSER_TEST=1 after building web")
 	}
@@ -28,6 +43,9 @@ func TestAdministrationInsightsBrowser(t *testing.T) {
 		{"administration", "管理概览、审计筛选与日志分页", 0},
 		{"account-filters", "账号关键词、角色与状态筛选以及停用", 0},
 	} {
+		if scenario.name != selected {
+			continue
+		}
 		t.Run(scenario.name, func(t *testing.T) {
 			f, rid, tid, ids := insightFixture(t)
 			ctx := context.Background()

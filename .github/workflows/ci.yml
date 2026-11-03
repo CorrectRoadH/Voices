@@ -66,16 +66,22 @@ jobs:
             e2e_filter: ''
           - suite: browser
             shard: '-reading'
-            e2e_filter: '^(TestBrowserFullStack|TestReferencesBrowser|TestOIDCBrowser)$'
+            e2e_filter: '^(TestBrowserFullStack|TestTranscriptNavigationBrowser|TestLoadingBrowser)$'
           - suite: browser
             shard: '-accounts'
-            e2e_filter: '^(TestAccountsBrowserFullStack|TestInterfaceLanguageBrowser|TestLLMModelsBrowser)$'
+            e2e_filter: '^(TestAccountsBrowserFullStack|TestLLMModelsBrowser|TestAccountFiltersBrowser)$'
           - suite: browser
             shard: '-settings'
-            e2e_filter: '^(TestServerSettingsBrowser|TestUpdatesBrowser|TestOnboardingBrowser|TestInteractionBrowser|TestCallLogsBrowser|TestTranscriptNavigationBrowser|TestTranscriptSearchBrowser|TestLoadingBrowser)$'
+            e2e_filter: '^(TestServerSettingsBrowser|TestOnboardingBrowser|TestOnboardingRevisionBrowser|TestInteractionBrowser)$'
           - suite: browser
             shard: '-insights'
             e2e_filter: '^(TestAdministrationInsightsBrowser|TestJobRecoveryBrowser)$'
+          - suite: browser
+            shard: '-language'
+            e2e_filter: '^(TestInterfaceLanguageBrowser|TestAdministrationBrowser|TestUpdatesBrowser)$'
+          - suite: browser
+            shard: '-references'
+            e2e_filter: '^(TestReferencesBrowser|TestCallLogsBrowser|TestOIDCBrowser|TestOnboardingSkipBrowser|TestTranscriptSearchBrowser)$'
     services:
       postgres:
         image: postgres:18-bookworm
@@ -154,6 +160,7 @@ jobs:
           "$RUNNER_TEMP/actionlint/actionlint"
           node --test .ci-support/.github/scripts/model-privacy.test.mjs
           python3 .ci-support/.github/scripts/ci-paths.test.py
+          python3 .ci-support/.github/scripts/e2e-timings.test.py
           python3 scripts/check-e2e-shards.py
       - name: Identify dependency cache
         id: dependency-cache
@@ -235,6 +242,7 @@ jobs:
           vp -C web run generate:api
           git diff --exit-code -- web/src/lib/api.generated.ts
       - name: e2e 真实应用浏览器验收
+        id: acceptance
         if: matrix.suite == 'browser'
         run: vp run test:e2e -run "$E2E_FILTER"
         env:
@@ -242,6 +250,17 @@ jobs:
           E2E_MODEL: ${{ vars.E2E_MODEL }}
           E2E_MODEL_BASE_URL: ${{ secrets.E2E_MODEL_BASE_URL }}
           E2E_MODEL_API_KEY: ${{ secrets.E2E_MODEL_API_KEY }}
+      - name: Summarize E2E timings
+        id: timings
+        if: always() && matrix.suite == 'browser' && (steps.acceptance.outcome == 'success' || steps.acceptance.outcome == 'failure')
+        run: python3 .ci-support/.github/scripts/e2e-timings.py web/.e2e > "$RUNNER_TEMP/e2e-timings.json"
+      - uses: actions/upload-artifact@v7.0.2
+        if: always() && matrix.suite == 'browser' && steps.timings.outcome == 'success'
+        with:
+          name: e2e-timings${{ matrix.shard }}
+          path: ${{ runner.temp }}/e2e-timings.json
+          retention-days: 7
+          if-no-files-found: error
       - run: vp run test:worker:runtime
         if: matrix.suite == 'checks'
       - name: Prepare private failure report

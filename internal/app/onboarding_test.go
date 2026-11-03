@@ -234,6 +234,21 @@ func TestOnboardingMigrationExistingSite(t *testing.T) {
 
 // @use-case docs/feature/accounts/use-case/setup-site.md
 func TestOnboardingBrowser(t *testing.T) {
+	runOnboardingBrowserScenario(t, "main")
+}
+
+// @use-case docs/feature/accounts/use-case/setup-site.md
+func TestOnboardingRevisionBrowser(t *testing.T) {
+	runOnboardingBrowserScenario(t, "revision")
+}
+
+// @use-case docs/feature/accounts/use-case/setup-site.md
+func TestOnboardingSkipBrowser(t *testing.T) {
+	runOnboardingBrowserScenario(t, "skip")
+}
+
+func runOnboardingBrowserScenario(t *testing.T, selected string) {
+	t.Helper()
 	if os.Getenv("VOICES_BROWSER_TEST") != "1" {
 		t.Skip("set VOICES_BROWSER_TEST=1 after building web")
 	}
@@ -245,6 +260,9 @@ func TestOnboardingBrowser(t *testing.T) {
 		{"revision", "配置修改使测试失效，旧测试结果不能批准新配置", 3},
 		{"skip", "清空配置后跳过，完成失败可重试且完成后不再初始化", 0},
 	} {
+		if scenario.name != selected {
+			continue
+		}
 		t.Run(scenario.name, func(t *testing.T) {
 			// 每个浏览器场景都有全新的数据库 schema，不依赖前一场景的完成状态。
 			f := setupAccountFixture(t, false)

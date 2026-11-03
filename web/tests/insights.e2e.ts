@@ -27,15 +27,12 @@ test(
     await agent.act("切换到目录标签。");
 
     await expect(screen.getByRole("button", { name: "生成摘要与目录", exact: true })).toBeEnabled();
-    await agent.act("生成摘要与目录，只点击一次并等待生成完成。");
-    await agent.act("切换到摘要标签。");
+    await agent.act("生成摘要与目录，只点击一次并等待生成完成，然后切换到摘要标签。");
     await expect(screen.getByText("会议摘要", { exact: true })).toBeVisible();
     await agent.act("查看完整摘要。");
     await expect(screen.getByRole("dialog", { name: "录音摘要", exact: true })).toBeVisible();
     await expect(screen.getByRole("dialog").getByText("会议摘要", { exact: true })).toBeVisible();
-    await agent.act("关闭录音摘要对话框。");
-
-    await agent.act("切换到目录标签。");
+    await agent.act("关闭录音摘要对话框，然后切换到目录标签。");
     await expect(screen.getByRole("button", { name: "查看完整摘要" })).not.toBeVisible();
     await expect(screen.getByRole("navigation", { name: "AI 主题目录" })).toBeVisible();
     await expect(browser.locator(`#segment-${last}`)).toHaveCount(0);
@@ -66,23 +63,20 @@ test(
     // 编辑正文后摘要过期，在目录内直接重新生成和重试。
     await agent.act("将最后一个片段的文字编辑为更新后的决定，并保存文字。");
     await expect(screen.getByText("转写已更改，结果已过期", { exact: true })).toBeVisible();
-    await agent.act("切换到摘要标签。");
-    await agent.act("重新生成摘要，只尝试一次。预期生成失败，看到失败后停止，不要重试。");
+    await agent.act("切换到摘要标签，重新生成摘要一次。预期生成失败，看到失败后停止，不要重试。");
     await expect(screen.getByText("摘要与目录生成失败", { exact: true })).toBeVisible({
       timeout: 15000,
     });
     await expect(screen.getByText("尚未生成主题目录", { exact: true })).toHaveCount(0);
     await app.screenshot("目录失败与重试");
-    await agent.act("重试生成摘要与目录一次，等待完成。");
-    await agent.act("切换到摘要标签。");
+    await agent.act("重试生成摘要与目录一次，等待完成后切换到摘要标签。");
     await expect(screen.getByText("会议摘要", { exact: true })).toBeVisible();
     await expect(screen.getByText("转写已更改，结果已过期", { exact: true })).toHaveCount(0);
     // 手机深色模式：空时间章节只定位正文。
     await agent.act("进入我的账号，将界面主题设为深色。");
     await browser.goto(`${base}/recordings/${rid}/transcriptions/${tid}`);
     await browser.setViewport({ width: 390, height: 844 });
-    await agent.act("打开手机界面的目录面板。");
-    await agent.act("切换到手机目录面板的摘要页，重新生成摘要一次，等待完成。");
+    await agent.act("打开手机界面的目录面板，切换到摘要页，重新生成摘要一次，等待完成。");
     await expect(
       browser.locator("[data-slot=popover-content]").getByRole("button", { name: "查看完整摘要" }),
     ).toBeVisible();
@@ -130,9 +124,7 @@ test("管理概览、审计筛选与日志分页", async ({ agent, browser, scre
   await agent.act("进入站点概览页面。");
   await expect(screen.getByRole("heading", { name: "站点概览", exact: true })).toBeVisible();
   await expect(screen.getByText(/数据库可查询 ·/)).toBeVisible();
-  await agent.act("进入账号管理页面。");
-  await agent.act("关闭开放注册开关。");
-  await agent.act("进入系统日志页面。");
+  await agent.act("进入账号管理页面，关闭开放注册开关，然后进入系统日志页面。");
   await expect(screen.getByRole("heading", { name: "系统日志", exact: true })).toBeVisible();
   await agent.act("按修改注册开关事件类型筛选日志。");
   await expect(
