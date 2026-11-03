@@ -10,7 +10,7 @@ kind: engineering
 
 ## 目标
 
-每次 PR 与 main 更新验证 Go、PostgreSQL、前端和更新 Worker。正式版本的镜像、版本号和 GitHub Release 对应同一 tag。
+涉及可执行输入的 PR 与 main 更新验证 Go、PostgreSQL、前端和更新 Worker。正式版本的镜像、版本号和 GitHub Release 对应同一 tag。
 
 ## 机制
 
@@ -18,17 +18,19 @@ kind: engineering
 
 ### CI 并行与缓存
 
-常规检查与三个浏览器分片使用独立 job，各自拥有 PostgreSQL 服务。常规检查执行完整 `vp run check`、API 生成检查和 workerd 验收；浏览器 job 只安装 web 依赖，通过 `vp run test:e2e -run` 选择场景。三个分片合计覆盖完整 E2E 集合，Docker 检查与它们并行。发布必须等待所有检查通过，不缓存测试结果，也不因缓存命中跳过安装校验或测试。
+常规检查与四个浏览器分片使用独立 job，各自拥有 PostgreSQL 服务。常规检查执行完整 `vp run check`、API 生成检查和 workerd 验收；浏览器 job 只安装 web 依赖，通过 `vp run test:e2e -run` 选择场景。四个分片合计覆盖完整 E2E 集合，Docker 检查与它们并行。发布必须等待所有检查通过，不缓存测试结果，也不因缓存命中跳过安装校验或测试。
 
-浏览器 job 在下载依赖前检查模型配置。PR 与 main 上的新提交取消同一 ref 的旧 CI；发布调用不启用此取消策略。浏览器场景按实测耗时分成三组：目录与工作台、账号与统一登录及语言与模型、设置与引导及日志恢复。每个分片内部串行，沿用各场景的显式超时与零自动重试；模型并发最多为三个浏览器 job。常规检查校验分片恰好覆盖默认 E2E 入口中的每个测试，遗漏或重复均失败。失败报告使用分片独立名称。
+浏览器 job 在下载依赖前检查模型配置。仅 PR 的新提交取消同一 PR 的旧 CI；main、手动运行与发布调用使用独立运行分组，不取消运行中或等待中的其它提交。浏览器场景按实测耗时分成四组：工作台与引用及正文导航搜索、账号与语言及模型、设置与引导及交互恢复、摘要目录与统一登录及日志。每个分片内部串行，沿用各场景的显式超时与零自动重试；模型并发最多为四个浏览器 job。常规检查校验分片恰好覆盖默认 E2E 入口中的每个测试，遗漏或重复均失败。失败报告使用分片独立名称。
 
-Go、包管理器和 Docker 继续使用各自缓存。APT 仅缓存下载的 `.deb`，键包含 runner 镜像、架构、检查类型与依赖锁文件；不缓存系统安装状态。APT 每次更新索引并正常安装，禁用非必要推荐包，使用 Ubuntu 官方 archive 镜像。下载缓存在环境准备成功后立即保存，后续测试失败不丢失已下载依赖。
+Go 与 Vite+ 使用 setup action 内置缓存，浏览器仅关联 web 锁文件；Docker 使用独立的 CI 缓存 scope，保留多阶段构建的依赖层，避免与发布缓存互相覆盖。actionlint 下载固定版本的预编译文件并校验 SHA256，不在 runner 编译工具。APT 仅缓存下载的 `.deb`，键包含 runner 镜像、架构、检查类型与依赖锁文件；不缓存系统安装状态。APT 每次更新索引并正常安装，禁用非必要推荐包，使用 Ubuntu 官方 archive 镜像。下载缓存在环境准备成功后立即保存，后续测试失败不丢失已下载依赖。
 
 Chromium 下载目录按系统、架构和 web 锁文件缓存；仍执行引擎自带安装命令以校验所需版本并安装系统库。缓存恢复与下载的实际收益通过 Actions 步骤耗时比较，不预先承诺加速比例。Actions 引用采用核实过的最新稳定补丁版本；已有 SHA 固定引用保留固定方式并标明对应版本。Vite+ 版本继续遵守本仓库工具链约定。
 
+纯 README、Markdown 文档、memory 与代理说明的 main push 通过 paths 过滤；`docs/api/**`、`docs/release-package.txt` 等构建输入必须触发。PR 始终创建工作流，使用 Git base/head 的完整变更路径判断是否需要重任务；文件重命名同时检查旧、新路径。纯文档 PR 跳过重任务并完成 `CI required`。分支保护应要求 `CI required`；该汇总仅在路径检查成功且所有必需任务成功时通过，取消、失败或意外跳过均失败。手动与发布调用无条件执行完整验收。
+
 ### 工具链入口
 
-JS/TS 命令统一通过 Vite+ 1.3.0；pnpm 仍为底层包管理器，根目录、web 与 update-worker 保持独立安装边界。CI 使用固定版本 setup-vp，安装必须使用 frozen lockfile。`vp run check` 为项目完整门禁，`vp check` 仅为内置静态检查；浏览器、数据库和 workerd 验收不缓存。生成 API 文件由生成结果无差异检查负责，不由 Oxfmt 重写。
+JS/TS 命令统一通过 Vite+ 1.3.0；pnpm 仍为底层包管理器，根目录、web 与 update-worker 保持独立安装边界。CI 使用固定版本 setup-vp，安装必须使用 frozen lockfile。`vp run check` 为项目完整门禁，`vp check` 仅为内置静态检查；浏览器、数据库和 workerd 验收不缓存。生成 API 文件由生成结果无差异检查负责，不由 Oxfmt 重写。前端 build 与 typecheck 使用显式 Vite+ task 缓存，输入覆盖源码、测试类型、配置、锁文件及构建环境文件；build 归档 dist，缺失产物可恢复，PUBLIC_BASE_URL 变化必须失效。其它脚本不启用缓存，重复调用类型检查复用已验证结果。连续两次 build、源码和 base URL 变更及产物删除用于验证缓存。
 
 ### 测试分工
 

@@ -3,6 +3,14 @@ on:
   pull_request:
   push:
     branches: [main]
+    paths:
+      - '**'
+      - '!README*'
+      - '!docs/**'
+      - '!memory/**'
+      - '!**/*.md'
+      - 'docs/api/**'
+      - 'docs/release-package.txt'
   workflow_dispatch:
   workflow_call:
     inputs:
@@ -19,10 +27,33 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ inputs.ref || '' }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref_type == 'branch') }}
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      required: ${{ steps.paths.outputs.required }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: paths
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT_NAME" = pull_request ]; then
+            python3 .github/scripts/ci-paths.py "$BASE_SHA" "$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo 'required=true' >> "$GITHUB_OUTPUT"
+          fi
   test:
+    needs: changes
+    if: needs.changes.outputs.required == 'true'
     name: test (${{ matrix.suite }}${{ matrix.shard }})
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -35,13 +66,16 @@ jobs:
             e2e_filter: ''
           - suite: browser
             shard: '-reading'
-            e2e_filter: '^(TestAdministrationInsightsBrowser|TestBrowserFullStack)$'
+            e2e_filter: '^(TestBrowserFullStack|TestReferencesBrowser|TestTranscriptNavigationBrowser|TestTranscriptSearchBrowser|TestLoadingBrowser)$'
           - suite: browser
             shard: '-accounts'
-            e2e_filter: '^(TestAccountsBrowserFullStack|TestInterfaceLanguageBrowser|TestLLMModelsBrowser|TestOIDCBrowser)$'
+            e2e_filter: '^(TestAccountsBrowserFullStack|TestInterfaceLanguageBrowser|TestLLMModelsBrowser)$'
           - suite: browser
             shard: '-settings'
-            e2e_filter: '^(TestServerSettingsBrowser|TestUpdatesBrowser|TestOnboardingBrowser|TestInteractionBrowser|TestJobRecoveryBrowser|TestCallLogsBrowser|TestReferencesBrowser|TestTranscriptNavigationBrowser|TestLoadingBrowser)$'
+            e2e_filter: '^(TestServerSettingsBrowser|TestUpdatesBrowser|TestOnboardingBrowser|TestInteractionBrowser|TestJobRecoveryBrowser)$'
+          - suite: browser
+            shard: '-insights'
+            e2e_filter: '^(TestAdministrationInsightsBrowser|TestOIDCBrowser|TestCallLogsBrowser)$'
     services:
       postgres:
         image: postgres:18-bookworm
@@ -116,9 +150,10 @@ jobs:
       - name: Check workflow syntax
         if: matrix.suite == 'checks'
         run: |
-          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-          actionlint
+          bash .ci-support/.github/scripts/install-actionlint.sh
+          "$RUNNER_TEMP/actionlint/actionlint"
           node --test .ci-support/.github/scripts/model-privacy.test.mjs
+          python3 .ci-support/.github/scripts/ci-paths.test.py
           python3 scripts/check-e2e-shards.py
       - uses: voidzero-dev/setup-vp@v1.21.2
         with:
@@ -126,9 +161,7 @@ jobs:
           version: '1.3.0'
           run-install: false
           cache: true
-          cache-dependency-path: |
-            web/pnpm-lock.yaml
-            update-worker/pnpm-lock.yaml
+          cache-dependency-path: ${{ matrix.suite == 'checks' && '**/pnpm-lock.yaml' || 'web/pnpm-lock.yaml' }}
       - name: Identify APT cache
         id: apt-key
         env:
@@ -224,6 +257,8 @@ jobs:
           fi
           echo 'Model network logged out.'
   docker:
+    needs: changes
+    if: needs.changes.outputs.required == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
@@ -237,6 +272,27 @@ jobs:
           load: true
           tags: voices:ci
           build-args: VOICES_VERSION=0.0.0
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=ci-image
+          cache-to: type=gha,scope=ci-image,mode=max
       - run: test "$(docker run --rm voices:ci version)" = '0.0.0'
+  required:
+    name: CI required
+    if: always()
+    needs: [changes, test, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          RUN_REQUIRED: ${{ needs.changes.outputs.required }}
+          TEST_RESULT: ${{ needs.test.result }}
+          DOCKER_RESULT: ${{ needs.docker.result }}
+        run: |
+          test "$CHANGES_RESULT" = success
+          if [ "$RUN_REQUIRED" = false ]; then
+            test "$TEST_RESULT" = skipped
+            test "$DOCKER_RESULT" = skipped
+          else
+            test "$RUN_REQUIRED" = true
+            test "$TEST_RESULT" = success
+            test "$DOCKER_RESULT" = success
+          fi

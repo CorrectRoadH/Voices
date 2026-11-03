@@ -5,9 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vp dev --host 0.0.0.0",
-    "build": "vp run typecheck && vp build",
     "preview": "vp preview --host 0.0.0.0",
-    "typecheck": "vp run check:i18n && vp exec tsc --noEmit && vp exec tsc -p tsconfig.e2e.json",
     "check:i18n": "vp exec node scripts/check-i18n.mjs",
     "test": "vp test",
     "generate:api": "vp exec openapi-typescript ../docs/api/openapi.json -o src/lib/api.generated.ts",
