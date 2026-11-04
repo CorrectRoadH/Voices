@@ -796,6 +796,8 @@
   "完成站点初始化记录": "Site setup completed",
   "数据库已连接。请确认站点配置；语音转写和 LLM 可分别配置，也可稍后在服务器设置中调整。": "The database is connected. Review your site settings. Configure speech recognition and LLM separately, or adjust them later in Server settings.",
   "请管理员配置 LLM 地址和模型": "Ask an administrator to configure the LLM URL and model.",
+  "完成后自动开始转写，可离开此页。": "Transcription will start automatically. You can leave this page.",
+  "完成后自动显示结果，可离开此页。": "Results will appear automatically. You can leave this page.",
   "正在准备音频": "Preparing audio",
   "转写排队中": "Transcription queued",
   "正在转写": "Transcribing",

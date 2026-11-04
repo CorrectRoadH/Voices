@@ -126,8 +126,6 @@ export function DetailPage() {
   const selectedState = versions.data?.items.find((t) => t.id === selected)?.state;
   const selectedIndex = versions.data?.items.findIndex((t) => t.id === selected) ?? -1;
   const newerVersion = selectedIndex > 0 ? versions.data?.items[0] : undefined;
-  const headlineVersion =
-    newerVersion || versions.data?.items.find((t) => t.id === selected) || versions.data?.items[0];
   const previousVersion = versions.data?.items.find(
     (t) => t.state === "succeeded" && t.id !== selected,
   );
@@ -282,7 +280,7 @@ export function DetailPage() {
       document.documentElement.style.removeProperty("--selection-toast-bottom");
       window.removeEventListener("resize", measure);
     };
-  }, [recording.data?.id, !!selection]);
+  }, [recording.data?.id, recording.data?.state, !!selection]);
 
   function openNewTranscription() {
     setOptions(version?.options || settings.data?.default_transcription || blankOptions);
@@ -524,6 +522,8 @@ export function DetailPage() {
       </>
     );
   const r = recording.data;
+  const readingReady = version?.state === "succeeded";
+  const showInfo = railTab === "info";
   const blocked = r.state === "deleting";
   if (blocked)
     return (
@@ -572,26 +572,23 @@ export function DetailPage() {
           <ArrowLeft data-icon="inline-start" />
           {tr("录音库")}{" "}
         </Button>
-        <div className="flex gap-1">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={tr("删除录音")}
-            onClick={() => setDeleteOpen(true)}
-            disabled={blocked}
-          >
-            <Trash2 />
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-expanded={showInfo}
+          aria-controls="recording-info"
+          onClick={() => {
+            setRailTab(showInfo ? "outline" : "info");
+            if (!showInfo)
+              requestAnimationFrame(() =>
+                document.getElementById("recording-info")?.scrollIntoView({ block: "nearest" }),
+              );
+          }}
+        >
+          {tr("录音信息")}
+        </Button>
       </div>
       <header className="detail-heading">
-        <div className="flex flex-wrap items-center gap-3">
-          {!newerVersion && (
-            <Status
-              value={r.state === "ready" && headlineVersion ? headlineVersion.state : r.state}
-            />
-          )}
-        </div>
         <RecordingField key={r.id} field="title" recording={r} onSaved={recording.refresh} />
       </header>
       <ErrorBox
@@ -639,7 +636,7 @@ export function DetailPage() {
             {tr("录音已停止访问，后台仍在核对任务与清理远端资源。请在任务页查看状态。")}{" "}
           </AlertDescription>
         </Alert>
-      ) : (
+      ) : r.state === "ready" ? (
         <div className="player-panel" ref={playerPanel}>
           <div className="player-icon">
             <AudioLines />
@@ -647,81 +644,74 @@ export function DetailPage() {
           <div className="player-content">
             <div className="player-caption">
               <p className="truncate text-xs font-medium">{r.title || r.original_name}</p>
-              <Popover open={outlineOpen} onOpenChange={setOutlineOpen}>
-                <PopoverTrigger render={<Button variant="ghost" size="xs" />}>
-                  <List data-icon="inline-start" />
-                  {tr("目录")}
-                </PopoverTrigger>
-                <PopoverContent
-                  side="top"
-                  align="end"
-                  finalFocus={false}
-                  className="max-h-[55dvh] overflow-y-auto"
-                >
-                  <PopoverTitle>{tr("录音目录")}</PopoverTitle>
-                  <Tabs defaultValue="outline">
-                    <TabsList className="w-full">
-                      <TabsTrigger value="outline">{tr("目录")}</TabsTrigger>
-                      <TabsTrigger value="summary">{tr("摘要")}</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="outline">
-                      <InsightOutline
-                        hasTranscription={version?.state === "succeeded"}
-                        data={insights.data}
-                        error={insights.error}
-                        busy={action.pendingKey === "insights"}
-                        disabled={
-                          !selected ||
-                          blocked ||
-                          session.restore_mode ||
-                          version?.state !== "succeeded"
-                        }
-                        onGenerate={() => void generateInsights()}
-                        onRefresh={insights.refresh}
-                        pendingSegment={pendingAnchor}
-                        onJump={jumpChapter}
-                      />
-                    </TabsContent>
-                    <TabsContent value="summary">
-                      <InsightOutline
-                        view="summary"
-                        hasTranscription={version?.state === "succeeded"}
-                        data={insights.data}
-                        error={insights.error}
-                        busy={action.pendingKey === "insights"}
-                        disabled={
-                          !selected ||
-                          blocked ||
-                          session.restore_mode ||
-                          version?.state !== "succeeded"
-                        }
-                        onGenerate={() => void generateInsights()}
-                        onRefresh={insights.refresh}
-                        pendingSegment={pendingAnchor}
-                        onJump={jumpChapter}
-                      />
-                    </TabsContent>
-                  </Tabs>
-                </PopoverContent>
-              </Popover>
+              {readingReady && (
+                <Popover open={outlineOpen} onOpenChange={setOutlineOpen}>
+                  <PopoverTrigger render={<Button variant="ghost" size="xs" />}>
+                    <List data-icon="inline-start" />
+                    {tr("目录")}
+                  </PopoverTrigger>
+                  <PopoverContent
+                    side="top"
+                    align="end"
+                    finalFocus={false}
+                    className="max-h-[55dvh] overflow-y-auto"
+                  >
+                    <PopoverTitle>{tr("录音目录")}</PopoverTitle>
+                    <Tabs defaultValue="outline">
+                      <TabsList className="w-full">
+                        <TabsTrigger value="outline">{tr("目录")}</TabsTrigger>
+                        <TabsTrigger value="summary">{tr("摘要")}</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="outline">
+                        <InsightOutline
+                          hasTranscription={version?.state === "succeeded"}
+                          data={insights.data}
+                          error={insights.error}
+                          busy={action.pendingKey === "insights"}
+                          disabled={
+                            !selected ||
+                            blocked ||
+                            session.restore_mode ||
+                            version?.state !== "succeeded"
+                          }
+                          onGenerate={() => void generateInsights()}
+                          onRefresh={insights.refresh}
+                          pendingSegment={pendingAnchor}
+                          onJump={jumpChapter}
+                        />
+                      </TabsContent>
+                      <TabsContent value="summary">
+                        <InsightOutline
+                          view="summary"
+                          hasTranscription={version?.state === "succeeded"}
+                          data={insights.data}
+                          error={insights.error}
+                          busy={action.pendingKey === "insights"}
+                          disabled={
+                            !selected ||
+                            blocked ||
+                            session.restore_mode ||
+                            version?.state !== "succeeded"
+                          }
+                          onGenerate={() => void generateInsights()}
+                          onRefresh={insights.refresh}
+                          pendingSegment={pendingAnchor}
+                          onJump={jumpChapter}
+                        />
+                      </TabsContent>
+                    </Tabs>
+                  </PopoverContent>
+                </Popover>
+              )}
             </div>
-            {r.state === "ready" ? (
-              <audio
-                {...playback.audioProps}
-                key={r.id}
-                controls
-                preload="metadata"
-                src={apiUrl(`/recordings/${r.id}/audio`)}
-                aria-label={tr("录音播放器")}
-              />
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                {tr("播放副本")}{" "}
-                {r.state === "failed"
-                  ? tr("生成失败，请在任务页检查。")
-                  : tr("准备中，完成后可播放。")}
-              </p>
-            )}
+            <audio
+              {...playback.audioProps}
+              key={r.id}
+              controls
+              preload="metadata"
+              src={apiUrl(`/recordings/${r.id}/audio`)}
+              aria-label={tr("录音播放器")}
+            />
             {playback.failed && (
               <p className="text-sm text-destructive">
                 {tr("音频暂时无法加载，请刷新会话或稍后重试。")}
@@ -729,7 +719,7 @@ export function DetailPage() {
             )}
           </div>
         </div>
-      )}
+      ) : null}
       <div
         ref={searchToolbar}
         className={selection || referenceCode ? "reference-tools" : undefined}
@@ -812,7 +802,10 @@ export function DetailPage() {
         )}
         <ErrorBox message={copyError} />
       </div>
-      <div className="detail-grid" ref={readingGrid}>
+      <div
+        className={cn("detail-grid", !readingReady && !showInfo && "detail-grid-pending")}
+        ref={readingGrid}
+      >
         <Card className="transcript-card" ref={transcriptPanel}>
           <CardContent>
             <ErrorBox message={loadError} retry={() => setReload((n) => n + 1)} />
@@ -1176,15 +1169,18 @@ export function DetailPage() {
             </CardFooter>
           )}
         </Card>
-        <aside className="detail-aside">
+        <aside className="detail-aside" id="recording-info" hidden={!readingReady && !showInfo}>
           <Tabs
-            value={railTab}
+            value={readingReady ? railTab : "info"}
             onValueChange={(value) => setRailTab(String(value))}
             className="sidebar-tabs"
           >
-            <TabsList className="w-full" aria-label={tr("录音侧栏")}>
-              <TabsTrigger value="outline">{tr("目录")}</TabsTrigger>
-              <TabsTrigger value="summary">{tr("摘要")}</TabsTrigger>
+            <TabsList
+              className={cn("w-full", !readingReady && "hidden")}
+              aria-label={tr("录音侧栏")}
+            >
+              {readingReady && <TabsTrigger value="outline">{tr("目录")}</TabsTrigger>}
+              {readingReady && <TabsTrigger value="summary">{tr("摘要")}</TabsTrigger>}
               <TabsTrigger value="info">{tr("录音信息")}</TabsTrigger>
             </TabsList>
             <TabsContent value="outline">
@@ -1268,6 +1264,15 @@ export function DetailPage() {
                   </div>
                 </dl>
               </details>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setDeleteOpen(true)}
+                disabled={blocked}
+              >
+                <Trash2 data-icon="inline-start" />
+                {tr("删除录音")}
+              </Button>
               <details
                 className="recording-tools"
                 id="recording-versions"
@@ -1425,52 +1430,54 @@ export function DetailPage() {
                   </CardFooter>
                 </Card>
               </details>
-              <details className="recording-tools">
-                <summary>{tr("说话人与人物")}</summary>
-                <Card>
-                  <CardContent className="flex flex-col gap-3">
-                    {version?.speaker_labels.length ? (
-                      version.speaker_labels.map((label) => (
-                        <div className="flex items-center gap-2 text-sm" key={label.id}>
-                          <span>{label.display_name}</span>
-                          <span className="ml-auto text-muted-foreground">
-                            {label.person_id
-                              ? labelName(label, people.data?.items || [])
-                              : tr("未关联")}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        {tr("尚无说话人标签。即使模型未区分说话人，也能创建人工标签。")}{" "}
-                      </p>
-                    )}
-                    <Field orientation="horizontal" className="mt-3">
-                      <FieldLabel htmlFor="show-builtin">
-                        {tr("显示背景声等内置人物片段")}
-                      </FieldLabel>
-                      <Switch
-                        id="show-builtin"
-                        checked={showBuiltin || !!anchor}
-                        disabled={!!anchor}
-                        onCheckedChange={(checked) => {
-                          setShowBuiltin(checked);
-                        }}
-                      />
-                    </Field>
-                  </CardContent>
-                  <CardFooter>
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      disabled={!version || blocked}
-                      onClick={() => setLabelsOpen(true)}
-                    >
-                      {tr("管理标签与关联")}{" "}
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </details>
+              {readingReady && (
+                <details className="recording-tools">
+                  <summary>{tr("说话人与人物")}</summary>
+                  <Card>
+                    <CardContent className="flex flex-col gap-3">
+                      {version?.speaker_labels.length ? (
+                        version.speaker_labels.map((label) => (
+                          <div className="flex items-center gap-2 text-sm" key={label.id}>
+                            <span>{label.display_name}</span>
+                            <span className="ml-auto text-muted-foreground">
+                              {label.person_id
+                                ? labelName(label, people.data?.items || [])
+                                : tr("未关联")}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          {tr("尚无说话人标签。即使模型未区分说话人，也能创建人工标签。")}{" "}
+                        </p>
+                      )}
+                      <Field orientation="horizontal" className="mt-3">
+                        <FieldLabel htmlFor="show-builtin">
+                          {tr("显示背景声等内置人物片段")}
+                        </FieldLabel>
+                        <Switch
+                          id="show-builtin"
+                          checked={showBuiltin || !!anchor}
+                          disabled={!!anchor}
+                          onCheckedChange={(checked) => {
+                            setShowBuiltin(checked);
+                          }}
+                        />
+                      </Field>
+                    </CardContent>
+                    <CardFooter>
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        disabled={!version || blocked}
+                        onClick={() => setLabelsOpen(true)}
+                      >
+                        {tr("管理标签与关联")}{" "}
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                </details>
+              )}
             </TabsContent>
           </Tabs>
         </aside>

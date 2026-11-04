@@ -56,11 +56,13 @@ export function RecordingProgress({
       "normalizing",
     ].includes(state);
   const needsAttention = state === "restore_hold";
+  const stage = job?.stage || state;
   return (
     <div className="flex flex-col items-start gap-4 py-6">
       {pending ? (
         <div className="w-full">
           <Loading
+            compact
             title={
               state === "preparing"
                 ? tr("正在准备音频")
@@ -68,25 +70,24 @@ export function RecordingProgress({
                   ? tr("转写排队中")
                   : state === "retry_wait"
                     ? tr("等待重试")
-                    : tr("正在转写")
+                    : stage && ["uploading", "submitting", "polling", "normalizing"].includes(stage)
+                      ? stateName(stage)
+                      : tr("正在转写")
             }
             description={
               state === "preparing"
-                ? tr("正在生成播放副本，完成后将继续转写。你可以离开此页，后台会继续处理。")
-                : tr("完成后会自动显示转写结果，你可以先处理其他录音。")
+                ? tr("完成后自动开始转写，可离开此页。")
+                : tr("完成后自动显示结果，可离开此页。")
             }
           />
-          {job && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              {tr("当前阶段：")} {stateName(job.stage)}
-            </p>
-          )}
         </div>
       ) : state === "failed" || state === "uncertain" ? (
         <ErrorBox
           message={
-            tr("处理失败，请查看任务详情后重试。") +
-            (transcription?.error_code ? ` (${transcription.error_code})` : "")
+            job?.error_code
+              ? jobError(job)
+              : tr("处理失败，请查看任务详情后重试。") +
+                (transcription?.error_code ? ` (${transcription.error_code})` : "")
           }
         />
       ) : needsAttention ? (
@@ -107,7 +108,9 @@ export function RecordingProgress({
           )}
         />
       )}
-      {job?.error_code && <p className="text-sm text-destructive">{jobError(job)}</p>}
+      {job?.error_code && state !== "failed" && state !== "uncertain" && (
+        <p className="text-sm text-destructive">{jobError(job)}</p>
+      )}
       <ErrorBox message={action.error} />
       <div className="flex flex-wrap gap-2">
         {job?.retry_allowed && !session.restore_mode && (
@@ -132,7 +135,7 @@ export function RecordingProgress({
         )}
         {(pending || needsAttention || state === "failed" || state === "uncertain") && (
           <Button
-            variant="outline"
+            variant={pending ? "link" : "outline"}
             size="sm"
             nativeButton={false}
             render={<Link to={`/jobs?recording_id=${recording.id}`} />}
@@ -140,9 +143,11 @@ export function RecordingProgress({
             {tr("查看任务")}
           </Button>
         )}
-        <Button variant="ghost" size="sm" onClick={onManage}>
-          {tr("版本与导出")}
-        </Button>
+        {!pending && (
+          <Button variant="ghost" size="sm" onClick={onManage}>
+            {tr("版本与导出")}
+          </Button>
+        )}
       </div>
     </div>
   );

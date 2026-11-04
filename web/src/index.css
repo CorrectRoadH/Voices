@@ -1603,6 +1603,13 @@ body:has(.player-panel) [data-slot="toast-viewport"] {
   }
 }
 /* Shared click-to-edit controls keep single-field edits close to their content. */
+.detail-grid-pending {
+  grid-template-columns: minmax(0, 1fr);
+}
+.detail-aside[hidden] {
+  display: none;
+}
+
 .inline-edit-trigger {
   cursor: text;
   border-radius: var(--radius-sm);
