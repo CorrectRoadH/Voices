@@ -1,7 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/people/use-case/recognize-speaker.md
 import { useEffect, useRef } from "react";
-import { useAction, useApp, useResource } from "@/lib/hooks";
+import { useAction, useApp, useForegroundRefresh, useResource } from "@/lib/hooks";
 import { write } from "@/lib/api";
 import { tr } from "@/lib/i18n";
 import type { Schema } from "@/lib/types";
@@ -11,7 +11,13 @@ import { ErrorBox, Loading } from "./shared";
 
 export function PersonVoiceprints({ id, archived }: { id: string; archived: boolean }) {
   const path = `/people/${encodeURIComponent(id)}/voiceprints`;
-  const data = useResource<Schema["PersonVoiceprints"]>(path, 0, 5000);
+  const data = useResource<Schema["PersonVoiceprints"]>(path);
+  useForegroundRefresh(
+    () => {
+      if (!data.refreshing) data.refresh();
+    },
+    data.data?.configured && data.data.pending > 0 ? 5000 : 0,
+  );
   const action = useAction();
   const { session } = useApp();
   return (
@@ -73,7 +79,15 @@ export function TranscriptionVoiceprints({
   onPublished: () => void;
 }) {
   const path = `/transcriptions/${encodeURIComponent(id)}/voiceprints`;
-  const data = useResource<Schema["TranscriptionVoiceprints"]>(path, revision, 5000);
+  const data = useResource<Schema["TranscriptionVoiceprints"]>(path, revision);
+  const task = data.data?.task;
+  const busy = task?.state === "queued" || task?.state === "running";
+  useForegroundRefresh(
+    () => {
+      if (!data.refreshing) data.refresh();
+    },
+    data.data?.configured && busy ? 5000 : 0,
+  );
   const action = useAction();
   const { session } = useApp();
   const seen = useRef("");
@@ -87,8 +101,6 @@ export function TranscriptionVoiceprints({
     seen.current = key;
     published.current();
   }, [id, data.data]);
-  const task = data.data?.task;
-  const busy = task?.state === "queued" || task?.state === "running";
   return (
     <div className="flex flex-col gap-2" aria-label={tr("声纹识别")}>
       <ErrorBox message={data.error || action.error} retry={data.refresh} />

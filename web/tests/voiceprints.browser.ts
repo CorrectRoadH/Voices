@@ -52,16 +52,33 @@ test("人工声纹与后台自动关联即时更新正文", async ({ app, browse
   ).toBeGreaterThanOrEqual(2);
   await browser.keyboard.press("Escape");
   await app.screenshot("后台自动关联完成");
+  // Completed tasks stop polling; observe the real fetch boundary, not a fake timer.
+  await browser.evaluate(() => {
+    const original = window.fetch.bind(window);
+    (window as unknown as { voiceprintRequests: number }).voiceprintRequests = 0;
+    window.fetch = (input, init) => {
+      if (String(input).includes("/voiceprints"))
+        (window as unknown as { voiceprintRequests: number }).voiceprintRequests++;
+      return original(input, init);
+    };
+    return null;
+  });
+  await new Promise((resolve) => setTimeout(resolve, 6500));
+  expect(
+    await browser.evaluate(
+      () => (window as unknown as { voiceprintRequests: number }).voiceprintRequests,
+    ),
+  ).toBe(0);
   const version = await (
     await api(browser, `/transcriptions/${fixture("VOICES_TEST_TRANSCRIPTION")}`)
   ).json();
   const label = version.speaker_labels[0];
   expect(label.identity_source).toBe("automatic");
-  const cleared = await api(browser, `/speaker-labels/${label.id}`, "PATCH", {
-    revision: label.revision,
-    person_id: null,
-  });
-  expect(cleared.status).toBe(200);
+  await screen.getByRole("button", { name: "管理标签与关联" }).click();
+  await screen.getByLabel("关联人物", { exact: true }).selectOption({ value: "" });
+  await screen.getByRole("button", { name: "保存标签", exact: true }).click();
+  await expect(screen.getByText("标签已更新", { exact: true })).toBeVisible();
+  await browser.keyboard.press("Escape");
   await expect(screen.getByText("自动关联", { exact: true })).toHaveCount(0);
   await expect(
     browser.locator(".transcript-card").getByText("声纹测试人物", { exact: true }),
