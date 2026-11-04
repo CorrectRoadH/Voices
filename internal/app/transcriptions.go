@@ -216,12 +216,15 @@ func (a *App) createLabel(w http.ResponseWriter, r *http.Request) error {
 			id = old
 			return nil
 		}
+		if err := voiceprintOwner(r.Context(), tx, tid); err != nil {
+			return err
+		}
 		if in.PersonID != nil {
 			if err := assignablePerson(r.Context(), tx, *in.PersonID); err != nil {
 				return err
 			}
 		}
-		if _, err := tx.Exec(r.Context(), "INSERT INTO speaker_labels(id,transcription_id,display_name,person_id) VALUES($1,$2,$3,$4)", id, tid, in.DisplayName, in.PersonID); err != nil {
+		if _, err := tx.Exec(r.Context(), "INSERT INTO speaker_labels(id,transcription_id,display_name,person_id,identity_source) VALUES($1,$2,$3,$4,'manual')", id, tid, in.DisplayName, in.PersonID); err != nil {
 			return err
 		}
 		return saveKey(r.Context(), tx, "label:"+tid, key, hash, id)
@@ -282,17 +285,23 @@ func (a *App) patchLabel(w http.ResponseWriter, r *http.Request) error {
 		if err := lockTranscription(r.Context(), tx, tid); err != nil {
 			return err
 		}
+		if err := voiceprintOwner(r.Context(), tx, tid); err != nil {
+			return err
+		}
 		if in.PersonID.Present && in.PersonID.Value != nil {
 			if err := assignablePerson(r.Context(), tx, *in.PersonID.Value); err != nil {
 				return err
 			}
 		}
-		tag, err := tx.Exec(r.Context(), "UPDATE speaker_labels SET display_name=COALESCE($3,display_name),person_id=CASE WHEN $4 THEN $5::uuid ELSE person_id END,revision=revision+1 WHERE id=$1 AND revision=$2", r.PathValue("id"), in.Revision, in.DisplayName, in.PersonID.Present, in.PersonID.Value)
+		tag, err := tx.Exec(r.Context(), "UPDATE speaker_labels SET display_name=COALESCE($3,display_name),person_id=CASE WHEN $4 THEN $5::uuid ELSE person_id END,identity_source=CASE WHEN $4 THEN 'manual' ELSE identity_source END,match_score=CASE WHEN $4 THEN NULL ELSE match_score END,revision=revision+1 WHERE id=$1 AND revision=$2", r.PathValue("id"), in.Revision, in.DisplayName, in.PersonID.Present, in.PersonID.Value)
 		if err != nil {
 			return err
 		}
 		if tag.RowsAffected() != 1 {
 			return conflict()
+		}
+		if in.PersonID.Present {
+			return queueVoiceprints(r.Context(), tx, tid, true)
 		}
 		return nil
 	})

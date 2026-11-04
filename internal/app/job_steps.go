@@ -259,6 +259,9 @@ completed:
 		if _, err := tx.Exec(ctx, "UPDATE transcriptions SET state='succeeded',error_code=NULL,raw_response_blob_id=$2,revision=revision+1 WHERE id=$1", *j.TranscriptionID, writer.ID); err != nil {
 			return err
 		}
+		if err := queueVoiceprints(ctx, tx, *j.TranscriptionID, false); err != nil {
+			return err
+		}
 		if _, err := tx.Exec(ctx, "UPDATE recordings SET active_transcription_id=$2,revision=revision+1 WHERE id=$1 AND active_transcription_id IS NULL", j.RecordingID, *j.TranscriptionID); err != nil {
 			return err
 		}

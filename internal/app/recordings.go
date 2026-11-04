@@ -264,6 +264,13 @@ func (a *App) patchRecording(w http.ResponseWriter, r *http.Request) error {
 }
 func (a *App) deleteRecording(w http.ResponseWriter, r *http.Request) error {
 	err := persistence.Transaction(r.Context(), a.DB, func(tx pgx.Tx) error {
+		var owner string
+		if err := tx.QueryRow(r.Context(), "SELECT owner_id FROM recordings WHERE id=$1 FOR UPDATE", r.PathValue("id")).Scan(&owner); err != nil {
+			return err
+		}
+		if err := lockVoiceprintOwner(r.Context(), tx, owner); err != nil {
+			return err
+		}
 		tag, err := tx.Exec(r.Context(), "UPDATE recordings SET state='deleting',deleted_at=clock_timestamp(),active_transcription_id=NULL,revision=revision+1 WHERE id=$1", r.PathValue("id"))
 		if err != nil {
 			return err

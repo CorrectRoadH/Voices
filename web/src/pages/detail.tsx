@@ -2,6 +2,7 @@
 // @concord-implements docs/feature/sentence-links/use-case/copy-sentence-link.md
 // @concord-implements docs/feature/transcription/use-case/transcribe.md
 import { TranscriptStore } from "@/lib/transcript-store";
+import { TranscriptionVoiceprints } from "@/components/voiceprints";
 import { segmentSpeakerName, labelName } from "@/lib/person-name";
 import { tr, interfaceLocale } from "@/lib/i18n";
 import { requestKey } from "@/lib/request-key";
@@ -1435,10 +1436,21 @@ export function DetailPage() {
                   <summary>{tr("说话人与人物")}</summary>
                   <Card>
                     <CardContent className="flex flex-col gap-3">
+                      {version?.state === "succeeded" && (
+                        <TranscriptionVoiceprints
+                          key={version.id}
+                          id={version.id}
+                          revision={reload}
+                          onPublished={refresh}
+                        />
+                      )}
                       {version?.speaker_labels.length ? (
                         version.speaker_labels.map((label) => (
                           <div className="flex items-center gap-2 text-sm" key={label.id}>
                             <span>{label.display_name}</span>
+                            {label.identity_source === "automatic" && (
+                              <Badge variant="outline">{tr("自动关联")}</Badge>
+                            )}
                             <span className="ml-auto text-muted-foreground">
                               {label.person_id
                                 ? labelName(label, people.data?.items || [])

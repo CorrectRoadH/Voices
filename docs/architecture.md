@@ -7,9 +7,9 @@
 
 [产品契约](feature/recording-library/README.md) · [转写契约](feature/transcription/README.md) · [人物契约](feature/people/README.md) · [初始方案](design/foundation/README.md) · [无状态存储方案](design/stateless-media/README.md)
 
-用户通过邮箱、用户名和密码注册，可用用户名或邮箱登录；每账号拥有独立数据，首个成功注册者为系统管理员。支持多个无状态应用副本。团队共享、数据库高可用编排、实时录音和声纹自动认人不属于当前承诺。
+用户通过邮箱、用户名和密码注册，可用用户名或邮箱登录；每账号拥有独立数据，首个成功注册者为系统管理员。支持多个无状态应用副本。团队共享、数据库高可用编排和实时录音不属于当前承诺。
 账号模型、权限与迁移以 [账号方案](research/account-isolation/README.md) 和 [账号契约](feature/accounts/README.md) 为准。
-声纹自动认人的范围尚待用户明确；当前采用录音内自动区分说话人、用户确认人物关联。
+录音内自动区分说话人，用户确认人物关联后可建立声纹。启用自托管服务后，新转写按[声纹设计](feature/people/voiceprints.md)匹配同账号人工样本；不确定结果保持匿名，人工纠错优先。
 
 ## 模块与部署
 

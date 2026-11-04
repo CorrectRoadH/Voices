@@ -86,6 +86,9 @@ func (a *App) patchSegment(w http.ResponseWriter, r *http.Request) error {
 		if err := lockTranscription(r.Context(), tx, tid); err != nil {
 			return err
 		}
+		if err := voiceprintOwner(r.Context(), tx, tid); err != nil {
+			return err
+		}
 		var start, end *int64
 		var mode string
 		var label *string
@@ -121,6 +124,9 @@ func (a *App) patchSegment(w http.ResponseWriter, r *http.Request) error {
 			return bad("label_required", "请选择说话人标签")
 		}
 		_, err := tx.Exec(r.Context(), "UPDATE segments SET edited_text=CASE WHEN $2 THEN $3::text ELSE edited_text END,start_ms=$4,end_ms=$5,assignment_mode=$6,assigned_label_id=$7,revision=revision+1 WHERE id=$1", r.PathValue("id"), in.EditedText.Present, in.EditedText.Value, start, end, mode, label)
+		if err == nil && (in.StartMS.Present || in.EndMS.Present || in.AssignmentMode != nil || in.AssignedLabelID.Present) {
+			return queueVoiceprints(r.Context(), tx, tid, true)
+		}
 		return err
 	})
 	if err != nil {

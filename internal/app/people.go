@@ -118,6 +118,9 @@ func (a *App) patchPerson(w http.ResponseWriter, r *http.Request) error {
 		return bad("builtin_person_readonly", "内置人物不可修改或归档")
 	}
 	err = persistence.Transaction(r.Context(), a.DB, func(tx pgx.Tx) error {
+		if err := lockVoiceprintOwner(r.Context(), tx, persistence.UserID(r.Context())); err != nil {
+			return err
+		}
 		if _, err := tx.Exec(r.Context(), "SELECT pg_advisory_xact_lock(hashtextextended($1,0))", "self-person:"+persistence.UserID(r.Context())); err != nil {
 			return err
 		}

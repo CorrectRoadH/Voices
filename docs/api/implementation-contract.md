@@ -89,3 +89,13 @@ Upload/Submit 每次只发一个创建操作；网络错误返回 uncertain。�
 业务资源归属来自会话，客户端不能指定 owner。所有资源 ID 路由先通过归属守卫；列表、搜索和幂等键按 owner 隔离。系统管理员访问他人业务内容仍返回 404。管理接口需要实时 admin 角色；角色修改和启停记录审计，不能移除最后一个有效管理员。
 
 远端资源归属不能由 Web 账号自行声明。`POST /jobs/{id}/resolve` 可保存观察、确认本操作已有 ID；未知远端 ID 返回 403 `operator_reconciliation_required`，须使用本机运维命令核对并登记。
+
+## 声纹
+
+`SpeakerLabel.identity_source` 为 `unassigned`、`manual` 或 `automatic`，`match_score` 仅自动关联时为相似度；相似度不是概率。人工 PATCH `person_id`（含 null）清除自动来源；重新选择同一人物表示人工确认。
+
+`GET /transcriptions/{id}/voiceprints` 返回 `configured`、`samples` 和可空 `task`，任务含 `state`、`generation`、`updated_at`、`error_code`。POST 同路径为成功转写重新排队，queued/running 合并，返回同一 DTO，不发起 STT。
+
+`GET /people/{id}/voiceprints` 返回 `configured`、有效人工 `samples`、`sample_ms` 和待处理转写 `pending`。POST 从该人物的历史人工标识录音建档，已排队任务合并，返回同一 DTO。
+
+四个路由均使用现有资源归属鉴权；POST 还需 CSRF 且受恢复模式写保护。未配置服务的 POST 返回 409 `voiceprints_unconfigured`；未完成转写返回 409 `not_completed`；归档人物返回 400 `person_archived`，内置人物返回 400 `builtin_person_readonly`。响应不暴露向量、服务地址或音频。行为见[声纹识别](../feature/people/use-case/recognize-speaker.md)，类型以 OpenAPI 为准。

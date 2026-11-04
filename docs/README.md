@@ -36,6 +36,6 @@
 使用 [Concord](concord.md) 管理产品契约及代码/测试关系。Go 与前端测试入口见 [开发与测试](development.md)，不用默认 Node runner 声称验证 Go。
 上述产品契约均已实现，并通过真实 PostgreSQL、HTTP 与浏览器验收；真实付费服务商样本验收尚未进行。
 
-跨录音声纹自动认人、超长录音自动切片、摘要与团队协作均未纳入当前实现承诺。
+跨录音声纹自动认人见[声纹识别](feature/people/use-case/recognize-speaker.md)，部署需显式启用[声纹服务](../voiceprint-service/README.md)。超长录音自动切片与团队协作未纳入当前实现承诺。
 
 运行入口：[部署与恢复](operations.md) · [开发与测试](development.md) · [HTTP 契约](api/implementation-contract.md) · [OpenAPI](api/openapi.json)。

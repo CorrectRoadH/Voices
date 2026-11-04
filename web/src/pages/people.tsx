@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/people/use-case/link-person.md
+import { PersonVoiceprints } from "@/components/voiceprints";
 import { usePagedResource } from "@/lib/use-paged-resource";
 import { personName } from "@/lib/person-name";
 import { tr } from "@/lib/i18n";
@@ -323,6 +324,13 @@ export function PersonPage() {
             {person.data.builtin_key && <Badge variant="outline">{tr("内置")}</Badge>}
             {person.data.archived_at && <Badge variant="secondary">{tr("已归档")}</Badge>}
           </PageHeading>
+          {!person.data.builtin_key && (
+            <PersonVoiceprints
+              key={person.data.id}
+              id={person.data.id}
+              archived={!!person.data.archived_at}
+            />
+          )}
           <Card>
             <CardHeader>
               <CardTitle>{tr("相关录音")}</CardTitle>

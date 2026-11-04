@@ -29,6 +29,8 @@ func (a *App) Restore(ctx context.Context) error {
 			return err
 		}
 		for _, sql := range []string{
+			"UPDATE voiceprint_execution SET run_id=NULL,lease_until=NULL WHERE id",
+			"UPDATE voiceprint_tasks SET generation=gen_random_uuid(),state='queued',lease_until=NULL,error_code=NULL,updated_at=clock_timestamp() WHERE state='running'",
 			"DELETE FROM blob_read_leases",
 			"UPDATE external_calls SET state='interrupted',error_code='interrupted',error_reason='database_restore' WHERE state='running'",
 			"UPDATE transcription_insights SET state='failed',error_code='interrupted',input_json=NULL,llm_config_json=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE state IN ('queued','running')",
@@ -64,6 +66,12 @@ func (a *App) Run(ctx context.Context) {
 		case <-ticker.C:
 			if a.Config.RestoreMode {
 				continue
+			}
+			if work, err := a.claimVoiceprints(ctx); err == nil {
+				wg.Add(1)
+				go func() { defer wg.Done(); a.executeVoiceprints(ctx, work) }()
+			} else if err != pgx.ErrNoRows && ctx.Err() == nil {
+				a.recordRuntime(ctx, "voiceprint_claim_failed", errorType(err), "", "", 0, "")
 			}
 			if work, err := a.claimInsight(ctx); err == nil {
 				wg.Add(1)

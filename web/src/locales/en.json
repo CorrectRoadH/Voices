@@ -993,5 +993,21 @@
   "转写 ID": "Transcription ID",
   "生成 ID": "Generation ID",
   "服务商 / 模型": "Provider / model",
-  "请求状态": "Request status"
+  "请求状态": "Request status",
+  "人物声纹": "Voice profile",
+  "声纹服务未启用": "Voice recognition is not enabled",
+  "正在建立声纹…": "Building voice profile…",
+  "已建立 {{v0}} 份样本，共 {{v1}} 秒": "{{v0}} samples, {{v1}} seconds",
+  "暂无可用声纹": "No usable voice samples yet",
+  "人工确认的清晰发言会用于识别后续录音；至少需要两段、合计六秒。": "Clear, manually confirmed speech helps identify future recordings. At least two clips totaling six seconds are needed.",
+  "已安排声纹更新": "Voice profile update queued",
+  "从已标识录音更新声纹": "Update from identified recordings",
+  "声纹识别": "Voice recognition",
+  "正在识别说话人…": "Identifying speakers…",
+  "声纹处理失败，可重试；转写不受影响。": "Voice processing failed. You can retry; the transcript is unaffected.",
+  "声纹比对完成，明确匹配的人物已自动关联。": "Voice matching completed. Confident matches have been linked automatically.",
+  "没有足够清晰的语音，保留当前人物标识。": "Not enough clear speech. Existing speaker assignments are unchanged.",
+  "尚未进行声纹识别": "Voice recognition has not run yet",
+  "重新比对声纹": "Match voices again",
+  "自动关联": "Automatically linked"
 }

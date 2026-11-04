@@ -9,9 +9,11 @@ import (
 
 	"github.com/joho/godotenv"
 	"voices/internal/updates"
+	"voices/internal/voiceprints"
 )
 
 type Config struct {
+	VoiceprintURL   string
 	UpdateURL       string
 	UpdateTelemetry bool
 
@@ -47,6 +49,10 @@ func LoadConfig() (Config, error) {
 	}
 	c := Config{seedEnv: values, ListenAddr: get("LISTEN_ADDR", "127.0.0.1:8080"), WebDir: get("WEB_DIR", "web/dist"), TempDir: values["TEMP_DIR"], RestoreMode: values["RESTORE_MODE"] == "true", MaxUploadBytes: 2 << 30, TranscriptionConcurrency: 2, PrepareConcurrency: 1, HTTPTimeout: 2 * time.Minute}
 	c.DatabaseURL, err = configSecret(values, "DATABASE_URL")
+	c.VoiceprintURL = values["VOICEPRINT_URL"]
+	if !voiceprints.ValidURL(c.VoiceprintURL) {
+		return c, errors.New("VOICEPRINT_URL must be an HTTP(S) origin without credentials, path, query or fragment")
+	}
 	c.UpdateURL = "https://voices.niceeval.com/"
 	if value, exists := values["UPDATE_URL"]; exists {
 		c.UpdateURL = value
