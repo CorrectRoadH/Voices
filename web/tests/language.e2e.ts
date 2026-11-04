@@ -18,7 +18,8 @@ test(
     await browser.reload();
     await expect(screen.getByLabel("Interface language", { exact: true })).toHaveValue("en");
     await agent.act(
-      "保持英文界面，用邮箱 language-admin@example.test、用户名 language_admin、密码 test-language-password 创建管理员账号，停在初始化页面。",
+      "保持英文界面，用邮箱 language-admin@example.test、用户名 language_admin、密码 {password} 创建管理员账号，停在初始化页面。",
+      { params: { password } },
     );
     await expect(screen.getByRole("heading", { name: "Set up your site" })).toBeVisible();
     await agent.act("选择 Continue without LLM 完成初始化。");
@@ -149,14 +150,22 @@ test(
     const recording = (await uploaded.json()).recording;
     await browser.goto(`${base}/recordings/${recording.id}`);
     await expect(screen.getByRole("heading", { name: "中文会议", exact: true })).toBeVisible();
-    await expect(
-      screen.getByRole("tab", { name: "Recording information", exact: true }),
-    ).toBeVisible();
+    const recordingInfo = screen.getByRole("button", {
+      name: "Recording information",
+      exact: true,
+    });
+    await expect(recordingInfo).toHaveAttribute("aria-expanded", "false");
     // 此 fixture 未启动准备 worker，上传后应明确展示准备状态。
     await expect(screen.getByText("Preparing audio", { exact: true })).toBeVisible();
-    await expect(
-      screen.getByText("Complete a transcription to generate an outline."),
-    ).toBeVisible();
+    await expect(screen.getByText("Complete a transcription to generate an outline.")).toHaveCount(
+      0,
+    );
+    await recordingInfo.click();
+    await expect(recordingInfo).toHaveAttribute("aria-expanded", "true");
+    await expect(browser.locator("#recording-info")).toBeVisible();
+    await expect(browser.locator("#recording-metadata summary")).toHaveText(
+      "Recording information",
+    );
     await browser.setViewport({ width: 390, height: 844 });
     await app.screenshot("英文手机界面");
     expect(await browser.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
