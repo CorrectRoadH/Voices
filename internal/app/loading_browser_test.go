@@ -15,6 +15,10 @@ func TestLoadingBrowser(t *testing.T) {
 		t.Skip("set VOICES_BROWSER_TEST=1 after building web")
 	}
 	f, rid, tid, ids := referenceFixture(t)
+	// This scenario asserts idle polling, so finish the real default background
+	// voiceprint work before opening the page (no worker runs in this fixture).
+	runVoiceprint(t, f)
+	t.Cleanup(f.a.voiceprintEngine.Close)
 	f.a.Config.WebDir = "../../web/dist"
 	ctx := context.Background()
 	owner := userID(t, f)

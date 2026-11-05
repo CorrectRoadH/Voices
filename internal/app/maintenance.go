@@ -10,6 +10,9 @@ import (
 )
 
 func (a *App) maintenance(ctx context.Context) error {
+	if a.Config.RestoreMode {
+		return nil
+	}
 	conn, err := a.DB.Acquire(ctx)
 	if err != nil {
 		return err
@@ -33,6 +36,9 @@ func (a *App) maintenance(ctx context.Context) error {
 		return err
 	}
 	if _, err := a.DB.Exec(ctx, "DELETE FROM oidc_login_flows WHERE expires_at<clock_timestamp()"); err != nil {
+		return err
+	}
+	if err := a.maintainVoiceprints(ctx); err != nil {
 		return err
 	}
 	if err := a.cleanupRemote(ctx); err != nil {

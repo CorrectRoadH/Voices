@@ -448,3 +448,68 @@ func TestVoiceprintRunOwnsNativeLifetime(t *testing.T) {
 		t.Fatal("execution slot leaked", err)
 	}
 }
+
+// @use-case docs/feature/people/use-case/recognize-speaker.md
+func TestVoiceprintAutomaticMaintenance(t *testing.T) {
+	fakeRemote(t)
+	f := setup(t)
+	_, tid, label := voiceprintRecording(t, f, 20)
+	ctx := context.Background()
+	if _, err := f.db.Exec(ctx, "DELETE FROM voiceprint_tasks WHERE transcription_id=$1", tid); err != nil {
+		t.Fatal(err)
+	}
+	f.a.Config.RestoreMode = true
+	if err := f.a.maintenance(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := f.db.QueryRow(ctx, "SELECT count(*) FROM voiceprint_tasks").Scan(&n); err != nil || n != 0 {
+		t.Fatal("restore mode queued work", n, err)
+	}
+	f.a.Config.RestoreMode = false
+	if err := f.a.maintenance(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var generation string
+	if err := f.db.QueryRow(ctx, "SELECT generation FROM voiceprint_tasks WHERE transcription_id=$1", tid).Scan(&generation); err != nil {
+		t.Fatal(err)
+	}
+	for _, state := range []string{"queued", "running", "succeeded"} {
+		if _, err := f.db.Exec(ctx, "UPDATE voiceprint_tasks SET state=$2,updated_at=clock_timestamp()-interval '1 hour' WHERE transcription_id=$1", tid, state); err != nil {
+			t.Fatal(err)
+		}
+		if err := f.a.maintainVoiceprints(ctx); err != nil {
+			t.Fatal(err)
+		}
+		var got string
+		if err := f.db.QueryRow(ctx, "SELECT generation FROM voiceprint_tasks WHERE transcription_id=$1", tid).Scan(&got); err != nil || got != generation {
+			t.Fatal("active/finished task restarted", state, err)
+		}
+	}
+	for _, code := range []string{"inference_unavailable", "interrupted", "processing_failed", "model_mismatch", "invalid_embedding", "too_many_segments"} {
+		if _, err := f.db.Exec(ctx, "UPDATE voiceprint_tasks SET state='failed',error_code=$2,updated_at=clock_timestamp() WHERE transcription_id=$1", tid, code); err != nil {
+			t.Fatal(err)
+		}
+		if err := f.a.maintainVoiceprints(ctx); err != nil {
+			t.Fatal(err)
+		}
+		var state string
+		if err := f.db.QueryRow(ctx, "SELECT state FROM voiceprint_tasks WHERE transcription_id=$1", tid).Scan(&state); err != nil || state != "failed" {
+			t.Fatal("retry ignored cooldown", state, err)
+		}
+		if _, err := f.db.Exec(ctx, "UPDATE voiceprint_tasks SET updated_at=clock_timestamp()-interval '6 minutes' WHERE transcription_id=$1", tid); err != nil {
+			t.Fatal(err)
+		}
+		if err := f.a.maintainVoiceprints(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if err := f.db.QueryRow(ctx, "SELECT state FROM voiceprint_tasks WHERE transcription_id=$1", tid).Scan(&state); err != nil {
+			t.Fatal(err)
+		}
+		retry := code == "inference_unavailable" || code == "interrupted" || code == "processing_failed"
+		if (state == "queued") != retry {
+			t.Fatal(code, state)
+		}
+	}
+	assertIdentity(t, f, label, "unassigned", nil)
+}

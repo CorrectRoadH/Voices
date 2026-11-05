@@ -45,6 +45,30 @@ func queueVoiceprints(ctx context.Context, tx pgx.Tx, tid string, invalidate boo
 	return err
 }
 
+// maintainVoiceprints repairs missing work and retries transient failures without
+// invalidating running generations or repeatedly processing insufficient audio.
+func (a *App) maintainVoiceprints(ctx context.Context) error {
+	if a.Config.RestoreMode {
+		return nil
+	}
+	_, err := a.DB.Exec(ctx, `INSERT INTO voiceprint_tasks(transcription_id,generation,state)
+ SELECT t.id,gen_random_uuid(),'queued' FROM transcriptions t
+ JOIN recordings r ON r.id=t.recording_id
+ LEFT JOIN voiceprint_tasks q ON q.transcription_id=t.id
+ WHERE t.state='succeeded' AND r.state='ready'
+ AND EXISTS(SELECT 1 FROM speaker_labels l WHERE l.transcription_id=t.id)
+ AND (q.transcription_id IS NULL OR q.state='failed'
+ AND q.error_code IN ('inference_unavailable','interrupted','processing_failed')
+ AND q.updated_at<=clock_timestamp()-interval '5 minutes')
+ ORDER BY q.updated_at NULLS FIRST,t.id LIMIT 100
+ ON CONFLICT(transcription_id) DO UPDATE SET generation=EXCLUDED.generation,
+ state='queued',lease_until=NULL,error_code=NULL,updated_at=clock_timestamp()
+ WHERE voiceprint_tasks.state='failed'
+ AND voiceprint_tasks.error_code IN ('inference_unavailable','interrupted','processing_failed')
+ AND voiceprint_tasks.updated_at<=clock_timestamp()-interval '5 minutes'`)
+	return err
+}
+
 type voiceprintWork struct{ TID, RID, Owner, Generation, RunID string }
 
 func (a *App) claimVoiceprints(ctx context.Context) (voiceprintWork, error) {

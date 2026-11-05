@@ -11,8 +11,8 @@ test("人工声纹与后台自动关联即时更新正文", async ({ app, browse
   await screen.getByRole("button", { name: "进入工作台" }).click();
   await expect(screen.getByRole("button", { name: "导入录音" }).first()).toBeVisible();
   await browser.goto(`${fixture("VOICES_TEST_URL")}/people/${fixture("VOICES_TEST_PERSON")}`);
-  await expect(screen.getByText("已建立 1 份样本，共 16 秒", { exact: true })).toBeVisible();
-  await expect(screen.getByRole("button", { name: "从已标识录音更新声纹" })).toBeVisible();
+  await expect(screen.getByText("人物声纹", { exact: true })).toHaveCount(0);
+  await expect(screen.getByRole("button", { name: "从已标识录音更新声纹" })).toHaveCount(0);
   await browser.setViewport({ width: 375, height: 812 });
   await noOverflow(browser);
   await app.screenshot("手机人物声纹");
@@ -23,7 +23,8 @@ test("人工声纹与后台自动关联即时更新正文", async ({ app, browse
   await expect(screen.getByText("第一段发言。", { exact: true })).toBeVisible();
   await screen.getByRole("tab", { name: "录音信息", exact: true }).click();
   await screen.getByText("说话人与人物", { exact: true }).click();
-  await expect(screen.getByText("正在识别说话人…", { exact: true })).toBeVisible();
+  await expect(screen.getByRole("button", { name: "重新比对声纹" })).toHaveCount(0);
+  await expect(screen.getByText("正在识别说话人…", { exact: true })).toHaveCount(0);
   await expect(screen.getByText("自动关联", { exact: true })).toHaveCount(0);
   await browser.evaluate(() => {
     const audio = document.querySelector("audio");
