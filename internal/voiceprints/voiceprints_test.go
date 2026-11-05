@@ -2,6 +2,8 @@ package voiceprints
 
 import (
 	"math"
+	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -53,5 +55,33 @@ func TestVoiceprintUniqueAudioAndExplicitOverrideBlockers(t *testing.T) {
 	short := int64(2000)
 	if len(Clips([]Segment{{"a", "inherit", &a, &short}}, "a", 10000)) != 0 {
 		t.Fatal("short sample accepted")
+	}
+}
+
+// @use-case docs/feature/people/use-case/recognize-speaker.md
+func TestVoiceprintPrefersSustainedSpeechAcrossRecording(t *testing.T) {
+	var segments []Segment
+	add := func(start, end int64) { segments = append(segments, Segment{"a", "inherit", &start, &end}) }
+	// Six short opening phrases formerly exhausted the clip count before any
+	// sustained speech was considered.
+	for i := int64(0); i < 6; i++ {
+		add(i*4000, i*4000+3000)
+	}
+	add(60000, 70000)
+	add(80000, 90000)
+	add(100000, 110000)
+	clips := Clips(segments, "a", 120000)
+	expected := []Clip{{60000, 70000}, {80000, 90000}, {100000, 110000}}
+	if !reflect.DeepEqual(clips, expected) {
+		t.Fatalf("long speech not selected: %v", clips)
+	}
+	// Input order must not affect equal-length candidate selection.
+	slices.Reverse(segments)
+	if got := Clips(segments, "a", 120000); !reflect.DeepEqual(got, expected) {
+		t.Fatal(got)
+	}
+	start, end := int64(0), int64(6000)
+	if got := Clips([]Segment{{"a", "inherit", &start, &end}}, "a", 6000); !reflect.DeepEqual(got, []Clip{{0, 3000}, {3000, 6000}}) {
+		t.Fatal(got)
 	}
 }

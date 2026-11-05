@@ -114,8 +114,7 @@ func Clips(segments []Segment, label string, duration int64) []Clip {
 			merged = append(merged, r)
 		}
 	}
-	out := []Clip{}
-	total := int64(0)
+	candidates := []Clip{}
 	for _, r := range merged {
 		blocked := false
 		for _, s := range segments {
@@ -127,19 +126,37 @@ func Clips(segments []Segment, label string, duration int64) []Clip {
 		if blocked {
 			continue
 		}
-		for start := r.Start; start+3000 <= r.End && len(out) < 6 && total < 30000; {
-			// Keep at least two non-overlapping chunks from a single long utterance.
-			size := min(int64(10000), r.End-start, 30000-total)
-			if len(out) == 0 && size >= 6000 {
-				size = min(int64(10000), (r.End-start)/2)
-			}
-			if size < 3000 {
-				break
-			}
-			out = append(out, Clip{start, start + size})
-			total += size
+		// Six candidates from any single range are sufficient for a six-clip
+		// result. Keep candidate generation bounded even for very long audio.
+		for start, count := r.Start, 0; start+3000 <= r.End && count < 6; count++ {
+			size := min(int64(10000), r.End-start)
+			candidates = append(candidates, Clip{start, start + size})
 			start += size
 		}
+	}
+	// Early short/noisy phrases must not consume the whole sampling budget
+	// before a clear sustained utterance later in the recording is considered.
+	sort.Slice(candidates, func(i, j int) bool {
+		a, b := candidates[i], candidates[j]
+		if a.End-a.Start != b.End-b.Start {
+			return a.End-a.Start > b.End-b.Start
+		}
+		return a.Start < b.Start
+	})
+	out := []Clip{}
+	total := int64(0)
+	for _, c := range candidates {
+		size := min(c.End-c.Start, 30000-total)
+		if size < 3000 || len(out) == 6 {
+			break
+		}
+		out = append(out, Clip{c.Start, c.Start + size})
+		total += size
+	}
+	if len(out) == 1 && total >= 6000 {
+		c := out[0]
+		middle := (c.Start + c.End) / 2
+		out = []Clip{{c.Start, middle}, {middle, c.End}}
 	}
 	if len(out) < 2 || total < 6000 {
 		return nil

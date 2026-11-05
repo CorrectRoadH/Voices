@@ -314,54 +314,63 @@ func TestVoiceprintLegacyUnlinkMigrationAndRestore(t *testing.T) {
 
 // @use-case docs/feature/people/use-case/recognize-speaker.md
 func TestVoiceprintEmbeddedMigrationPrioritizesReferences(t *testing.T) {
-	fakeRemote(t)
-	f := setup(t)
-	serveVoiceprint(t, f, func(ctx context.Context, pcm []byte) ([]float64, error) { return voiceprintResponse(pcm, 0) })
-	_, btid, b := voiceprintRecording(t, f, 20) // Anonymous recording sorts first.
-	_, atid, a := voiceprintRecording(t, f, 21)
-	_, person := f.json(t, "POST", "/api/v1/people", map[string]any{"display_name": "历史人物"}, 201, uuid.NewString())
-	pid := person["id"].(string)
-	assignVoiceprint(t, f, a, pid)
-	_, _, manualNull := voiceprintRecording(t, f, 22)
-	assignVoiceprint(t, f, manualNull, nil)
-	_, _, automatic := voiceprintRecording(t, f, 23)
-	ctx := context.Background()
-	if _, err := f.db.Exec(ctx, "UPDATE speaker_labels SET identity_source='automatic',person_id=$2,match_score=.95 WHERE id=$1", automatic, pid); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := f.db.Exec(ctx, `INSERT INTO speaker_voiceprints(label_id,model,embedding,sample_ms,sample_count) SELECT id,'old-profile',$1,6000,2 FROM speaker_labels`, testVector(0)); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := f.db.Exec(ctx, "UPDATE voiceprint_tasks SET state='succeeded'; DELETE FROM schema_migrations WHERE name='019_embedded_voiceprints.sql'"); err != nil {
-		t.Fatal(err)
-	}
-	if err := persistence.Migrate(ctx, f.db); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := f.db.Exec(ctx, "UPDATE voiceprint_tasks SET updated_at=clock_timestamp()-interval '1 day' WHERE transcription_id=$1", btid); err != nil {
-		t.Fatal(err)
-	}
-	_, status := f.json(t, "GET", "/api/v1/people/"+pid+"/voiceprints", nil, 200, "")
-	if status["configured"] != true || status["samples"] != float64(0) {
-		t.Fatal("old profile counted", status)
-	}
-	work, err := f.a.claimVoiceprints(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if work.TID != atid {
-		t.Fatal("anonymous task claimed before reference", work.TID)
-	}
-	f.a.executeVoiceprints(ctx, work)
-	for range 3 {
-		runVoiceprint(t, f)
-	}
-	assertIdentity(t, f, b, "automatic", pid)
-	assertIdentity(t, f, a, "manual", pid)
-	assertIdentity(t, f, manualNull, "manual", nil)
-	assertIdentity(t, f, automatic, "automatic", pid)
-	if _, err := f.a.claimVoiceprints(ctx); !errors.Is(err, pgx.ErrNoRows) {
-		t.Fatal(err)
+	for _, migration := range []string{"019_embedded_voiceprints.sql", "021_voiceprint_long_utterances.sql"} {
+		t.Run(migration, func(t *testing.T) {
+
+			fakeRemote(t)
+			f := setup(t)
+			serveVoiceprint(t, f, func(ctx context.Context, pcm []byte) ([]float64, error) { return voiceprintResponse(pcm, 0) })
+			_, btid, b := voiceprintRecording(t, f, 20) // Anonymous recording sorts first.
+			_, atid, a := voiceprintRecording(t, f, 21)
+			_, person := f.json(t, "POST", "/api/v1/people", map[string]any{"display_name": "历史人物"}, 201, uuid.NewString())
+			pid := person["id"].(string)
+			assignVoiceprint(t, f, a, pid)
+			_, _, manualNull := voiceprintRecording(t, f, 22)
+			assignVoiceprint(t, f, manualNull, nil)
+			_, _, automatic := voiceprintRecording(t, f, 23)
+			ctx := context.Background()
+			if _, err := f.db.Exec(ctx, "UPDATE speaker_labels SET identity_source='automatic',person_id=$2,match_score=.95 WHERE id=$1", automatic, pid); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := f.db.Exec(ctx, `INSERT INTO speaker_voiceprints(label_id,model,embedding,sample_ms,sample_count) SELECT id,'old-profile',$1,6000,2 FROM speaker_labels`, testVector(0)); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := f.db.Exec(ctx, "UPDATE voiceprint_tasks SET state='succeeded'"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := f.db.Exec(ctx, "DELETE FROM schema_migrations WHERE name=$1", migration); err != nil {
+				t.Fatal(err)
+			}
+			if err := persistence.Migrate(ctx, f.db); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := f.db.Exec(ctx, "UPDATE voiceprint_tasks SET updated_at=clock_timestamp()-interval '1 day' WHERE transcription_id=$1", btid); err != nil {
+				t.Fatal(err)
+			}
+			_, status := f.json(t, "GET", "/api/v1/people/"+pid+"/voiceprints", nil, 200, "")
+			if status["configured"] != true || status["samples"] != float64(0) {
+				t.Fatal("old profile counted", status)
+			}
+			work, err := f.a.claimVoiceprints(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if work.TID != atid {
+				t.Fatal("anonymous task claimed before reference", work.TID)
+			}
+			f.a.executeVoiceprints(ctx, work)
+			for range 3 {
+				runVoiceprint(t, f)
+			}
+			assertIdentity(t, f, b, "automatic", pid)
+			assertIdentity(t, f, a, "manual", pid)
+			assertIdentity(t, f, manualNull, "manual", nil)
+			assertIdentity(t, f, automatic, "automatic", pid)
+			if _, err := f.a.claimVoiceprints(ctx); !errors.Is(err, pgx.ErrNoRows) {
+				t.Fatal(err)
+			}
+
+		})
 	}
 }
 
@@ -568,5 +577,38 @@ func TestVoiceprintRuntimeResults(t *testing.T) {
 	}
 	if err := f.db.QueryRow(context.Background(), "SELECT count(*) FROM runtime_events WHERE kind='voiceprint_completed'").Scan(&after); err != nil || before != after {
 		t.Fatal("stale task logged completion", err)
+	}
+}
+
+// @use-case docs/feature/people/use-case/recognize-speaker.md
+func TestVoiceprintSamplingMigrationKeepsActiveWork(t *testing.T) {
+	fakeRemote(t)
+	f := setup(t)
+	_, tid, _ := voiceprintRecording(t, f, 20)
+	_, queued, _ := voiceprintRecording(t, f, 21)
+	ctx := context.Background()
+	work, err := f.a.claimVoiceprints(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if work.TID != tid {
+		t.Fatal("unexpected task order")
+	}
+	var queuedGeneration string
+	if err = f.db.QueryRow(ctx, "SELECT generation FROM voiceprint_tasks WHERE transcription_id=$1", queued).Scan(&queuedGeneration); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.db.Exec(ctx, "DELETE FROM schema_migrations WHERE name='021_voiceprint_long_utterances.sql'"); err != nil {
+		t.Fatal(err)
+	}
+	if err = persistence.Migrate(ctx, f.db); err != nil {
+		t.Fatal(err)
+	}
+	if err = f.a.voiceprintCurrent(ctx, work); err != nil {
+		t.Fatal("running work invalidated", err)
+	}
+	var generation, state string
+	if err = f.db.QueryRow(ctx, "SELECT generation,state FROM voiceprint_tasks WHERE transcription_id=$1", queued).Scan(&generation, &state); err != nil || generation != queuedGeneration || state != "queued" {
+		t.Fatal("queued work replaced", err)
 	}
 }
