@@ -101,6 +101,29 @@ jobs:
           build-args: VOICES_VERSION=${{ needs.validate.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Voiceprint image metadata
+        uses: docker/metadata-action@v6.2.0
+        id: voiceprint-meta
+        with:
+          images: correctroad/voices
+          labels: |
+            org.opencontainers.image.version=${{ needs.validate.outputs.tag }}
+            org.opencontainers.image.revision=${{ needs.validate.outputs.sha }}
+          tags: |
+            type=semver,pattern={{version}},prefix=voiceprints-,value=${{ needs.validate.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},prefix=voiceprints-,value=${{ needs.validate.outputs.tag }}
+            type=raw,value=voiceprints-${{ needs.validate.outputs.sha }}
+            type=raw,value=voiceprints-latest
+      - name: Publish voiceprint image
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: voiceprint-service
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.voiceprint-meta.outputs.tags }}
+          labels: ${{ steps.voiceprint-meta.outputs.labels }}
+          cache-from: type=gha,scope=voiceprints
+          cache-to: type=gha,scope=voiceprints,mode=max
   frontend:
     needs: [validate, ci]
     runs-on: ubuntu-latest

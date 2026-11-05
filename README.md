@@ -46,6 +46,8 @@ PUBLIC_BASE_URL=http://192.168.1.10:8080 docker compose up -d
 docker compose pull && docker compose up -d
 ```
 
+标准 Compose 默认包含本地声纹服务：标识人物后建立声纹，后续录音自动匹配。升级旧安装时需同时更新 Compose 文件；仅拉取应用镜像不会添加声纹服务。
+
 所有数据都在 `postgres_data` 卷里。升级前建议先备份，方法见[备份与恢复](docs/operations.md)。
 
 ## 致谢

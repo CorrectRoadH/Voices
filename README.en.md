@@ -46,6 +46,8 @@ Create the administrator account right after startup so no one else on the netwo
 docker compose pull && docker compose up -d
 ```
 
+The standard Compose stack includes local voiceprint recognition by default: identify a person once to build samples for future recordings. Existing installations must also update their Compose file; pulling the app image alone does not add the voiceprint service.
+
 All data lives in the `postgres_data` volume. Back it up before upgrading. See [backup and restore](docs/operations.md).
 
 ## Acknowledgments

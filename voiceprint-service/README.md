@@ -2,13 +2,17 @@
 
 人工标识人物后自动建立声纹，新导入录音完成转写后匹配已有人工样本。第一次启用可在人物页点击“从已标识录音更新声纹”。至少需要两块互不重叠的清晰语音，总计六秒；陌生人、相似候选或样本不足保持匿名。自动关联须人工确认后才成为参考样本。
 
-## 启用
+## 默认启用
 
-先停止并替换全部旧版本 Voices 副本，再运行新版本与模型服务；不支持启用声纹时混用新旧二进制。
+仓库根目录和快速安装的 Compose 都默认启动声纹服务并连接应用，无需额外配置文件或网页开关。首次安装会拉取或构建模型镜像。
+
+升级已有部署时先更新 Compose 文件，再停止并替换全部旧版本 Voices 副本；不支持启用声纹时混用新旧二进制。只拉取应用镜像不会给旧 Compose 增加服务。
 
 ```sh
-docker compose -f compose.yaml -f compose.voiceprints.yaml up -d --build
+docker compose up -d --build
 ```
+
+源码部署使用上面的构建命令；快速安装使用 `deploy/compose.yaml` 与 `docker compose pull && docker compose up -d`。预构建模型镜像为 `correctroad/voices:voiceprints-latest`，固定版本时设置 `VOICEPRINT_IMAGE=correctroad/voices:voiceprints-X.Y.Z`，与应用版本一致；这些标签由正式 Release 流程发布，提交源码不会发布镜像。原 `compose.voiceprints.yaml` 保留为兼容叠加文件，已不再需要。显式设置 `VOICEPRINT_URL=` 可关闭识别。
 
 该命令用于部署者自行执行。本服务不暴露宿主端口，无持久卷。模型文件作为镜像工件下载并校验；样本向量和任务保存在主应用的 PostgreSQL，数据库备份须一起保留。模型服务失败不影响转写和手动关联，可在录音页重试声纹任务，不会重跑 STT。
 

@@ -1,7 +1,8 @@
+# Compatibility overlay; compose.yaml already includes this service by default.
 services:
   app:
     environment:
-      VOICEPRINT_URL: http://voiceprints:8091
+      VOICEPRINT_URL: ${VOICEPRINT_URL-http://voiceprints:8091}
     depends_on:
       voiceprints:
         condition: service_healthy

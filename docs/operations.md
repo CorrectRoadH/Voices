@@ -85,8 +85,9 @@ Soniox 提供文件与转写删除接口。AssemblyAI 的成功转写删除会�
 
 ```sh
 # .env 中设置 VOICES_IMAGE=correctroad/voices:具体版本
+# 同时设置 VOICEPRINT_IMAGE=correctroad/voices:voiceprints-具体版本
 # 升级前备份 PostgreSQL；固定版本便于追踪。
-docker compose pull app
+docker compose pull app voiceprints
 docker compose up -d --no-build
 docker compose exec app voices version
 ```
@@ -122,4 +123,4 @@ LLM Base URL 包含兼容服务所需路径（例如 /v1），服务须支持 Ch
 
 ## 声纹自动关联
 
-显式启用方式和固定模型见[声纹服务](../voiceprint-service/README.md)。启用前停止并替换全部旧应用副本，不混用不支持样本失效的旧二进制。声纹样本与后台任务在同一 PostgreSQL 中，使用现有备份/恢复方式；临时音频和模型服务均不持有业务状态。模型服务不对公网暴露，停用时清空 VOICEPRINT_URL，已有人工与自动关联保持可编辑。
+标准 Compose 默认启用声纹服务；已有安装须更新 Compose 文件才能新增模型容器，仅拉取应用镜像不足以启用。部署方式和固定模型见[声纹服务](../voiceprint-service/README.md)。启用前停止并替换全部旧应用副本，不混用不支持样本失效的旧二进制。声纹样本与后台任务在同一 PostgreSQL 中，使用现有备份/恢复方式；临时音频和模型服务均不持有业务状态。模型服务不对公网暴露，停用时清空 VOICEPRINT_URL，已有人工与自动关联保持可编辑。

@@ -307,6 +307,17 @@ jobs:
           cache-from: type=gha,scope=ci-image
           cache-to: type=gha,scope=ci-image,mode=max
       - run: test "$(docker run --rm voices:ci version)" = '0.0.0'
+      - name: Build default voiceprint service
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: voiceprint-service
+          push: false
+          load: true
+          tags: voices:voiceprints-ci
+          cache-from: type=gha,scope=ci-voiceprints
+          cache-to: type=gha,scope=ci-voiceprints,mode=max
+      - name: Verify voiceprint model loads
+        run: docker run --rm --read-only --entrypoint python voices:voiceprints-ci -c 'import server; server.Extractor("/app/model.onnx")'
   required:
     name: CI required
     if: always()
