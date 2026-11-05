@@ -343,13 +343,15 @@ export function PersonPage() {
                 )
               )}
             </CardContent>
-            <CardFooter>
-              <More
-                cursor={recordings.nextCursor}
-                loading={recordings.loading}
-                onLoad={recordings.loadMore}
-              />
-            </CardFooter>
+            {recordings.nextCursor && (
+              <CardFooter>
+                <More
+                  cursor={recordings.nextCursor}
+                  loading={recordings.loading}
+                  onLoad={recordings.loadMore}
+                />
+              </CardFooter>
+            )}
           </Card>
           {editing && (
             <PersonEditor

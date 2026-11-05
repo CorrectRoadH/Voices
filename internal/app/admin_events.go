@@ -18,7 +18,7 @@ type eventCursor struct {
 }
 
 var auditActions = map[string]bool{"account_updated": true, "registration_updated": true, "server_settings_updated": true, "password_reset": true, "job_reconciled": true}
-var runtimeKinds = map[string]bool{"request_failed": true, "job_failed": true, "job_claim_failed": true, "maintenance_failed": true, "job_failure_persistence_failed": true}
+var runtimeKinds = map[string]bool{"voiceprint_started": true, "voiceprint_completed": true, "voiceprint_failed": true, "voiceprint_claim_failed": true, "voiceprint_cleanup_failed": true, "voiceprint_failure_persistence_failed": true, "request_failed": true, "job_failed": true, "job_claim_failed": true, "maintenance_failed": true, "job_failure_persistence_failed": true}
 
 func eventQuery(r *http.Request, runtime bool) (string, []any, int, error) {
 	q := r.URL.Query()

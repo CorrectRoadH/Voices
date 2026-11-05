@@ -13,6 +13,8 @@ var safePostgresCode = regexp.MustCompile(`^postgres:[0-9A-Z]{5}$`)
 
 func runtimeCode(code string) string {
 	switch code {
+	case "processing", "samples_ready", "insufficient_audio", "inference_unavailable", "invalid_embedding", "model_mismatch", "too_many_segments", "too_many_speakers", "too_many_references", "interrupted":
+		return code
 	case "internal", "internal_error", "unavailable", "processing_failed", "auth", "invalid", "rate_limited", "transient", "uncertain", "unsupported", "not_found":
 		return code
 	}

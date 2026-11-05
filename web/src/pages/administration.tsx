@@ -135,12 +135,12 @@ export function AdminOverviewPage() {
                   {d.limits.transcription_concurrency}
                 </p>
                 <p>
-                  {tr("本实例未写入的运行异常：")}
+                  {tr("本实例未写入的运行日志：")}
                   {d.runtime_log_dropped}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {tr(
-                    "运行异常尽力记录，数据库故障或高并发时可能缺失。深入排障仍需查看容器日志。",
+                    "运行日志尽力记录，数据库故障或高并发时可能缺失。深入排障仍需查看容器日志。",
                   )}{" "}
                 </p>
               </CardContent>
@@ -195,7 +195,25 @@ function detailValue(value: unknown): string {
   if (typeof value === "boolean") return value ? tr("是") : tr("否");
   return detailValues[String(value)] ? tr(detailValues[String(value)]) : String(value);
 }
+const runtimeReasons: Record<string, string> = {
+  processing: "正在处理声纹",
+  samples_ready: "已建立可用声纹",
+  insufficient_audio: "没有合格的语音样本，保留当前人物标识",
+  inference_unavailable: "声纹引擎暂时不可用，将自动重试",
+  interrupted: "处理已中断，将自动恢复",
+  model_mismatch: "声纹模型版本不匹配",
+  invalid_embedding: "声纹模型输出无效",
+  too_many_segments: "录音片段数量超过声纹处理上限",
+  too_many_speakers: "说话人数量超过声纹处理上限",
+  too_many_references: "参考样本数量超过声纹处理上限",
+};
 const kinds: Record<string, string> = {
+  voiceprint_started: "开始处理声纹",
+  voiceprint_completed: "声纹处理完成",
+  voiceprint_failed: "声纹处理失败",
+  voiceprint_claim_failed: "声纹任务领取失败",
+  voiceprint_cleanup_failed: "声纹执行槽释放失败",
+  voiceprint_failure_persistence_failed: "声纹失败状态保存失败",
   request_failed: "请求失败",
   job_failed: "任务失败",
   job_claim_failed: "任务领取失败",
@@ -314,7 +332,7 @@ function EventList({ runtime }: { runtime: boolean }) {
                     <CardHeader>
                       <CardTitle>
                         {runtime
-                          ? tr(kinds[item.kind || ""] || "运行异常")
+                          ? tr(kinds[item.kind || ""] || "运行日志")
                           : tr(actions[item.action || ""] || "管理事件")}
                       </CardTitle>
                       <CardDescription>
@@ -325,7 +343,9 @@ function EventList({ runtime }: { runtime: boolean }) {
                       {runtime ? (
                         <>
                           <p>
-                            {item.code}
+                            {runtimeReasons[item.code || ""]
+                              ? tr(runtimeReasons[item.code!])
+                              : item.code}
                             {item.status ? ` · HTTP ${item.status}` : ""}
                           </p>
                           {item.route && <p>{item.route}</p>}
@@ -400,7 +420,7 @@ export function AdminLogsPage() {
       <Tabs defaultValue={params.has("request_id") ? "runtime" : "audit"}>
         <TabsList>
           <TabsTrigger value="audit">{tr("管理审计")}</TabsTrigger>
-          <TabsTrigger value="runtime">{tr("运行异常")}</TabsTrigger>
+          <TabsTrigger value="runtime">{tr("运行日志")}</TabsTrigger>
         </TabsList>
         <TabsContent value="audit" className="pt-5">
           <EventList runtime={false} />
@@ -408,7 +428,7 @@ export function AdminLogsPage() {
         <TabsContent value="runtime" className="space-y-5 pt-5">
           <p className="text-sm text-muted-foreground">
             {tr(
-              "显示最近 7 天的结构化异常；不包含请求正文和服务商返回内容，也不替代容器日志。",
+              "显示最近 7 天的本地处理结果与运行异常；不包含请求正文和服务商返回内容，也不替代容器日志。",
             )}{" "}
           </p>
           <EventList runtime />

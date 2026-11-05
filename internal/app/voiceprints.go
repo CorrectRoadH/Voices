@@ -119,6 +119,7 @@ func (a *App) executeVoiceprints(parent context.Context, w voiceprintWork) {
 			a.recordRuntime(cleanup, "voiceprint_cleanup_failed", "database", "", "", 0, "")
 		}
 	}()
+	a.recordRuntime(ctx, "voiceprint_started", "processing", "", "", 0, "")
 	err := a.processVoiceprints(ctx, w)
 	if err == nil {
 		return
@@ -137,9 +138,11 @@ func (a *App) executeVoiceprints(parent context.Context, w voiceprintWork) {
 	if parent.Err() != nil {
 		state = "queued"
 	}
-	_, writeErr := a.DB.Exec(cleanup, "UPDATE voiceprint_tasks SET state=$4,error_code=$3,lease_until=NULL,updated_at=clock_timestamp() WHERE transcription_id=$1 AND generation=$2 AND state='running'", w.TID, w.Generation, code, state)
+	tag, writeErr := a.DB.Exec(cleanup, "UPDATE voiceprint_tasks SET state=$4,error_code=$3,lease_until=NULL,updated_at=clock_timestamp() WHERE transcription_id=$1 AND generation=$2 AND state='running'", w.TID, w.Generation, code, state)
 	if writeErr != nil {
 		a.recordRuntime(cleanup, "voiceprint_failure_persistence_failed", "database", "", "", 0, "")
+	} else if tag.RowsAffected() > 0 {
+		a.recordRuntime(cleanup, "voiceprint_failed", code, "", "", 0, "")
 	}
 }
 
@@ -298,7 +301,7 @@ func (b *boundedPCM) Write(p []byte) (int, error) {
 }
 
 func (a *App) publishVoiceprints(ctx context.Context, w voiceprintWork, results []extractedVoiceprint) error {
-	return persistence.Transaction(ctx, a.DB, func(tx pgx.Tx) error {
+	err := persistence.Transaction(ctx, a.DB, func(tx pgx.Tx) error {
 		if err := lockTranscription(ctx, tx, w.TID); err != nil {
 			return err
 		}
@@ -359,6 +362,14 @@ func (a *App) publishVoiceprints(ctx context.Context, w voiceprintWork, results 
 		_, err = tx.Exec(ctx, "UPDATE voiceprint_tasks SET state='succeeded',error_code=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE transcription_id=$1 AND generation=$2", w.TID, w.Generation)
 		return err
 	})
+	if err == nil {
+		code := "samples_ready"
+		if len(results) == 0 {
+			code = "insufficient_audio"
+		}
+		a.recordRuntime(ctx, "voiceprint_completed", code, "", "", 0, "")
+	}
+	return err
 }
 
 func (a *App) getTranscriptionVoiceprints(w http.ResponseWriter, r *http.Request) error {

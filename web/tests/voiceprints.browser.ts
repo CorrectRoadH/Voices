@@ -13,6 +13,7 @@ test("人工声纹与后台自动关联即时更新正文", async ({ app, browse
   await browser.goto(`${fixture("VOICES_TEST_URL")}/people/${fixture("VOICES_TEST_PERSON")}`);
   await expect(screen.getByText("人物声纹", { exact: true })).toHaveCount(0);
   await expect(screen.getByRole("button", { name: "从已标识录音更新声纹" })).toHaveCount(0);
+  await expect(browser.locator('[data-slot="card-footer"]')).toHaveCount(0);
   await browser.setViewport({ width: 375, height: 812 });
   await noOverflow(browser);
   await app.screenshot("手机人物声纹");
@@ -87,4 +88,12 @@ test("人工声纹与后台自动关联即时更新正文", async ({ app, browse
   await browser.setViewport({ width: 375, height: 812 });
   await noOverflow(browser);
   await app.screenshot("手机声纹识别与人工解除");
+  await browser.goto(`${fixture("VOICES_TEST_URL")}/admin/logs`);
+  await screen.getByRole("tab", { name: "运行日志", exact: true }).click();
+  await expect(
+    browser.locator('[data-slot="card-title"]').getByText("声纹处理完成", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(screen.getByText("已建立可用声纹", { exact: true }).first()).toBeVisible();
+  await noOverflow(browser);
+  await app.screenshot("本地声纹运行日志");
 });

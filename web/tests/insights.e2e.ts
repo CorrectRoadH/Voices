@@ -135,7 +135,7 @@ test("管理概览、审计筛选与日志分页", async ({ agent, browser, scre
   await agent.act("查看日志下一页。");
   await expect(screen.getByRole("button", { name: "上一页" })).toBeEnabled();
   await agent.act(
-    "切换运行异常，将请求 ID 填为 not-a-uuid 并筛选日志；预期格式错误，保留错误现场。",
+    "切换运行日志，将请求 ID 填为 not-a-uuid 并筛选日志；预期格式错误，保留错误现场。",
   );
   await expect(screen.getByText("ID 格式不正确", { exact: false })).toBeVisible();
   await agent.act("清空请求 ID，再筛选日志。");

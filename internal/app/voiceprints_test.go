@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"voices/internal/persistence"
 	"voices/internal/providers"
+	"voices/internal/voiceprints"
 )
 
 type voiceprintSTT struct{ providers.Adapter }
@@ -512,4 +513,60 @@ func TestVoiceprintAutomaticMaintenance(t *testing.T) {
 		}
 	}
 	assertIdentity(t, f, label, "unassigned", nil)
+}
+
+// @use-case docs/feature/administration/use-case/inspect-instance.md
+func TestVoiceprintRuntimeResults(t *testing.T) {
+	fakeRemote(t)
+	f := setup(t)
+	var mode string
+	serveVoiceprint(t, f, func(ctx context.Context, pcm []byte) ([]float64, error) {
+		switch mode {
+		case "unavailable":
+			return nil, errors.New("inference_unavailable")
+		case "silence":
+			return nil, voiceprints.ErrAudio
+		}
+		return voiceprintResponse(pcm, 0)
+	})
+	_, tid, _ := voiceprintRecording(t, f, 20)
+	runVoiceprint(t, f)
+	check := func(kind, code string) {
+		t.Helper()
+		_, logs := f.json(t, "GET", "/api/v1/admin/runtime-events?kind="+kind, nil, 200, "")
+		items := logs["items"].([]any)
+		found := false
+		for _, item := range items {
+			if item.(map[string]any)["code"] == code {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("missing runtime event %s/%s: %v", kind, code, items)
+		}
+	}
+	check("voiceprint_started", "processing")
+	check("voiceprint_completed", "samples_ready")
+	mode = "unavailable"
+	f.json(t, "POST", "/api/v1/transcriptions/"+tid+"/voiceprints", nil, 200, "")
+	work, err := f.a.claimVoiceprints(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.a.executeVoiceprints(context.Background(), work)
+	check("voiceprint_failed", "inference_unavailable")
+	mode = "silence"
+	f.json(t, "POST", "/api/v1/transcriptions/"+tid+"/voiceprints", nil, 200, "")
+	runVoiceprint(t, f)
+	check("voiceprint_completed", "insufficient_audio")
+	var before, after int
+	if err := f.db.QueryRow(context.Background(), "SELECT count(*) FROM runtime_events WHERE kind='voiceprint_completed'").Scan(&before); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.a.publishVoiceprints(context.Background(), work, nil); err == nil {
+		t.Fatal("stale task published")
+	}
+	if err := f.db.QueryRow(context.Background(), "SELECT count(*) FROM runtime_events WHERE kind='voiceprint_completed'").Scan(&after); err != nil || before != after {
+		t.Fatal("stale task logged completion", err)
+	}
 }
