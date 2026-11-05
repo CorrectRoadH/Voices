@@ -1,11 +1,7 @@
 package voiceprints
 
 import (
-	"context"
-	"encoding/json"
 	"math"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 )
 
@@ -57,39 +53,5 @@ func TestVoiceprintUniqueAudioAndExplicitOverrideBlockers(t *testing.T) {
 	short := int64(2000)
 	if len(Clips([]Segment{{"a", "inherit", &a, &short}}, "a", 10000)) != 0 {
 		t.Fatal("short sample accepted")
-	}
-}
-
-// @use-case docs/feature/people/use-case/recognize-speaker.md
-func TestVoiceprintHTTPModelBoundary(t *testing.T) {
-	mode := "valid"
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch mode {
-		case "redirect":
-			http.Redirect(w, r, "http://untrusted.invalid", 302)
-		case "oversize":
-			w.Write(make([]byte, 20000))
-		default:
-			model := Model
-			if mode == "model" {
-				model = "wrong"
-			}
-			json.NewEncoder(w).Encode(map[string]any{"model": model, "embedding": vector(1, 0)})
-		}
-	}))
-	defer srv.Close()
-	client := NewClient(srv.URL)
-	defer client.HTTP.CloseIdleConnections()
-	for _, test := range []string{"valid", "model", "redirect", "oversize"} {
-		mode = test
-		_, err := client.Extract(context.Background(), make([]byte, 96000))
-		if (err == nil) != (test == "valid") {
-			t.Fatal(test, err)
-		}
-	}
-	for _, url := range []string{"ftp://localhost", "http://user:pass@localhost", "http://localhost/path", "http://localhost?x=1", "http://localhost#x"} {
-		if ValidURL(url) {
-			t.Fatal(url)
-		}
 	}
 }

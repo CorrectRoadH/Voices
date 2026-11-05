@@ -9,13 +9,10 @@ services:
       # The database is reachable only on the internal Compose network, so a default password is acceptable.
       DATABASE_URL: postgres://voices:${POSTGRES_PASSWORD:-voices}@db:5432/voices?sslmode=disable
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
-      VOICEPRINT_URL: ${VOICEPRINT_URL-http://voiceprints:8091}
     ports:
       - "${PORT:-8080}:8080"
     depends_on:
       db:
-        condition: service_healthy
-      voiceprints:
         condition: service_healthy
     read_only: true
     tmpfs:
@@ -23,16 +20,6 @@ services:
     mem_limit: 2g
     restart: unless-stopped
     stop_grace_period: 30s
-  voiceprints:
-    image: ${VOICEPRINT_IMAGE:-correctroad/voices:voiceprints-latest}
-    read_only: true
-    mem_limit: 1g
-    cpus: 2
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
   db:
     image: postgres:18-bookworm
     environment:

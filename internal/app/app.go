@@ -24,23 +24,32 @@ import (
 	"voices/internal/providers"
 	"voices/internal/storage"
 	"voices/internal/updates"
+	"voices/internal/voiceprints"
 )
 
+type voiceprintEngine interface {
+	Extract(context.Context, []byte) ([]float64, error)
+	Close()
+}
+
 type App struct {
-	StartedAt       time.Time
-	runtimeWriting  atomic.Bool
-	runtimeCleaning atomic.Bool
-	runtimeDropped  atomic.Uint64
-	Config          Config
-	DB              *pgxpool.Pool
-	Blobs           *storage.Store
-	Providers       map[string]providers.Adapter
-	InstanceID      string
-	Updates         *updates.Manager
+	voiceprintEngine voiceprintEngine
+	voiceprintActive atomic.Bool
+	StartedAt        time.Time
+	runtimeWriting   atomic.Bool
+	runtimeCleaning  atomic.Bool
+	runtimeDropped   atomic.Uint64
+	Config           Config
+	DB               *pgxpool.Pool
+	Blobs            *storage.Store
+	Providers        map[string]providers.Adapter
+	InstanceID       string
+	Updates          *updates.Manager
 }
 
 func New(c Config, db *pgxpool.Pool, adapters ...providers.Adapter) *App {
 	a := &App{Config: c, DB: db, Blobs: &storage.Store{Pool: db}, Providers: map[string]providers.Adapter{}, InstanceID: uuid.NewString(), StartedAt: time.Now().UTC()}
+	a.voiceprintEngine = voiceprints.NewEngine(c.TempDir)
 	a.Updates = updates.New(context.Background(), "dev", "", nil)
 	for _, p := range adapters {
 		a.Providers[p.ID()] = p

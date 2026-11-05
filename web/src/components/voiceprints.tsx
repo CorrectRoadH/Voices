@@ -16,7 +16,7 @@ export function PersonVoiceprints({ id, archived }: { id: string; archived: bool
     () => {
       if (!data.refreshing) data.refresh();
     },
-    data.data?.configured && data.data.pending > 0 ? 5000 : 0,
+    (data.data?.pending ?? 0) > 0 ? 5000 : 0,
   );
   const action = useAction();
   const { session } = useApp();
@@ -33,21 +33,19 @@ export function PersonVoiceprints({ id, archived }: { id: string; archived: bool
           data.data && (
             <>
               <p role="status">
-                {!data.data.configured
-                  ? tr("声纹服务未启用")
-                  : data.data.pending > 0
-                    ? tr("正在建立声纹…")
-                    : data.data.samples > 0
-                      ? tr("已建立 {{v0}} 份样本，共 {{v1}} 秒", {
-                          v0: data.data.samples,
-                          v1: Math.round(data.data.sample_ms / 1000),
-                        })
-                      : tr("暂无可用声纹")}
+                {data.data.pending > 0
+                  ? tr("正在建立声纹…")
+                  : data.data.samples > 0
+                    ? tr("已建立 {{v0}} 份样本，共 {{v1}} 秒", {
+                        v0: data.data.samples,
+                        v1: Math.round(data.data.sample_ms / 1000),
+                      })
+                    : tr("暂无可用声纹")}
               </p>
               <p className="text-sm text-muted-foreground">
                 {tr("人工确认的清晰发言会用于识别后续录音；至少需要两段、合计六秒。")}
               </p>
-              {data.data.configured && !archived && (
+              {!archived && (
                 <Button
                   variant="outline"
                   disabled={session.restore_mode || action.busy || data.data.pending > 0}
@@ -86,7 +84,7 @@ export function TranscriptionVoiceprints({
     () => {
       if (!data.refreshing) data.refresh();
     },
-    data.data?.configured && busy ? 5000 : 0,
+    busy ? 5000 : 0,
   );
   const action = useAction();
   const { session } = useApp();
@@ -107,20 +105,18 @@ export function TranscriptionVoiceprints({
       {data.data && (
         <>
           <p role="status" className="text-sm text-muted-foreground">
-            {!data.data.configured
-              ? tr("声纹服务未启用")
-              : busy
-                ? tr("正在识别说话人…")
-                : task?.state === "failed"
-                  ? tr("声纹处理失败，可重试；转写不受影响。")
-                  : task?.state === "succeeded"
-                    ? data.data.samples > 0
-                      ? tr("声纹比对完成，明确匹配的人物已自动关联。")
-                      : tr("没有足够清晰的语音，保留当前人物标识。")
-                    : tr("尚未进行声纹识别")}
+            {busy
+              ? tr("正在识别说话人…")
+              : task?.state === "failed"
+                ? tr("声纹处理失败，可重试；转写不受影响。")
+                : task?.state === "succeeded"
+                  ? data.data.samples > 0
+                    ? tr("声纹比对完成，明确匹配的人物已自动关联。")
+                    : tr("没有足够清晰的语音，保留当前人物标识。")
+                  : tr("尚未进行声纹识别")}
           </p>
           {task?.error_code && <p className="text-xs text-muted-foreground">{task.error_code}</p>}
-          {data.data.configured && (
+          {
             <Button
               size="sm"
               variant="outline"
@@ -134,7 +130,7 @@ export function TranscriptionVoiceprints({
             >
               {tr("重新比对声纹")}
             </Button>
-          )}
+          }
         </>
       )}
     </div>

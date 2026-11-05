@@ -49,7 +49,7 @@ type voiceprintWork struct{ TID, RID, Owner, Generation, RunID string }
 
 func (a *App) claimVoiceprints(ctx context.Context) (voiceprintWork, error) {
 	w := voiceprintWork{}
-	if a.Config.VoiceprintURL == "" || a.Config.RestoreMode {
+	if a.Config.RestoreMode {
 		return w, pgx.ErrNoRows
 	}
 	err := persistence.Transaction(ctx, a.DB, func(tx pgx.Tx) error {
@@ -61,7 +61,7 @@ func (a *App) claimVoiceprints(ctx context.Context) (voiceprintWork, error) {
 		if !free {
 			return pgx.ErrNoRows
 		}
-		if err := tx.QueryRow(ctx, `SELECT v.transcription_id,t.recording_id,t.owner_id FROM voiceprint_tasks v JOIN transcriptions t ON t.id=v.transcription_id JOIN recordings r ON r.id=t.recording_id WHERE t.state='succeeded' AND r.state='ready' AND (v.state='queued' OR v.state='running' AND v.lease_until<=clock_timestamp()) ORDER BY v.updated_at,v.transcription_id LIMIT 1 FOR UPDATE OF v SKIP LOCKED`).Scan(&w.TID, &w.RID, &w.Owner); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT v.transcription_id,t.recording_id,t.owner_id FROM voiceprint_tasks v JOIN transcriptions t ON t.id=v.transcription_id JOIN recordings r ON r.id=t.recording_id WHERE t.state='succeeded' AND r.state='ready' AND (v.state='queued' OR v.state='running' AND v.lease_until<=clock_timestamp()) ORDER BY EXISTS(SELECT 1 FROM speaker_labels l JOIN people p ON p.id=l.person_id WHERE l.transcription_id=t.id AND l.identity_source='manual' AND p.builtin_key IS NULL AND p.archived_at IS NULL) DESC,v.updated_at,v.transcription_id LIMIT 1 FOR UPDATE OF v SKIP LOCKED`).Scan(&w.TID, &w.RID, &w.Owner); err != nil {
 			return err
 		}
 		w.Generation = uuid.NewString()
@@ -217,8 +217,6 @@ func (a *App) processVoiceprints(ctx context.Context, w voiceprintWork) error {
 		if closeErr != nil {
 			return closeErr
 		}
-		client := voiceprints.NewClient(a.Config.VoiceprintURL)
-		defer client.HTTP.CloseIdleConnections()
 		for _, label := range labels {
 			blocks := clips[label]
 			if len(blocks) == 0 {
@@ -234,7 +232,7 @@ func (a *App) processVoiceprints(ctx context.Context, w voiceprintWork) error {
 				if err != nil {
 					return err
 				}
-				vector, err := client.Extract(ctx, pcm)
+				vector, err := a.voiceprintEngine.Extract(ctx, pcm)
 				if errors.Is(err, voiceprints.ErrAudio) {
 					continue
 				}
@@ -352,13 +350,10 @@ func (a *App) getTranscriptionVoiceprints(w http.ResponseWriter, r *http.Request
 	if err := a.DB.QueryRow(r.Context(), "SELECT count(*) FROM speaker_voiceprints v JOIN speaker_labels l ON l.id=v.label_id WHERE l.transcription_id=$1 AND v.model=$2", r.PathValue("id"), voiceprints.Model).Scan(&samples); err != nil {
 		return err
 	}
-	writeJSON(w, 200, map[string]any{"configured": a.Config.VoiceprintURL != "", "task": task, "samples": samples})
+	writeJSON(w, 200, map[string]any{"configured": true, "task": task, "samples": samples})
 	return nil
 }
 func (a *App) retryTranscriptionVoiceprints(w http.ResponseWriter, r *http.Request) error {
-	if a.Config.VoiceprintURL == "" {
-		return &apiError{409, "voiceprints_unconfigured", "声纹服务未启用"}
-	}
 	err := persistence.Transaction(r.Context(), a.DB, func(tx pgx.Tx) error {
 		tid := r.PathValue("id")
 		if err := lockTranscription(r.Context(), tx, tid); err != nil {
@@ -390,13 +385,10 @@ func (a *App) getPersonVoiceprints(w http.ResponseWriter, r *http.Request) error
 	if err != nil {
 		return err
 	}
-	writeJSON(w, 200, map[string]any{"configured": a.Config.VoiceprintURL != "", "samples": samples, "sample_ms": ms, "pending": pending})
+	writeJSON(w, 200, map[string]any{"configured": true, "samples": samples, "sample_ms": ms, "pending": pending})
 	return nil
 }
 func (a *App) rebuildPersonVoiceprints(w http.ResponseWriter, r *http.Request) error {
-	if a.Config.VoiceprintURL == "" {
-		return &apiError{409, "voiceprints_unconfigured", "声纹服务未启用"}
-	}
 	// No recording locks are held: queuing does not change existing references and
 	// cannot evict a physical execution slot. Fresh snapshots are taken by workers.
 	err := persistence.Transaction(r.Context(), a.DB, func(tx pgx.Tx) error {

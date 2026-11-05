@@ -51,7 +51,7 @@ func (a *App) Restore(ctx context.Context) error {
 // Run supervises durable jobs until shutdown; no application-local queue owns work.
 func (a *App) Run(ctx context.Context) {
 	var wg sync.WaitGroup
-	defer wg.Wait()
+	defer func() { wg.Wait(); a.voiceprintEngine.Close() }()
 	if a.runtimeCleaning.CompareAndSwap(false, true) {
 		wg.Add(1)
 		go func() { defer wg.Done(); a.runRuntimeCleanup(ctx) }()
@@ -67,11 +67,16 @@ func (a *App) Run(ctx context.Context) {
 			if a.Config.RestoreMode {
 				continue
 			}
-			if work, err := a.claimVoiceprints(ctx); err == nil {
-				wg.Add(1)
-				go func() { defer wg.Done(); a.executeVoiceprints(ctx, work) }()
-			} else if err != pgx.ErrNoRows && ctx.Err() == nil {
-				a.recordRuntime(ctx, "voiceprint_claim_failed", errorType(err), "", "", 0, "")
+			if a.voiceprintActive.CompareAndSwap(false, true) {
+				if work, err := a.claimVoiceprints(ctx); err == nil {
+					wg.Add(1)
+					go func() { defer wg.Done(); defer a.voiceprintActive.Store(false); a.executeVoiceprints(ctx, work) }()
+				} else {
+					a.voiceprintActive.Store(false)
+					if err != pgx.ErrNoRows && ctx.Err() == nil {
+						a.recordRuntime(ctx, "voiceprint_claim_failed", errorType(err), "", "", 0, "")
+					}
+				}
 			}
 			if work, err := a.claimInsight(ctx); err == nil {
 				wg.Add(1)

@@ -11,24 +11,41 @@ ARG PUBLIC_BASE_URL=http://localhost:8080
 ENV PUBLIC_BASE_URL=$PUBLIC_BASE_URL
 RUN vp run build
 
-FROM --platform=$BUILDPLATFORM golang:1.26-bookworm AS backend
+# Native CGO build runs on the target platform (native CI runner or buildx QEMU).
+FROM golang:1.26-bookworm AS backend
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd/ ./cmd/
 COPY internal/ ./internal/
-ARG TARGETOS
-ARG TARGETARCH
+COPY scripts/package-native.sh ./scripts/package-native.sh
+COPY docs/release-package.txt ./docs/release-package.txt
 ARG VOICES_VERSION=dev
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w -X main.version=${VOICES_VERSION}" -o /voices ./cmd/voices
+RUN VOICES_VERSION="$VOICES_VERSION" ./scripts/package-native.sh /package
 
-FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates && rm -rf /var/lib/apt/lists/* \
+FROM debian:bookworm-slim AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates libstdc++6 libgcc-s1 && rm -rf /var/lib/apt/lists/* \
     && useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin voices
+
+# Exercise the shipped libraries and embedded model without Go/cache/Python.
+FROM runtime AS native-test
+WORKDIR /verify
+COPY --from=backend /package/ ./
+USER voices
+RUN ./native-test -test.run '^TestVoiceprintNative' -test.v && touch /tmp/native-verified
+
+FROM scratch AS package
+COPY --from=backend /package/voices /voices
+COPY --from=backend /package/lib/ /lib/
+COPY --from=backend /package/licenses/ /licenses/
+COPY --from=backend /package/README.txt /README.txt
+COPY --from=web /src/web/dist/ /web/
+COPY --from=native-test /tmp/native-verified /native-verified
+
+FROM runtime AS app
 WORKDIR /app
-COPY --from=backend /voices /usr/local/bin/voices
-COPY --from=web /src/web/dist /app/web
-ENV LISTEN_ADDR=0.0.0.0:8080 WEB_DIR=/app/web TEMP_DIR=/tmp
+COPY --from=package / /app/
+ENV PATH="/app:${PATH}" LISTEN_ADDR=0.0.0.0:8080 WEB_DIR=/app/web TEMP_DIR=/tmp
 USER voices
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD ["voices", "healthcheck"]

@@ -22,9 +22,9 @@ kind: feature
 
 ## 跨录音识别
 
-标准 Docker Compose 默认启用自托管声纹服务；人工关联可建立人物声纹，新录音完成转写后自动关联明确匹配的人物。自动结果可纠错，不能未经确认作为后续声纹样本。未配置服务时保留录音内区分说话人与人工关联。
+Go 程序内置声纹模型，无需额外部署或配置；人工关联可建立人物声纹，新录音完成转写后自动关联明确匹配的人物。自动结果可纠错，不能未经确认作为后续声纹样本。推理失败不影响录音内区分说话人与人工关联。
 
-[建立声纹与自动关联](use-case/recognize-speaker.md) · [声纹架构](voiceprints.md)
+[建立声纹与自动关联](use-case/recognize-speaker.md) · [声纹架构](voiceprints.md) · [内置推理与分发](embedded-voiceprints.md)
 
 ## 验收
 

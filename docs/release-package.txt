@@ -1,6 +1,11 @@
 Voices Linux release package
 
-Install PostgreSQL 18 and ffmpeg (including ffprobe) before starting.
+Install PostgreSQL 18, ffmpeg (including ffprobe), glibc >= 2.36,
+libstdc++6 and libgcc-s1 before starting (Debian Bookworm or compatible).
+Keep lib/ beside voices: native voiceprint libraries load from that directory.
+The voiceprint model is embedded; no Python, model download or URL is needed.
+Third-party notices are in licenses/. Stop all old replicas before upgrading;
+existing samples are rebuilt for the new model profile without changing labels.
 Extract this package, then run from its directory:
   export DATABASE_URL='postgres://USER:PASSWORD@HOST/voices?sslmode=require'
   export PUBLIC_BASE_URL='https://your-voices.example'

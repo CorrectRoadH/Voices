@@ -98,4 +98,4 @@ Upload/Submit 每次只发一个创建操作；网络错误返回 uncertain。�
 
 `GET /people/{id}/voiceprints` 返回 `configured`、有效人工 `samples`、`sample_ms` 和待处理转写 `pending`。POST 从该人物的历史人工标识录音建档，已排队任务合并，返回同一 DTO。
 
-四个路由均使用现有资源归属鉴权；POST 还需 CSRF 且受恢复模式写保护。未配置服务的 POST 返回 409 `voiceprints_unconfigured`；未完成转写返回 409 `not_completed`；归档人物返回 400 `person_archived`，内置人物返回 400 `builtin_person_readonly`。响应不暴露向量、服务地址或音频。行为见[声纹识别](../feature/people/use-case/recognize-speaker.md)，类型以 OpenAPI 为准。
+四个路由均使用现有资源归属鉴权；POST 还需 CSRF 且受恢复模式写保护。`configured` 恒为 true，表示内置能力；未完成转写返回 409 `not_completed`；归档人物返回 400 `person_archived`，内置人物返回 400 `builtin_person_readonly`。响应不暴露向量、服务地址或音频。行为见[声纹识别](../feature/people/use-case/recognize-speaker.md)，类型以 OpenAPI 为准。

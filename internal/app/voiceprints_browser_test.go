@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,7 +24,7 @@ func TestVoiceprintBrowser(t *testing.T) {
 	var hold atomic.Bool
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	serveVoiceprint(t, f, func(w http.ResponseWriter, r *http.Request) {
+	serveVoiceprint(t, f, func(callCtx context.Context, pcm []byte) ([]float64, error) {
 		if hold.Load() {
 			ticker := time.NewTicker(50 * time.Millisecond)
 			defer ticker.Stop()
@@ -35,14 +34,14 @@ func TestVoiceprintBrowser(t *testing.T) {
 				}
 				select {
 				case <-ctx.Done():
-					return
-				case <-r.Context().Done():
-					return
+					return nil, ctx.Err()
+				case <-callCtx.Done():
+					return nil, callCtx.Err()
 				case <-ticker.C:
 				}
 			}
 		}
-		voiceprintResponse(w, r, 0)
+		return voiceprintResponse(pcm, 0)
 	})
 	_, _, label := voiceprintRecording(t, f, 20)
 	_, person := f.json(t, "POST", "/api/v1/people", map[string]any{"display_name": "声纹测试人物"}, 201, uuid.NewString())

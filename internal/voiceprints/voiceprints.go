@@ -4,79 +4,15 @@
 package voiceprints
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
 	"errors"
-	"io"
 	"math"
-	"net"
-	"net/http"
-	"net/url"
 	"sort"
-	"time"
 )
 
-const Model = "campplus-zh-v1:sherpa-2.0.1:s16le-16000-mono:f682b514c05d947ee3fa91cd6ec6c5c7543479a128373fa29b1faedccd21fd11"
+const Model = "campplus-zh-v2:sherpa-1.13.8:s16le-16000-mono:f682b514c05d947ee3fa91cd6ec6c5c7543479a128373fa29b1faedccd21fd11"
 const Dimensions = 192
 
 var ErrAudio = errors.New("insufficient_audio")
-
-func ValidURL(raw string) bool {
-	if raw == "" {
-		return true
-	}
-	u, err := url.Parse(raw)
-	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Hostname() != "" && u.User == nil && u.RawQuery == "" && !u.ForceQuery && u.Fragment == "" && (u.Path == "" || u.Path == "/")
-}
-
-type Client struct {
-	URL  string
-	HTTP *http.Client
-}
-
-func NewClient(raw string) *Client {
-	transport := &http.Transport{DialContext: (&net.Dialer{Timeout: 10 * time.Second}).DialContext, TLSHandshakeTimeout: 10 * time.Second, ResponseHeaderTimeout: 30 * time.Second, MaxIdleConnsPerHost: 1}
-	return &Client{URL: raw, HTTP: &http.Client{Transport: transport, Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
-}
-func (c *Client) Extract(ctx context.Context, pcm []byte) ([]float64, error) {
-	if !ValidURL(c.URL) || c.URL == "" {
-		return nil, errors.New("unconfigured")
-	}
-	if len(pcm) < 96000 || len(pcm) > 320000 || len(pcm)%2 != 0 {
-		return nil, ErrAudio
-	}
-	u, _ := url.Parse(c.URL)
-	u.Path = "/embedding"
-	req, err := http.NewRequestWithContext(ctx, "POST", u.String(), bytes.NewReader(pcm))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/octet-stream")
-	response, err := c.HTTP.Do(req)
-	if err != nil {
-		return nil, errors.New("inference_unavailable")
-	}
-	defer response.Body.Close()
-	raw, err := io.ReadAll(io.LimitReader(response.Body, 16385))
-	if err != nil || len(raw) > 16384 {
-		return nil, errors.New("invalid_embedding")
-	}
-	if response.StatusCode == 422 {
-		return nil, ErrAudio
-	}
-	if response.StatusCode != 200 {
-		return nil, errors.New("inference_unavailable")
-	}
-	var result struct {
-		Model     string    `json:"model"`
-		Embedding []float64 `json:"embedding"`
-	}
-	if json.Unmarshal(raw, &result) != nil || result.Model != Model {
-		return nil, errors.New("model_mismatch")
-	}
-	return Normalize(result.Embedding)
-}
 
 func Normalize(v []float64) ([]float64, error) {
 	if len(v) != Dimensions {

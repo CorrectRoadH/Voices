@@ -18,13 +18,10 @@ services:
       MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-2147483648}
       TRANSCRIPTION_CONCURRENCY: ${TRANSCRIPTION_CONCURRENCY:-2}
       PREPARE_CONCURRENCY: ${PREPARE_CONCURRENCY:-1}
-      VOICEPRINT_URL: ${VOICEPRINT_URL-http://voiceprints:8091}
     ports:
       - "127.0.0.1:${PORT:-8080}:8080"
     depends_on:
       db:
-        condition: service_healthy
-      voiceprints:
         condition: service_healthy
     read_only: true
     tmpfs:
@@ -32,17 +29,6 @@ services:
     mem_limit: 2g
     restart: unless-stopped
     stop_grace_period: 30s
-  voiceprints:
-    image: ${VOICEPRINT_IMAGE:-correctroad/voices:voiceprints-latest}
-    build: ./voiceprint-service
-    read_only: true
-    mem_limit: 1g
-    cpus: 2
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
   db:
     image: postgres:18-bookworm
     environment:

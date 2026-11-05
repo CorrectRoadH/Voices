@@ -29,7 +29,7 @@ vp run dev          # 终端二：前端 5173，API 代理到 18080
 # 独立测试数据库；每个测试使用随机 schema 并清理。
 TEST_DATABASE_URL='postgres://user:password@localhost:5432/voices_test?sslmode=disable' vp run check
 # 大文件验收：约 1 GiB 与接近 2 GiB 的 WAV。
-VOICES_LARGE_TEST=1 TEST_DATABASE_URL=... CGO_ENABLED=0 go test ./internal/app -run TestLargeHTTPUploadsBoundedMemory -v
+VOICES_LARGE_TEST=1 TEST_DATABASE_URL=... ./scripts/go.sh test ./internal/app -run TestLargeHTTPUploadsBoundedMemory -v
 # e2e：自动构建前端，启动真实 Go/隔离 PostgreSQL fixture。
 vp -C web exec e2e-web install chromium
 TEST_DATABASE_URL=... vp run test:e2e
@@ -42,4 +42,6 @@ concord doctor --json
 
 浏览器用例统一位于 `web/tests/*.e2e.ts`，用中文描述操作与验收，使用 tester-army/e2e。测试代理模型配置与调用边界遵守[交付机制](engineering/delivery/README.md#测试分工)。失败报告与截图位于 `web/.e2e/<流程>/`。测试分工见 [交付机制](engineering/delivery/README.md#测试分工)。
 
-声纹功能定向验收：隔离 `TEST_DATABASE_URL` 下执行 `vp run test:voiceprints` 和 `vp run test:voiceprints:browser`；后者使用真实 Go/PostgreSQL/Chromium，仅替代外部 STT 和声纹推理边界，不调用测试代理模型。真实 CPU 模型服务验收见 [服务说明](../voiceprint-service/README.md)。
+本地 `vp run test:voiceprints:air` 用隔离数据库启动真实 Air，验证内置模型建档与自动关联，不调用外部模型服务。
+
+声纹功能定向验收：隔离 `TEST_DATABASE_URL` 下执行 `vp run test:voiceprints` 和 `vp run test:voiceprints:browser`；后者使用真实 Go/PostgreSQL/Chromium，仅替代外部 STT 和声纹推理边界，不调用测试代理模型。上述 Go 测试也实际运行内置 CPU 模型；分发方式见[内置推理](feature/people/embedded-voiceprints.md)。本地 Go 命令通过 `scripts/go.sh` 启用 CGO，需 C/C++ 编译器；NixOS 缺少编译器时自动使用 nix shell gcc。Air 已使用此入口，无需模型服务或 URL。

@@ -94,7 +94,7 @@ Worker 通过 `Deploy update worker` 手动部署，与应用版本发布分离�
 
 沿用 OpenTickly 的 tag 发版流程：Docker Hub 仓库 correctroad/voices，镜像标签为 X.Y.Z、X.Y、SHA 和 latest。DOCKERHUB_USERNAME 与 DOCKERHUB_TOKEN 仅在 image job 使用。Registry 查询错误不视为首次发布；仅明确 latest 不存在可跳过镜像版本比较。
 
-GitHub Release 同时提供 voices-linux-amd64.tar.gz、voices-linux-arm64.tar.gz 和 SHA256SUMS。每个压缩包包含对应架构的 voices 可执行文件、同一 tag 构建的 web/ 静态资源及运行说明；运行需要 PostgreSQL 与 ffmpeg，默认从解压目录启动并设置 WEB_DIR=web。前端只构建一次供两个发布包共享。发布等待镜像和发布包都成功，不自动创建或推送 tag。
+GitHub Release 同时提供 voices-linux-amd64.tar.gz、voices-linux-arm64.tar.gz 和 SHA256SUMS。每个压缩包包含对应架构的 voices、web/、lib/、licenses/ 和运行说明；运行需要 PostgreSQL、ffmpeg、glibc 及 libstdc++6/libgcc-s1，默认从解压目录启动并设置 WEB_DIR=web。两种架构分别在原生 runner 上通过 Bookworm 构建，使用与 Docker 相同的 package 阶段；干净运行阶段必须实际提取声纹，不依赖 Go 模块缓存或 Python。发布等待镜像和发布包都成功，不自动创建或推送 tag。
 
 ## 模型私网接入
 

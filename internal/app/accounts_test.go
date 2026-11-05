@@ -225,7 +225,7 @@ func TestAccountManagementAndSessions(t *testing.T) {
 	} else {
 		dsn += " search_path=" + schema
 	}
-	cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "DATABASE_URL="+dsn, "PUBLIC_BASE_URL=http://localhost")
+	cmd.Env = append(os.Environ(), "DATABASE_URL="+dsn, "PUBLIC_BASE_URL=http://localhost")
 	cmd.Stdin = strings.NewReader("operator-reset-password\n")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("local reset command: %v: %s", err, output)

@@ -995,7 +995,6 @@
   "服务商 / 模型": "Provider / model",
   "请求状态": "Request status",
   "人物声纹": "Voice profile",
-  "声纹服务未启用": "Voice recognition is not enabled",
   "正在建立声纹…": "Building voice profile…",
   "已建立 {{v0}} 份样本，共 {{v1}} 秒": "{{v0}} samples, {{v1}} seconds",
   "暂无可用声纹": "No usable voice samples yet",

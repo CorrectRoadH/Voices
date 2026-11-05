@@ -3,7 +3,7 @@ tmp_dir = ".air"
 env_files = [".env"]
 
 [build]
-cmd = "CGO_ENABLED=0 go build -o ./.air/voices ./cmd/voices"
+cmd = "./scripts/go.sh build -o ./.air/voices ./cmd/voices"
 entrypoint = ["./.air/voices"]
 include_ext = ["go", "sql"]
 exclude_dir = [".air", ".git", "web", "node_modules"]
