@@ -1,12 +1,14 @@
 # Your title
 
+This page answers how to call the library. Describe exported signatures, return values, and failures. Third-party dependency choices belong in the architecture page.
+
 ## Imports and Exports
 
-List the minimum public import and every exported operation used by this feature.
+List the public import path and every exported operation and type.
 
-## Public Shapes
+## Signatures
 
-Define exact TypeScript input and result shapes. State field meanings, defaults, valid combinations, and fields that are deliberately absent.
+Define exact input and result shapes. State field meanings, defaults, valid combinations, and fields that are deliberately absent.
 
 ## Minimal Call
 

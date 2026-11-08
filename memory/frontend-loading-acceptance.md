@@ -1,16 +1,3 @@
----
-format: concord.document/v1
-id: frontend-loading-acceptance
-title: 前端读取与分页优化验收
-createdAt: 2026-10-26T09:34:34.391Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # 前端读取与分页优化验收
 
 2026-10-26，用户授权修正六类读取与交互问题并提交推送。行为契约见 docs/feature/appearance/README.md、docs/feature/transcription/use-case/transcribe.md、docs/feature/call-logs/use-case/inspect-calls.md；实现边界见 docs/architecture.md。

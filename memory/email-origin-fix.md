@@ -1,16 +1,3 @@
----
-format: concord.document/v1
-id: email-origin-fix
-title: 邮箱登录与开发来源修正
-createdAt: 2026-10-18T03:14:42.006Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # 邮箱登录与开发来源修正
 
 用户在首次注册页面遇到 origin_rejected，并要求使用邮箱、用户名。按邮箱作为登录标识、用户名仅作显示实现，密码继续至少 6 字符。没有发送验证邮件或声称验证邮箱所有权。

@@ -1,19 +1,6 @@
----
-format: concord.document/v1
-id: obsidian-short-references
-title: Obsidian 短引用与多段选择验收
-createdAt: 2026-10-23T08:23:34.608Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # Obsidian 短引用与多段选择验收
 
-用户指定引用用于 Obsidian，点击文字可跳回 Voices，并明确不附来源行。行为与实现约束由 [引用契约](../docs/feature/sentence-links/README.md) 和 [设计](../docs/feature/sentence-links/reference-design.md) 拥有。
+用户指定引用用于 Obsidian，点击文字可跳回 Voices，并明确不附来源行。行为与实现约束由 [引用契约](../docs/feature/sentence-links/README.md) 和 [设计](../docs/feature/sentence-links/architecture.md) 拥有。
 
 主 agent 先调查权限、片段分页、录音删除和数据库归属约束，再通过 Herdr 启动原生 Codex / GPT-6.1 Sol high 的 voices-ref-review 独立审查。结论为可实施，无阻塞项；接受建议补齐契约、异步取消、删除竞争及 Markdown 特殊字符测试。Review 只读，pane 已回收。实现保留现有 derive_owner、immutable_owner 与复合归属外键。
 

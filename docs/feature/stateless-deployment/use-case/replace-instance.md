@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: replace-instance
-title: 替换实例不丢失已接受数据
-createdAt: 2026-10-18T01:18:38.296Z
-kind: use-case
-feature: docs/feature/stateless-deployment/README.md
----
-
 # 替换实例不丢失已接受数据
 
 Given A 与 B 使用相同部署配置并共享 PostgreSQL，用户已登录。

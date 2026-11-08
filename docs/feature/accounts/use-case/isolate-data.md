@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: isolate-data
-title: 账号之间的数据隔离
-createdAt: 2026-10-18T02:44:14.262Z
-kind: use-case
-feature: docs/feature/accounts/README.md
----
-
 # 账号之间的数据隔离
 
 ## 行为

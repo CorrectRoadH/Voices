@@ -1,11 +1,3 @@
----
-format: concord.document/v1
-id: insights
-title: 录音摘要与主题目录
-createdAt: 2026-10-18T14:12:46.619Z
-kind: feature
----
-
 # 录音摘要与主题目录
 
 用户可在成功的转写版本上手动生成摘要及主题目录。管理员配置 OpenAI-compatible LLM 地址和模型；凭据仅在服务端使用，空密钥可用于本地模型。保存配置后重启生效，不自动生成、不静默换模型或降级重试。
@@ -19,4 +11,4 @@ kind: feature
 任务持久保存，单实例替换不丢失排队工作。运行失败或中断不自动重放；恢复数据库时 queued/running 均隔离为失败，用户再次生成前明确知晓可能重复收费。输入限 5000 个片段、200000 UTF-8 字节，超限不截断。
 
 - [生成摘要并跳转主题章节](use-case/generate-insights.md)
-- [持久化、接口、生命周期与独立审查](../../research/transcription-insights/README.md)
+- [持久化、接口、生命周期与独立审查](architecture.md)

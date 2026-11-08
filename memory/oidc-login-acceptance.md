@@ -1,19 +1,6 @@
----
-format: concord.document/v1
-id: oidc-login-acceptance
-title: 站点 OIDC 登录实现与验收
-createdAt: 2026-10-26T06:55:59.236Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # 站点 OIDC 登录实现与验收
 
-2026-10-26 完成站点级 OIDC 登录、管理员自动保存配置、主动绑定解绑和无本地密码账号的密码恢复。契约见 `docs/feature/accounts/use-case/oidc-login.md`，具体设计、独立审查结论及部署/回滚要求见 `docs/feature/accounts/oidc-design.md`。
+2026-10-26 完成站点级 OIDC 登录、管理员自动保存配置、主动绑定解绑和无本地密码账号的密码恢复。契约见 `docs/feature/accounts/use-case/oidc-login.md`，具体设计、独立审查结论及部署/回滚要求见 `docs/feature/accounts/architecture/oidc.md`。
 
 实现前通过 Herdr 启动原生 Codex / GPT-6.1 Sol 独立审查，收敛 subject 校验、UserInfo 同一主体与邮箱验证声明一致性、显示名称长度以及事务锁顺序。审查 pane 已回收。
 

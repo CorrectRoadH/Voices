@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: link-person
-title: 关联和纠正人物
-createdAt: 2026-10-18T00:58:56.699Z
-kind: use-case
-feature: docs/feature/people/README.md
----
-
 # 关联和纠正人物
 
 Given 两份录音分别有 Speaker 1 与 Speaker 2。

@@ -1,16 +1,3 @@
----
-format: concord.document/v1
-id: call-logs-acceptance
-title: 统一调用日志实现与验收
-createdAt: 2026-10-23T02:38:01.948Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # 统一调用记录实现验收
 
 2026-10-23 完成 [统一调用记录](../docs/feature/call-logs/README.md)。管理员与个人复用 external_calls 和同一界面，保留 30 天；metadata 不保存正文、密钥或 URL。设计先经独立原生 Codex GPT‑6.1 Sol Review，结论见 call-logs-review。

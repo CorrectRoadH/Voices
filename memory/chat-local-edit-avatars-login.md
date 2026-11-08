@@ -1,15 +1,4 @@
----
-format: concord.document/v1
-id: chat-local-edit-avatars-login
-title: 聊天布局、局部编辑、头像与用户名登录
-createdAt: 2026-10-18T04:08:38.864Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
+# 聊天布局、局部编辑、头像与用户名登录
 
 已完成用户连续提出的交互改动：全局 useResource 同路径刷新保留旧内容，App 会话刷新保留 Shell；详情刷新保留正文节点/播放器且不反复深链接定位。片段正文点击原位编辑，仅 PATCH edited_text/revision，失败保留草稿；原完整编辑菜单仍可编辑时间等字段。
 人物选择器两列网格、搜索 type=search/autocomplete=off/data-1p-ignore/data-lpignore，取消自动聚焦，密码管理器真实扩展效果未验证。人物页含只读内置人物，整卡链接详情；详情有编辑、自定义头像、标记/取消本人。005 本人字段同 owner 单一 true，事务替换与版本冲突回滚；006 PNG bytea 头像属性有尺寸/字节验证与规范化，GET 头像沿用 owner guard，null 清除。头像默认姓名首字，同有效人物连续消息组首姓名/组尾头像，紧凑左右气泡，窄屏调整。

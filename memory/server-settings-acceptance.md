@@ -1,19 +1,6 @@
----
-format: concord.document/v1
-id: server-settings-acceptance
-title: 数据库优先的服务器配置与验收
-createdAt: 2026-10-18T05:52:08.900Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # 服务器配置实现与验收
 
-用户明确要求数据库配置优先于 .env，管理站点、LLM 和 STT，并在 Herdr pane 失效后明确指示本次跳过独立挑战直接开工。实现遵循 [服务器配置契约](../docs/feature/accounts/use-case/manage-server.md)与 [设计](../docs/research/server-settings/README.md)。
+用户明确要求数据库配置优先于 .env，管理站点、LLM 和 STT，并在 Herdr pane 失效后明确指示本次跳过独立挑战直接开工。实现遵循 [服务器配置契约](../docs/feature/accounts/use-case/manage-server.md)与 [设计](../docs/feature/accounts/architecture/server-settings.md)。
 
 完成服务器设置页面、管理员 GET/PATCH、修订冲突保护、字段名审计、单行数据库配置和首次环境导入。STT 生产适配器通过 NewServer 取得数据库密钥；保存后重启全部副本生效。LLM 仅提供配置，不新增模型调用。
 

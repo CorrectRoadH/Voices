@@ -1,15 +1,4 @@
----
-format: concord.document/v1
-id: segment-menu-speaker-playback
-title: 片段菜单、批量人物关联与范围播放
-createdAt: 2026-10-18T03:38:51.039Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
+# 片段菜单、批量人物关联与范围播放
 
 用户要求每句底部动作移至右上角更多菜单，点击说话人选择或新建人物并批量更新；点击右侧播放后上方播放器自动播放到下一句结束。
 

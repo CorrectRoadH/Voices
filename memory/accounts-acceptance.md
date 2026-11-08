@@ -1,16 +1,3 @@
----
-format: concord.document/v1
-id: accounts-acceptance
-title: 独立账号实现与验收
-createdAt: 2026-10-18T03:01:09.154Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # 独立账号实现与验收
 
 用户确认每账号独立、首个注册者为管理员，并明确豁免本次独立审查，由主 agent 实现和验证。Herdr 父 pane 已不存在，未创建 worker 资源。用户随后要求密码不必复杂、完工后清空开发库。

@@ -1,15 +1,4 @@
----
-format: concord.document/v1
-id: ui-cleanup-http-request-keys
-title: 界面精简与 HTTP 请求键修复
-createdAt: 2026-10-18T03:23:02.328Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
+# 界面精简与 HTTP 请求键修复
 
 按用户要求删除录音库介绍卡、页面英文眉题和宣传说明、顶栏假面包屑、页脚口号以及重复账号展示。个人资料入口收拢到侧栏底部用户名/邮箱；个人转写偏好留在主导航，管理员账号管理另列服务器管理分组。保留错误、字段、费用和恢复状态提示；未变更权限边界和后台模型。
 

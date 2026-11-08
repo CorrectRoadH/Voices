@@ -1,11 +1,3 @@
----
-format: concord.document/v1
-id: accounts
-title: 独立账号与系统管理
-createdAt: 2026-10-18T02:44:13.375Z
-kind: feature
----
-
 # 独立账号与系统管理
 
 ## 目标
@@ -24,7 +16,7 @@ kind: feature
 
 真实数据库并发注册恰好产生一个首位管理员。两个账号在所有业务接口与后台任务中相互隔离。改密码和停用撤销会话。
 
-[设计](../../research/account-isolation/README.md) · [注册](use-case/register.md) · [隔离](use-case/isolate-data.md) · [权限管理](use-case/manage-access.md)
+[设计](architecture/accounts.md) · [注册](use-case/register.md) · [隔离](use-case/isolate-data.md) · [权限管理](use-case/manage-access.md)
 
 邮箱仅作为登录标识，不把注册视为邮箱所有权验证，本期不发送验证邮件。
 
@@ -36,4 +28,4 @@ kind: feature
 
 首次管理员创建账号后完成独立的[站点初始化](use-case/setup-site.md)。普通用户注册不包含站点配置；初始化期间暂停后续注册。
 
-站点管理员可配置[统一身份登录](use-case/oidc-login.md)，使用标准 OIDC 完成 OAuth 2.0 登录。已有账号主动绑定，新身份按注册开关创建普通账号，不按邮箱自动合并。保留本地密码登录与操作员恢复入口。实现边界见[OIDC 设计](oidc-design.md)。
+站点管理员可配置[统一身份登录](use-case/oidc-login.md)，使用标准 OIDC 完成 OAuth 2.0 登录。已有账号主动绑定，新身份按注册开关创建普通账号，不按邮箱自动合并。保留本地密码登录与操作员恢复入口。实现边界见[OIDC 设计](architecture/oidc.md)。

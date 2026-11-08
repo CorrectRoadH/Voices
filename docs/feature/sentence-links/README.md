@@ -1,11 +1,3 @@
----
-format: concord.document/v1
-id: sentence-links
-title: 逐句转写深链接
-createdAt: 2026-10-18T01:24:08.494Z
-kind: feature
----
-
 # 逐句转写深链接
 
 ## 目标
@@ -28,4 +20,4 @@ kind: feature
 
 校正文字、修改人物、切换激活版本并重新转写后，旧链接仍定位原版本和片段。多段顺序、省略、跨页定位、登录返回、账号隔离、删除失效与 Markdown 特殊字符均有明确行为。
 
-[复制与打开引用](use-case/copy-sentence-link.md) · [短引用设计](reference-design.md) · [架构](../../architecture.md)
+[复制与打开引用](use-case/copy-sentence-link.md) · [短引用设计](architecture.md) · [架构](../../architecture.md)

@@ -1,16 +1,3 @@
----
-format: concord.document/v1
-id: permanent-call-logs
-title: 调用日志改为永久保存
-createdAt: 2026-10-23T02:44:51.202Z
-kind: memory
-memoryKind: decision
-state: current
-epoch: 0
-promotions: []
-history: []
----
-
 # 调用日志永久保存
 
 2026-10-23 用户要求发布 v0.0.5，并明确调用日志永久保存，取代此前 30 天保留方案。当前契约见 [调用日志](../docs/feature/call-logs/README.md)。

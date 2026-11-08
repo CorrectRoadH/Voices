@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: generate-insights
-title: 生成摘要并跳转主题章节
-createdAt: 2026-10-18T14:12:47.099Z
-kind: use-case
-feature: docs/feature/insights/README.md
----
-
 # 生成摘要并跳转主题章节
 
 ## 用户路径
@@ -29,7 +20,7 @@ feature: docs/feature/insights/README.md
 
 浏览器验证真实生成、状态轮询、摘要/主题目录、未加载章节与空时间定位、过期提醒、失败与重新生成、窄屏和深色。
 
-[设计](../../../research/transcription-insights/README.md)
+[设计](../architecture.md)
 
 目录章节采用紧凑行距，标题完整换行，时间列对齐。成功后的摘要、模型信息、重新生成与费用说明位于独立“摘要”页签；失败与重试仍直接可见。桌面侧栏固定页签、内容区保留单层滚动但隐藏常驻滚动条，支持滚轮、触摸和键盘定位章节。
 
@@ -37,7 +28,7 @@ feature: docs/feature/insights/README.md
 
 桌面右栏采用目录、摘要、录音信息三个页签；手机播放器弹出区域采用目录、摘要两个页签。切换页签不会重新生成或丢失录音编辑草稿。
 
-LLM 配置按提交时的数据库值绑定到任务，保存后的新任务无需重启即可使用新地址、密钥和模型；已排队任务继续使用原快照，终态清除凭据。参考[站点初始化设计](../../../research/site-onboarding/README.md)。
+LLM 配置按提交时的数据库值绑定到任务，保存后的新任务无需重启即可使用新地址、密钥和模型；已排队任务继续使用原快照，终态清除凭据。参考[站点初始化设计](../../accounts/architecture/onboarding.md)。
 
 目录数据初次加载使用共用加载占位；排队及生成中显示旋转状态与阶段说明，提交按钮同步显示忙碌状态。失败停止加载指示并保留重试入口。
 

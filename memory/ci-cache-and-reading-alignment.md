@@ -1,15 +1,4 @@
----
-format: concord.document/v1
-id: ci-cache-and-reading-alignment
-title: CI 下载缓存、E2E 分片与阅读对齐修复
-createdAt: 2026-10-23T04:22:49.173Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
+# CI 下载缓存、E2E 分片与阅读对齐修复
 
 2026-10-23，主分支 CI 39895920834 与 v0.0.5 发布运行 39896251131 均在目录摘要场景失败。新增正文搜索位于正文滚动列内，使聊天区域比侧栏页签低 72px；原有对齐断言正确。搜索移到两列共同上方，并监听搜索区域尺寸变化重新计算阅读高度。
 

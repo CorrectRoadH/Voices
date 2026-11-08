@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: change-theme
-title: 切换界面主题
-createdAt: 2026-10-18T13:50:58.140Z
-kind: use-case
-feature: docs/feature/appearance/README.md
----
-
 # 切换界面主题
 
 用户登录后通过侧栏账号入口进入“我的账号”，在“外观设置”的“界面主题”选择跟随系统、浅色或深色，无需提交表单，整页即时采用所选外观。登录页与侧栏不显示主题选择器，仍应用当前浏览器主题。

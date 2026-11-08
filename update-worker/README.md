@@ -42,7 +42,7 @@ IDs are unique. Severity is `info`, `warning`, or `critical`; dates are UTC RFC3
 
 The release lookup covers at most 1000 GitHub releases and refuses an incomplete history. Only stable three-part versions (components ≤ 4294967295) are eligible; draft and prerelease entries are excluded. GitHub failures leave announcements available and return an unknown release. Cloudflare Cache API caches only successful release snapshots, not per-client responses or announcements.
 
-[Contract](../docs/research/release-updates/README.md)
+[Contract](../docs/feature/updates/architecture/service.md)
 
 ## Installation statistics
 

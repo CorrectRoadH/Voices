@@ -1,16 +1,3 @@
----
-format: concord.document/v1
-id: outline-ui-e2e
-title: 目录内重试与中文 e2e 迁移验收
-createdAt: 2026-10-19T07:28:34.951Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # 目录界面与中文 e2e 迁移
 
 2026-10-19 用户明确要求移除录音详情顶部的“AI 摘要与主题目录”卡片，生成、失败状态和重试直接放在目录区域；摘要在成功目录内展开查看。桌面侧栏和播放器目录共用组件，没有转写时提示完成转写，保留灰色费用说明。

@@ -1,15 +1,4 @@
----
-format: concord.document/v1
-id: group-chat-clock
-title: 群聊布局、人物选择与真实时间校准
-createdAt: 2026-10-18T05:32:02.426Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
+# 群聊布局、人物选择与真实时间校准
 
 根据用户提供的 Telegram 群聊截图，阅读区改为统一左侧气泡，姓名沿用连续人物分组，修复 PopoverTrigger 覆盖 data-slot 导致姓名紧凑样式未命中的问题。头像及消息菜单编辑下方的更换人物共用 SpeakerPicker，候选带头像，仍按既有契约更新当前标签全部片段。无标签时不伪造关联。内联编辑保留接近气泡宽度，单行起自动高度，小图标保存与取消。
 

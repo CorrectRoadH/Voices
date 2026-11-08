@@ -1,15 +1,4 @@
----
-format: concord.document/v1
-id: floating-player-outline-noop
-title: 浮动播放器、时间目录与无变化编辑
-createdAt: 2026-10-18T05:38:09.204Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
+# 浮动播放器、时间目录与无变化编辑
 
 用户纠正群聊参考范围：本人仍需靠右，恢复基于 is_self 的反向行和绿色气泡，同时将本人更多按钮放到左外侧。气泡只显示播放图标，真实时刻保留悬停提示。
 

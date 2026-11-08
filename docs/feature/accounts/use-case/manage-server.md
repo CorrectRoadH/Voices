@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: manage-server
-title: 管理服务器配置
-createdAt: 2026-10-18T05:45:10.018Z
-kind: use-case
-feature: docs/feature/accounts/README.md
----
-
 # 管理服务器配置
 
 ## 行为
@@ -27,7 +18,7 @@ feature: docs/feature/accounts/README.md
 
 获取模型沿用管理员、CSRF、来源、恢复模式及修订号检查。省略密钥只允许在地址与已保存地址一致时使用已保存密钥；更换地址须输入新密钥或明确使用空密钥，不能隐式向新地址发送旧密钥。服务端禁止跟随重定向，限制时间、响应大小与模型数量，不返回服务商原始错误。连接参数变化后废弃旧列表与在途结果。
 
-[模型发现接口设计](../../../research/openai-stt-model-discovery/README.md)
+[模型发现接口设计](../../../design/openai-transcription.md)
 
 ## 验收
 
@@ -35,7 +26,7 @@ feature: docs/feature/accounts/README.md
 
 验证首启导入、并发启动、数据库优先、空值不回退环境、STT 实际凭据、权限隔离、非法值拒绝、修订冲突和密钥不回显。管理员保存 LLM 配置无需重启，修改站点或 STT 时看到待重启提示；普通用户无入口且 API 拒绝访问。
 
-[设计](../../../research/server-settings/README.md)
+[设计](../architecture/server-settings.md)
 
 验证模型列表的权限、密钥与目标绑定、修订冲突、网络错误、格式及大小限制；浏览器验证获取、输入框内选择、手填，以及连接变化时废弃旧响应。
 

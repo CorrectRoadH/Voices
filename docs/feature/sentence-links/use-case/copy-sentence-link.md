@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: copy-sentence-link
-title: 复制句子引用并返回原位置
-createdAt: 2026-10-18T01:24:08.993Z
-kind: use-case
-feature: docs/feature/sentence-links/README.md
----
-
 # 复制句子引用并返回原位置
 
 1. 用户在历史转写版本的消息菜单选择“复制引用”，得到 `[张三: 明天上午讨论方案](https://voices.example/q/Ab3kP9x2Lm7Q)`，也可仅复制短 URL。正文与人物名按标准 Markdown 转义，不附来源行、录音名称或时间。 {#copy}

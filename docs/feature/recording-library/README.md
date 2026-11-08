@@ -1,11 +1,3 @@
----
-format: concord.document/v1
-id: recording-library
-title: 录音库与导入
-createdAt: 2026-10-18T00:58:53.381Z
-kind: feature
----
-
 # 录音库与导入
 
 ## 目标

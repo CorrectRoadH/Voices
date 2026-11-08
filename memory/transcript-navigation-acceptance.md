@@ -1,15 +1,4 @@
----
-format: concord.document/v1
-id: transcript-navigation-acceptance
-title: 转写目录无闪烁导航与缓存验收
-createdAt: 2026-10-26T08:48:51.328Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
+# 转写目录无闪烁导航与缓存验收
 
 本次调查发现正文数据 key 包含 anchor，目录点击还先行读取单句；一次已加载章节跳转产生单句、版本、同一句、窗口共四个读取请求，并把正文换成加载占位。
 

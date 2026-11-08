@@ -44,4 +44,4 @@ concord doctor --json
 
 本地 `vp run test:voiceprints:air` 用隔离数据库启动真实 Air，验证内置模型建档与自动关联，不调用外部模型服务。
 
-声纹功能定向验收：隔离 `TEST_DATABASE_URL` 下执行 `vp run test:voiceprints` 和 `vp run test:voiceprints:browser`；后者使用真实 Go/PostgreSQL/Chromium，仅替代外部 STT 和声纹推理边界，不调用测试代理模型。上述 Go 测试也实际运行内置 CPU 模型；分发方式见[内置推理](feature/people/embedded-voiceprints.md)。本地 Go 命令通过 `scripts/go.sh` 启用 CGO，需 C/C++ 编译器；NixOS 缺少编译器时自动使用 nix shell gcc。Air 已使用此入口，无需模型服务或 URL。
+声纹功能定向验收：隔离 `TEST_DATABASE_URL` 下执行 `vp run test:voiceprints` 和 `vp run test:voiceprints:browser`；后者使用真实 Go/PostgreSQL/Chromium，仅替代外部 STT 和声纹推理边界，不调用测试代理模型。上述 Go 测试也实际运行内置 CPU 模型；分发方式见[内置推理](feature/people/architecture/embedded-voiceprints.md)。本地 Go 命令通过 `scripts/go.sh` 启用 CGO，需 C/C++ 编译器；NixOS 缺少编译器时自动使用 nix shell gcc。Air 已使用此入口，无需模型服务或 URL。

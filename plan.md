@@ -1,6 +1,6 @@
 # Voices 实现计划
 
-方案：[架构](docs/architecture.md)、[无状态裁决](docs/design/stateless-media/DECISION.md)、[具体接口](docs/api/implementation-contract.md)。两次独立设计复审已通过。
+方案：[架构](docs/architecture.md)、[无状态裁决](docs/architecture.md)、[具体接口](docs/api/implementation-contract.md)。两次独立设计复审已通过。
 
 - [x] Go 入口、PostgreSQL 迁移、鉴权、配置和部署
 - [x] 分块音频导入、播放、清理与任务租约
@@ -18,7 +18,7 @@
 
 ## 独立账号系统
 
-方案：[独立账号与首位管理员](docs/research/account-isolation/README.md)。用户确认每账号独立，首个注册用户为管理员。
+方案：[独立账号与首位管理员](docs/feature/accounts/architecture/accounts.md)。用户确认每账号独立，首个注册用户为管理员。
 
 - [x] 调查现有共享密码和全局数据模型，形成具体方案
 - [x] 用户本次明确豁免独立审查，由主 agent 实现并验证；Herdr 父 pane 已失效，无 worker 资源

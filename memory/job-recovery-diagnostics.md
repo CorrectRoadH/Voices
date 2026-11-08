@@ -1,15 +1,4 @@
----
-format: concord.document/v1
-id: job-recovery-diagnostics
-title: 任务恢复入口与安全错误诊断
-createdAt: 2026-10-22T14:40:50.482Z
-kind: memory
-memoryKind: insight
-state: current
-epoch: 0
-promotions: []
-history: []
----
+# 任务恢复入口与安全错误诊断
 
 用户要求完善任务恢复操作、显示具体原因并 push；另明确授权 kubectl 只读调查线上任务。
 

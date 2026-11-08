@@ -1,11 +1,3 @@
----
-format: concord.document/v1
-id: appearance
-title: 界面主题
-createdAt: 2026-10-18T13:50:57.609Z
-kind: feature
----
-
 # 界面主题
 
 ## 行为与边界

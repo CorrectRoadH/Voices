@@ -1,11 +1,3 @@
----
-format: concord.document/v1
-id: transcription
-title: 多服务商转写
-createdAt: 2026-10-18T00:58:54.044Z
-kind: feature
----
-
 # 多服务商转写
 
 ## 目标

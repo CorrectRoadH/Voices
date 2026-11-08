@@ -1,16 +1,3 @@
----
-format: concord.document/v1
-id: call-logs-review
-title: 统一调用记录的独立设计审查
-createdAt: 2026-10-23T02:33:59.725Z
-kind: memory
-memoryKind: decision
-state: current
-epoch: 0
-promotions: []
-history: []
----
-
 # 统一调用记录设计审查
 
 主 agent 先形成 [具体方案](../docs/feature/call-logs/architecture.md)，独立 Review 使用 Herdr 原生 Codex / GPT‑6.1 Sol high，2026-10-23 收敛后无阻塞项。审查只读，核心模型及实现由主 agent 负责。

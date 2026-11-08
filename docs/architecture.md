@@ -5,11 +5,11 @@
 面向个人日常录音管理的自托管 Web 应用。前端 Vite+、React、TypeScript，组件采用 shadcn/ui + Base UI，后台 Go。
 数据库仅支持 PostgreSQL，保存音频、业务数据、会话和任务。应用实例无持久数据卷，临时文件随时可丢弃。
 
-[产品契约](feature/recording-library/README.md) · [转写契约](feature/transcription/README.md) · [人物契约](feature/people/README.md) · [初始方案](design/foundation/README.md) · [无状态存储方案](design/stateless-media/README.md)
+[产品契约](feature/recording-library/README.md) · [转写契约](feature/transcription/README.md) · [人物契约](feature/people/README.md)
 
 用户通过邮箱、用户名和密码注册，可用用户名或邮箱登录；每账号拥有独立数据，首个成功注册者为系统管理员。支持多个无状态应用副本。团队共享、数据库高可用编排和实时录音不属于当前承诺。
-账号模型、权限与迁移以 [账号方案](research/account-isolation/README.md) 和 [账号契约](feature/accounts/README.md) 为准。
-录音内自动区分说话人，用户确认人物关联后可建立声纹。Go 进程默认内置声纹引擎与模型，新转写按[声纹设计](feature/people/voiceprints.md)匹配同账号人工样本；不确定结果保持匿名，人工纠错优先。
+账号模型、权限与迁移以 [账号方案](feature/accounts/architecture/accounts.md) 和 [账号契约](feature/accounts/README.md) 为准。
+录音内自动区分说话人，用户确认人物关联后可建立声纹。Go 进程默认内置声纹引擎与模型，新转写按[声纹设计](feature/people/architecture/voiceprints.md)匹配同账号人工样本；不确定结果保持匿名，人工纠错优先。
 
 ## 模块与部署
 
@@ -83,7 +83,7 @@ JSON 快照使用 JSONB，应用校验结构；关系和唯一性使用独立字
 | instance_settings | id=1, bootstrap_completed BOOLEAN, site_setup_completed BOOLEAN, registration_open BOOLEAN | 首位管理员资格、独立站点初始化状态与注册开关，单行 |
 | admin_audit_events | id PK, actor_id? FK users, target_user_id? FK users, action, details JSONB | created_at/id、target_user_id/created_at；记录角色、启停、注册开关与服务器设置字段名，不含秘密 |
 
-短引用表 `transcript_references` 以 12 字符随机 code 为主键，保存 owner_id、transcription_id、按 ordinal 排序的 segment_ids UUID 数组和 created_at；限制 1–100 段。转写删除通过复合归属外键级联清理，transcription_id 有索引。完整约束见[短引用设计](feature/sentence-links/reference-design.md)。
+短引用表 `transcript_references` 以 12 字符随机 code 为主键，保存 owner_id、transcription_id、按 ordinal 排序的 segment_ids UUID 数组和 created_at；限制 1–100 段。转写删除通过复合归属外键级联清理，transcription_id 有索引。完整约束见[短引用设计](feature/sentence-links/architecture.md)。
 
 业务表均含不可变 owner_id（触发器禁止修改）；子表由父资源推导归属，跨表引用使用 (owner_id,id) 复合 FK，拒绝跨账号关联。
 options_json、capability_snapshot_json 和 value_json 均为 JSONB；remote_id、服务商标签、摘要和设置键是 TEXT，非 UUID。
@@ -203,7 +203,7 @@ Capabilities 提供支持的语言模式、语言集合、时间戳粒度、说�
 按同说话人和服务商句界组合词/token；保留原始响应供排障。没有时间信息时仅按原有顺序生成片段。
 
 Soniox 作为首选，AssemblyAI 作为第二个实现，用它验证适配边界；不自动互相 fallback。
-管理员通过服务器设置管理站点、STT 和 LLM。首次启动从环境或挂载 secret 文件导入，之后以数据库为准，包含空值。读取 API 不返回密钥；保存后重启全部副本生效。凭据存于数据库，数据库及备份须按含秘密保护。见 [服务器配置设计](research/server-settings/README.md)。
+管理员通过服务器设置管理站点、STT 和 LLM。首次启动从环境或挂载 secret 文件导入，之后以数据库为准，包含空值。读取 API 不返回密钥；保存后重启全部副本生效。凭据存于数据库，数据库及备份须按含秘密保护。见 [服务器配置设计](feature/accounts/architecture/server-settings.md)。
 实现时固定并验证模型 ID，能力目录随版本发布维护，不把文档描述当作运行时探测结果。
 
 ## 逐句深链接
@@ -212,7 +212,7 @@ Soniox 作为首选，AssemblyAI 作为第二个实现，用它验证适配边�
 逐句行提供“复制引用”和“复制链接”，支持同版本多段选择。默认引用逐段输出 `[说话人: 句子内容](绝对短链接)`，不附来源行；说话人使用当前人物名或标签名，未知显示“未知说话人”。
 Markdown 标签转义反斜杠、方括号、排版标记与 HTML/实体，换行折为空格；复制内容取当前校正文。复制的是当时文本快照，页面始终展示该版本当前内容。
 
-复制 URL 为 `/q/{code}`，后续段落带 `?at=2` 等组内位置。短码由 PostgreSQL 持久化，解析到原版本的固定片段集合；完整设计见[短引用设计](feature/sentence-links/reference-design.md)。内部定位与原有 URL `/recordings/{recording_id}/transcriptions/{transcription_id}?segment={segment_id}` 继续有效。
+复制 URL 为 `/q/{code}`，后续段落带 `?at=2` 等组内位置。短码由 PostgreSQL 持久化，解析到原版本的固定片段集合；完整设计见[短引用设计](feature/sentence-links/architecture.md)。内部定位与原有 URL `/recordings/{recording_id}/transcriptions/{transcription_id}?segment={segment_id}` 继续有效。
 使用配置的 PUBLIC_BASE_URL 生成绝对 URL，支持部署路径前缀，不信任任意 Host 或转发头；链接不含正文、人物名或鉴权凭据。
 片段 UUID 是稳定锚点，编辑文字、时间和人物不改 ID；重转生成全新版本与片段，旧链接仍定位旧版本，不跳到最新版本。
 
@@ -303,13 +303,13 @@ restore_hold 禁止普通 retry、自动提交与硬删除；恢复模式不得�
 
 ## 摘要与管理运维
 
-[摘要设计](research/transcription-insights/README.md)定义 transcription_insights：一版本一条当前生成记录，PostgreSQL 持久排队、全实例一个有效运行租约；openai-go SDK 仅执行一次有界请求，生成结果由服务端校验真实片段。请求取消、超时或未知结果不会自动再收费，恢复入口隔离 queued/running。完成/失败清空输入快照，录音删除级联结果并回收幂等键。普通重启可继续 queued，不能与快照恢复混淆。
+[摘要设计](feature/insights/architecture.md)定义 transcription_insights：一版本一条当前生成记录，PostgreSQL 持久排队、全实例一个有效运行租约；openai-go SDK 仅执行一次有界请求，生成结果由服务端校验真实片段。请求取消、超时或未知结果不会自动再收费，恢复入口隔离 queued/running。完成/失败清空输入快照，录音删除级联结果并回收幂等键。普通重启可继续 queued，不能与快照恢复混淆。
 
-[管理设计](research/administration/README.md)定义只读 Repeatable Read 概览和 keyset 日志读取。runtime_events 保存结构化安全异常，最近7天可见，独立有界清理不受恢复模式影响；admin_audit_events 长期保留且不经尽力写入器。新表可由旧二进制忽略，不修改历史表含义。
+[管理设计](feature/administration/architecture.md)定义只读 Repeatable Read 概览和 keyset 日志读取。runtime_events 保存结构化安全异常，最近7天可见，独立有界清理不受恢复模式影响；admin_audit_events 长期保留且不经尽力写入器。新表可由旧二进制忽略，不修改历史表含义。
 
 模块：internal/insights 负责 SDK 调用及输出验证；internal/app/insights.go 负责所有权内的任务与结果；admin_overview.go/admin_events.go/runtime_events.go 分别负责统计、脱敏读取及尽力记录。
 
-站点初始化与注册分离；LLM 测试绑定已保存的配置修订。新摘要任务读取数据库配置并持久化秘密快照，完成或失败时清除；站点与 STT 仍在启动时加载。见[站点初始化设计](research/site-onboarding/README.md)。
+站点初始化与注册分离；LLM 测试绑定已保存的配置修订。新摘要任务读取数据库配置并持久化秘密快照，完成或失败时清除；站点与 STT 仍在启动时加载。见[站点初始化设计](feature/accounts/architecture/onboarding.md)。
 
 ### 任务错误诊断
 

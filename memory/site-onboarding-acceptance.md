@@ -1,23 +1,10 @@
----
-format: concord.document/v1
-id: site-onboarding-acceptance
-title: 站点初始化与注册分离验收
-createdAt: 2026-10-20T02:34:58.406Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # 站点初始化与注册分离验收
 
 2026-10-20 用户要求部署不依赖 .env 文件，数据库等基础配置仍必需，LLM 在首次 onboarding 填写并测试。独立 Review 曾因当前 Herdr pane 不存在受阻，用户明确要求本任务跳过审查直接实现；未启用 worker，也未把该例外作为全局规则。
 
 ## 实现
 
-[初始化契约](../docs/feature/accounts/use-case/setup-site.md)与[设计](../docs/research/site-onboarding/README.md)确定账号 bootstrap 与 site_setup_completed 独立。首次管理员注册后进入 /onboarding，站点未完成暂停后续注册，普通账号注册不配置站点。旧站点升级自动保留完成状态。
+[初始化契约](../docs/feature/accounts/use-case/setup-site.md)与[设计](../docs/feature/accounts/architecture/onboarding.md)确定账号 bootstrap 与 site_setup_completed 独立。首次管理员注册后进入 /onboarding，站点未完成暂停后续注册，普通账号注册不配置站点。旧站点升级自动保留完成状态。
 
 初始化页复用站点/STT/LLM 表单；LLM 测试绑定数据库修订，使用固定示例和现有生成协议，20 秒超时、无自动重试、每管理员每分钟最多 3 次。配置改变使测试状态失效，旧在途成功不能确认新修订。空配置可明确跳过 LLM。变更地址要求显式新密钥或清除原密钥。
 

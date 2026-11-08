@@ -1,11 +1,3 @@
----
-format: concord.document/v1
-id: administration
-title: 站点运行状态与日志
-createdAt: 2026-10-18T14:01:48.826Z
-kind: feature
----
-
 # 站点运行状态与日志
 
 管理员通过站点概览查看数据库探测、账号数量、任务状态统计、待清理异常和存储用量，以及当前响应实例运行时间与资源限制。计数来自数据库，不使用占位数字；查询失败明确提示，不显示成功状态。
@@ -16,4 +8,4 @@ kind: feature
 
 账号管理支持邮箱、用户名、显示名称搜索和角色、启停状态筛选，保留最后管理员保护、CSRF 和恢复模式约束。所有新界面复用 shadcn/ui + Tailwind 语义颜色，支持深色和窄屏。
 
-[设计与对比](../../research/administration/README.md) · [查看运行状态与日志](use-case/inspect-instance.md)
+[设计与对比](architecture.md) · [查看运行状态与日志](use-case/inspect-instance.md)

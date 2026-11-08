@@ -84,7 +84,7 @@ Upload/Submit 每次只发一个创建操作；网络错误返回 uncertain。�
 
 ## 账号与权限
 
-邮箱和密码用于登录，注册另填用户名（显示名称）。邮箱规范化后唯一，用户名可重复。首次注册创建管理员，事务锁保证并发唯一。公开接口为 `/auth/status`、`POST /users`、`POST /session`；其余接口要求会话。Session 返回 user 摘要。账号接口与角色约束见 [账号契约](../feature/accounts/README.md) 和 [具体方案](../research/account-isolation/README.md)。
+邮箱和密码用于登录，注册另填用户名（显示名称）。邮箱规范化后唯一，用户名可重复。首次注册创建管理员，事务锁保证并发唯一。公开接口为 `/auth/status`、`POST /users`、`POST /session`；其余接口要求会话。Session 返回 user 摘要。账号接口与角色约束见 [账号契约](../feature/accounts/README.md) 和 [具体方案](../feature/accounts/architecture/accounts.md)。
 
 业务资源归属来自会话，客户端不能指定 owner。所有资源 ID 路由先通过归属守卫；列表、搜索和幂等键按 owner 隔离。系统管理员访问他人业务内容仍返回 404。管理接口需要实时 admin 角色；角色修改和启停记录审计，不能移除最后一个有效管理员。
 

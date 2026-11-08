@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: import-audio
-title: 拖入并保存录音
-createdAt: 2026-10-18T00:58:55.425Z
-kind: use-case
-feature: docs/feature/recording-library/README.md
----
-
 # 拖入并保存录音
 
 Given 用户已登录，选择默认服务商与语言；网页导入后自动转写并区分说话人，无需另行确认发送。

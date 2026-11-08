@@ -1,16 +1,3 @@
----
-format: concord.document/v1
-id: onboarding-natural-language-e2e
-title: 自然语言 onboarding 与测试边界验收
-createdAt: 2026-10-21T09:25:39.202Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # 自然语言 onboarding 验收
 
 2026-10-21，用户确认 tester-army/e2e 应使用自然语言操作，指定 gpt-6.1-sol，并要求标准 dotenv 自动加载、避免 fallback。

@@ -1,15 +1,4 @@
----
-format: concord.document/v1
-id: implementation-acceptance
-title: 应用实现与本地验收
-createdAt: 2026-10-18T02:09:23.395Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
+# 应用实现与本地验收
 
 完成可运行的 Go / PostgreSQL / Vite+ React 应用，前端使用官方 shadcn Base UI 源码。
 数据库迁移、音频分块、会话、任务租约、远端意图、人物、版本、片段校正与深链接均已实现。

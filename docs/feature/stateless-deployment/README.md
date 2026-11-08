@@ -1,11 +1,3 @@
----
-format: concord.document/v1
-id: stateless-deployment
-title: 无状态应用部署
-createdAt: 2026-10-18T01:18:37.798Z
-kind: feature
----
-
 # 无状态应用部署
 
 ## 目标

@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: setup-site
-title: 初始化站点
-createdAt: 2026-10-20T02:19:39.513Z
-kind: use-case
-feature: docs/feature/accounts/README.md
----
-
 # 初始化站点
 
 首位管理员创建账号后进入独立站点初始化页；账号创建与站点初始化分别持久化，中断后登录可继续。初始化完成前暂停后续注册，普通用户不能配置站点；旧站点升级保留已完成状态。恢复模式仅查看，不强制初始化。
@@ -21,4 +12,4 @@ feature: docs/feature/accounts/README.md
 
 真实 PostgreSQL 与浏览器覆盖首次创建管理员、刷新继续初始化、配置并测试、测试失败和修改失效、完成进入工作台、普通注册分流和显式跳过。验证权限、CSRF、恢复模式、并发首位资格及配置修订冲突。外部模型使用 fake，业务 API 不模拟；验证任务快照、跨实例生效及秘密清理。
 
-[设计](../../../research/site-onboarding/README.md)
+[设计](../architecture/onboarding.md)

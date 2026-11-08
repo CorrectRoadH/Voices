@@ -1,16 +1,3 @@
----
-format: concord.document/v1
-id: vite-plus-toolchain-acceptance
-title: Voices 与 OpenTickly 的 Vite+ 工具链统一验收
-createdAt: 2026-10-21T10:24:29.931Z
-kind: memory
-memoryKind: insight
-state: current
-epoch: 0
-promotions: []
-history: []
----
-
 # Vite+ 工具链统一验收
 
 2026-10-21 用户批准统一 Voices 与 OpenTickly 的 vp 工具链入口。Voices 保留三个独立安装根及其锁文件，使用 Vite+ 1.3.0；OpenTickly workspace 从 0.1.18 升级到 1.3.0 / Vitest 5.0.5，保留 pnpm 10.32.1。没有合并两仓库或更改部署架构。

@@ -1,8 +1,6 @@
 import type { ProjectConfig } from 'concord-sdlc/config';
 
 export default {
-  "format": "concord.project/v1",
-  "projectId": "2b5760be-8435-4b30-bd27-1ed55a4f7ada",
   "testRoots": [
     "internal",
     "web/src",
@@ -27,7 +25,6 @@ export default {
       "internal/voiceprints/voiceprints.go",
       "internal/voiceprints/voiceprints_test.go",
       "internal/persistence/migrations/018_voiceprints.sql",
-      "web/src/components/voiceprints.tsx",
       "web/tests/voiceprints.browser.ts",
       "web/e2e.voiceprints.config.ts",
       "internal/app/oidc.go",
@@ -233,23 +230,5 @@ export default {
       "web/vite.config.ts"
     ],
     "timeoutMs": 180000
-  },
-  "projectTypes": [],
-  "documentDefaults": {
-    "featurePages": [],
-    "roadmapPages": [],
-    "designPages": []
-  },
-  "constitution": {
-    "path": "docs/constitution.md"
-  },
-  "memorySources": [
-    {
-      "name": "project",
-      "provider": "local-files",
-      "path": "memory",
-      "access": "read-write",
-      "defaultWrite": true
-    }
-  ]
+  }
 } as const satisfies ProjectConfig;

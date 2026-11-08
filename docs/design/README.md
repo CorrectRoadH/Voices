@@ -1,6 +1,6 @@
 # Design decisions
 
-Compare self-contained candidates against shared goals and constraints. Record selection with design decide.
+Write one open tradeoff in one file; adopt its rule in Spec and delete the Design once decided.
 
-Start with `concord design create --help`.
-Use `concord design list` to discover documents.
+Start with `concord new design --help`.
+Use `concord list` to discover documents.

@@ -1,124 +1,60 @@
-# Developing with Concord
+# 使用 Concord 开发 Voices
 
-Concord drives development by connecting current product contracts, implementation declarations, real test declarations, and engineering memory. Before changing behavior, update or confirm the owning Feature, leaf Use Case, documented CLI page, and any required Design.
+Concord 连接产品契约、源码实现标记、测试标记和工程经验。使用前运行 `concord --skill`，按任务读取 `document`、`code`、`test`、`memory` 或 `trace` 等主题；命令参数以当前安装版本的 `--help` 为准。
 
-## Connect implementation to contracts
+## 文档归属
 
-Configure sourceRoots in concord.config.ts, or initialize with --source-root src (repeatable).
+- [Feature](feature/README.md) 声明已采用的功能；每条用户路径放在 `use-case/<name>.md`。
+- [Engineering](engineering/README.md) 声明本仓库的构建、测试和维护能力。
+- [Roadmap](roadmap/README.md) 保存尚未采用的方向。
+- [Design](design/README.md) 每个待决取舍占一个 Markdown 文件；定案后规则归入 Spec，删除 Design。
+- [技术参考](guides/README.md) 保存外部资料依据。
+- [Memory](../memory/README.md) 保存可复用经验；缺陷与待调查观察归 [Issue](issues/README.md)。
 
-Run concord --skill code for file, function and statement-region declarations. Use code annotate to generate comments, code locate <path> --line <n> to inspect all containing scopes, and trace show to reverse-query the contract.
+Spec 没有 frontmatter。仓库相对路径是身份，正文唯一的一级标题是名称。Feature、Engineering、Roadmap 包内页面使用 README、use-case、cli、library、api、format、ui、performance、architecture、data-model 等固定种类。architecture 与 data-model 描述内部实现，其余页面描述可观察行为。
 
-Code declarations describe implementation associations, not completion or test coverage.
+同一种页面需要多份时使用同名目录及 README 入口。移动文件同时更新 Markdown 链接、源码和测试标记，不能只修改导航。
 
-## Choose the document that owns your intent
+## 原则、术语与写作
 
-- [Feature](feature/README.md): the adopted product contract, even when implementation is still catching up.
-- [Roadmap](roadmap/README.md): a settled direction awaiting adoption.
-- [Design](design/README.md): goals, constraints, self-contained alternatives, and the reason for a decision.
-- [Engineering](engineering/README.md): how this repository is tested and maintained.
-- [Research](research/README.md): freeform research topics and supporting materials.
-- [Memory](../memory/README.md): problems, decisions, and reusable lessons with their history.
-- [Issues](issues/README.md): local observations awaiting investigation.
+[项目原则](taste.md) 保留稳定条款编号，引用时链接到具体 anchor。[概念](concepts.md) 的每个二级标题声明唯一写法与 ID，首段给出定义。[写作规则](writing.md) 保存长度限制、禁用表达及作用范围。
 
-Write contracts as declarations of intended behavior, constraints, and acceptance. Product workflows and lifecycle rules belong in contracts. Development logs, investigation history, and implementation progress belong in Memory. Observations awaiting investigation belong in Issues.
+这些 Markdown 文件可以直接编辑。目录决定概念与写作规则的生效范围；不另建 JSON owner 或手工索引。
 
-Templates provide writing prompts, not completed requirements or evidence.
-Read docs/constitution.md before creating or revising Feature and Design owners, and record applicable real clause anchors through constitutionRefs.
+## 查找与创建
 
-## Recall and maintain local knowledge
-
-Use `concord memory index --json` and `concord memory recall "query" --json` to discover current memories and read their content. Use `concord issue index --json` and `concord issue recall "query" --json` for observations. These indexes are derived; do not maintain a manual INDEX.md or directly read or edit Memory/Issue owner files.
-
-Create through `memory add` or `issue create`; update author prose with `memory edit` or `issue edit`, supplying the latest digest from recall. Change lifecycle state and relationships only with the corresponding Concord commands. If an operation is missing, report or implement the tool gap instead of editing files around its guards.
-
-Local issues require no external account or connection. GitHub and Linear are optional read adapters; local notes and state remain local. Only an unlinked local draft with no history can be removed with `issue remove` and its current digest. Local removal never deletes a remote issue.
-
-## Scoped concepts and writing
-
-Use `concord concepts index --json` for a derived project glossary. The global catalog is docs/concepts.json; each Feature, Engineering, or other docs subdirectory may own its own concepts.json and concord-writing.json. The containing directory defines local scope.
-
-Keep definitions, stable IDs, preferred names, permitted aliases, and deprecated names in JSON; use Markdown for explanation and examples. Only deprecated names generate terminology bans.
-
-Use concepts and writing show/set commands or the Web workbench to maintain each owner with its current digest. Do not duplicate definitions into a global aggregate or edit managed JSON around these guards.
-
-Writing v2 composes ancestor policy within scope. Check saved inputs with `concord docs check --json`. Migrate writing/v1 only after author review. Never convert permitted aliases into banned names.
-
-## Complete setup
-
-Init installs every category, the documentation entry point, and the complete [template reference set](_template/README.md).
-Init supplies missing concepts.md and architecture.md outlines, an empty global concepts.json, and the global writing preset. Existing root documents, catalogs, and policies retain their bytes.
-
-The preset limits sentences to 140 characters and paragraphs to 320. It checks vague wording and unused concepts in Markdown and MDX.
-
-Feature, Roadmap, and each Design candidate require README. Select optional pages with `--pages library,cli,architecture,lifecycle,use-case`, or repeat `--pages`. Omission uses project defaults. `--no-pages` creates README only.
-
-Design decision wrapper pages are always created. Engineering starts with README and expands by topic.
-
-Page add adds optional pages or supporting topics using a single Unicode name, such as migration or 认知与执行. Update the author-owned README links after adding pages. Custom pages remain part of their package, with the same digest checks.
-
-Document IDs and Use Case filenames also accept Unicode letters, combining marks and numbers, with single hyphen separators; spelling is preserved. Names cannot contain path separators, whitespace or traversal components.
-
-## First feature
-
-```
-concord feature create login --title "Login"
-concord use-case create expired-token --feature login --title "Reject expired tokens"
+```sh
+concord list --json
+concord list memory --json
+concord memory search "任务恢复" --json
+concord show docs/feature/accounts/README.md --json
+concord new feature example --title "示例功能" --pages use-case
+concord template list --json
 ```
 
-Fill in the generated author prose. Use `concord template list` and `concord template show feature` to inspect bundled templates.
+`concord new` 创建文档；Spec 正文声明目标和验收，不写实施日志。Memory 仅保留可复用经验，可选 frontmatter 记录 `relations`。Issue 的状态和修复结论遵守 `concord --skill feedback`。远端 Issue 写入必须先预览并取得具体授权，本地操作不授权远端修改。
 
-`--body <file>` supplies your own prose; `--body -` reads stdin.
+## 实现与测试关系
 
-`page show` returns the current digest; `page set --expected-digest` checks it before replacing a page.
-Lifecycle metadata remains owned by the corresponding Concord commands.
+源码使用 `@concord-file`、`@concord-code` 或成对的 `@concord-begin` / `@concord-end`，紧接 `@concord-implements <Spec路径>`。测试使用 `@feature` 或 `@use-case`，必要时指向具体步骤 anchor；回归测试用 `@issue` 指向 Issue。
 
-## Connect a real test
+`concord.config.ts` 保留独立的测试根、源码根及 `vp run check` command runner。当前源码自动扫描 JS/TS；Go 测试标记可读取，Go 实现符号分析需要显式语言服务配置，不能把未扫描当成没有实现。
 
-Place `// @use-case docs/feature/login/use-case/expired-token.md` in the test file. `//`, `#`, and `--` are markers. Concord derives the execution reference from the file and marker; no manual ID or attach step is needed.
-
-Then run `concord check`, `concord test list`, and `concord trace show docs/feature/login/README.md`.
-
-Run `concord trace gaps --json` to find contracts and documented CLI pages without explicit code or active test relationships. These are relationship gaps, not coverage results; product-owned inventory is still required to discover undocumented commands.
-
-Use `--regression memory/<problem>.md` when a test protects a recorded Problem.
-
-Source annotations are the only source of these test relations; reverse lists are derived. A marker is the case. Concord does not parse host test syntax. Concord derives the `neref_...` test reference from the file and marker; use `@regression` for a Problem and `@status retired` to retire a generic relation.
-
-Without `@name`, a run covers the marked file and does not claim a native case passed. Repository profile additionally supports `@issue` and file-wide `@test-file`; that parser is separate.
-
-## Configure and run verification
-
-`concord.config.ts` owns testRoots and runner configuration for projects. Unsupported input is rejected without conversion. Defaults scan test/ and tests/ using Node native tests.
-
-For a documentation-only repository, initialize with `concord init --docs-only`: testRoots is empty and no test directories are required.
-Add real test roots to the project configuration when tests exist. A successful documentation check does not establish test coverage.
-
-Use `concord doctor` to inspect the configuration and missing test roots without running repository commands.
-
-For another runner, set runner to an object such as:
-
-```
-{"kind":"command","argv":["your-runner","{file}"],"sourceFiles":[],"timeoutMs":60000}
+```sh
+concord check --json
+concord doctor --json
+concord trace check --json
+concord trace gaps --fresh --json
+concord test list --json
+concord code list --json
 ```
 
-Replace the executable and arguments with your repository test command. Each placeholder must occupy one complete argument;
-supported placeholders are {file}, {name}, and {pattern}. Arguments never run through a shell.
+这些命令不运行产品测试。`trace gaps` 表示缺少显式关系，不是覆盖率；没有配置原生 adapter 时，runner 的成功不证明选中了某个原生 case。
 
-Include additional assertion or runner configuration files in sourceFiles. Concord does not install your dependencies.
+实际运行与验收见[开发与测试](development.md)。完整项目门禁为 `vp run check`，需要隔离的 `TEST_DATABASE_URL`；浏览器与 workerd 使用各自独立入口。
 
-Only `concord test run <id>` executes the runner. Check, trace, template, and doctor do not run tests.
+## 模板与工作流 skill
 
-Run results are command evidence, not proof that a native case executed or that a feature is covered.
+[模板](_template/README.md) 提供写作提示，不代表功能完成。运行 `concord skills install` 更新仓库内 Codex 与 Claude 的四个工作流入口，具体规则从当前 CLI 的 skill 读取。
 
-For a Problem fix, capture a normal failing red command, change the product implementation, then capture green.
-
-Keep the test definition and contract unchanged between both runs. Close the Problem using both receipt IDs and an explicit reason.
-See `concord memory resolve --help`. Use `concord review render` for local review material.
-
-## Working safely
-
-`--dry-run` previews document mutations. Existing files are never overwritten by init or create.
-`--json` emits machine-readable results. An empty repository can pass integrity checks without having tests.
-
-Private evidence is per Git worktree and is not copied by a normal clone; missing historical evidence remains unavailable.
-Use `concord recover` for an interrupted publication and `concord cache rebuild` for disposable cache repair.
+提交前运行 Concord 检查并逐项处理 finding。旧缓存只提供可重建投影，不是事实来源；验证迁移时还要在无缓存副本检查文档、关系与配置。

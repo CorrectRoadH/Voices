@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: inspect-calls
-title: 查看个人及全站外部调用
-createdAt: 2026-10-23T02:11:52.813Z
-kind: use-case
-feature: docs/feature/call-logs/README.md
----
-
 # 查看个人及全站外部调用
 
 ## 目标与路径

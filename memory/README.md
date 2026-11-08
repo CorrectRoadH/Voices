@@ -1,6 +1,6 @@
 # Engineering memory
 
-Memory source project (read-write).
+Reusable lessons from developing this project: measurements, root causes, pitfalls and tradeoffs. Edit files directly and validate with concord check.
 
-Start with `concord memory add --help`.
-Use `concord memory list` to discover documents.
+Start with `concord new memory --help`.
+Use `concord list` to discover documents.

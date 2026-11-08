@@ -1,15 +1,4 @@
----
-format: concord.document/v1
-id: loading-inline-edit-acceptance
-title: 全站加载反馈与行内编辑验收
-createdAt: 2026-10-21T11:21:55.619Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
+# 全站加载反馈与行内编辑验收
 
 统一页面加载状态、按钮等待反馈和标题、日期、备注、片段的行内编辑。草稿在请求失败与版本冲突后保留；提交去重并区分同字段冲突与其他字段更新，中文输入法确认不误提交。转写准备及处理阶段展示进度。
 

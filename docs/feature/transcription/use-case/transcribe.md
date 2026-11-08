@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: transcribe
-title: 选择语言并生成转写
-createdAt: 2026-10-18T00:58:56.060Z
-kind: use-case
-feature: docs/feature/transcription/README.md
----
-
 # 选择语言并生成转写
 
 Given 已导入录音，用户选择服务商、模型和语言。

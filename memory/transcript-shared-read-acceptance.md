@@ -1,16 +1,3 @@
----
-format: concord.document/v1
-id: transcript-shared-read-acceptance
-title: 转写共享读取与搜索验收
-createdAt: 2026-10-28T10:10:27.550Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # 转写共享读取与搜索验收
 
 2026-10-28，用户要求搜索、目录、滚动共用分页转写数据，并优化输入卡顿、增加高亮下拉结果，完成后提交并 push。

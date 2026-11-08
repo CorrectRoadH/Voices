@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: choose-language
-title: 选择界面语言
-createdAt: 2026-10-19T03:57:49.386Z
-kind: use-case
-feature: docs/feature/interface-language/README.md
----
-
 # 选择界面语言
 
 访客可在登录页面选择简体中文或 English；选择用于当前浏览器的访客界面；注册时明确选择的语言作为新账号初始偏好，登录已有账号不覆盖其偏好。用户在我的账号的外观设置中选择账号界面语言；保存成功后即时生效，失败保持原语言并显示可重试错误。恢复模式禁止账号偏好写入。登录、账号切换和刷新读取服务端偏好，退出或会话失效恢复访客偏好。

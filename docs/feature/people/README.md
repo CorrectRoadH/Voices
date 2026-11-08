@@ -1,11 +1,3 @@
----
-format: concord.document/v1
-id: people
-title: 说话人与人物管理
-createdAt: 2026-10-18T00:58:54.697Z
-kind: feature
----
-
 # 说话人与人物管理
 
 ## 目标
@@ -24,7 +16,7 @@ kind: feature
 
 Go 程序内置声纹模型，无需额外部署或配置；人工关联可建立人物声纹，新录音完成转写后自动关联明确匹配的人物。自动结果可纠错，不能未经确认作为后续声纹样本。推理失败不影响录音内区分说话人与人工关联。
 
-[建立声纹与自动关联](use-case/recognize-speaker.md) · [声纹架构](voiceprints.md) · [内置推理与分发](embedded-voiceprints.md)
+[建立声纹与自动关联](use-case/recognize-speaker.md) · [声纹架构](architecture/voiceprints.md) · [内置推理与分发](architecture/embedded-voiceprints.md)
 
 ## 验收
 
@@ -32,6 +24,6 @@ Go 程序内置声纹模型，无需额外部署或配置；人工关联可建�
 
 [关联人物用例](use-case/link-person.md) · [架构](../../architecture.md)
 
-内置背景声、音乐、系统提示音用于分类，不能编辑或归档。关联这些内置人物的片段在正文默认隐藏，可切换显示，数据与导出仍保留。普通人物同名不影响显示。详见[方案](../../research/builtin-speakers/README.md)。
+内置背景声、音乐、系统提示音用于分类，不能编辑或归档。关联这些内置人物的片段在正文默认隐藏，可切换显示，数据与导出仍保留。普通人物同名不影响显示。详见[方案](architecture/people.md)。
 
 人物管理页包含只读内置人物。普通人物可标记为本人，每个账号最多一个；改选时替换旧标记，允许取消。聊天阅读中本人靠右、其他人物靠左，人物配有稳定的姓名头像；本人标记保留于人物档案。

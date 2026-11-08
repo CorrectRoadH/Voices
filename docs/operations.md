@@ -95,7 +95,7 @@ docker compose exec app voices version
 
 ## 更新服务与公告
 
-`UPDATE_URL` 未设置时使用 `https://voices.niceeval.com/`，显式设为空禁用更新和统计；修改后重启应用。`UPDATE_TELEMETRY` 默认 true，设为 false 只关闭统计。统计发送数据库持久化的随机安装 UUID、版本、Go/OS/架构；Worker 从 Cloudflare 获取国家。恢复模式禁发统计。录音、账号与转写数据不发送。接收方由 UPDATE_URL 决定。独立克隆数据库须重新生成 instance_identity.instance_id，不能复用任务租约 ID；详见 [统计方案](research/release-updates/telemetry.md)。管理员在服务器设置查看发布说明并手动检查；后台每 24 小时检查，手动检查至少间隔 60 秒。失败明确显示状态并保留上次成功结果。
+`UPDATE_URL` 未设置时使用 `https://voices.niceeval.com/`，显式设为空禁用更新和统计；修改后重启应用。`UPDATE_TELEMETRY` 默认 true，设为 false 只关闭统计。统计发送数据库持久化的随机安装 UUID、版本、Go/OS/架构；Worker 从 Cloudflare 获取国家。恢复模式禁发统计。录音、账号与转写数据不发送。接收方由 UPDATE_URL 决定。独立克隆数据库须重新生成 instance_identity.instance_id，不能复用任务租约 ID；详见 [统计方案](feature/updates/architecture/telemetry.md)。管理员在服务器设置查看发布说明并手动检查；后台每 24 小时检查，手动检查至少间隔 60 秒。失败明确显示状态并保留上次成功结果。
 
 Worker 的部署与公告维护见 [update-worker/README.md](../update-worker/README.md)。更新提示不会自动安装软件。
 
@@ -122,4 +122,4 @@ LLM Base URL 包含兼容服务所需路径（例如 /v1），服务须支持 Ch
 
 ## 声纹自动关联
 
-声纹模型与 CPU 引擎内置于 Go 程序，无独立服务和 URL。Docker 镜像自带原生库；Linux 发布包必须保留程序旁的 lib/，并安装 libstdc++6/libgcc-s1。升级前停止全部旧应用副本，不混跑旧 profile；019 迁移重建历史样本，人工关联不变。若旧 Compose 留有 voiceprints 容器，更新 Compose 后可用 `docker compose up -d --remove-orphans` 移除旧服务。声纹样本与任务仍使用 PostgreSQL 备份恢复；临时音频和模型文件不持有业务状态。详见[内置推理](feature/people/embedded-voiceprints.md)。
+声纹模型与 CPU 引擎内置于 Go 程序，无独立服务和 URL。Docker 镜像自带原生库；Linux 发布包必须保留程序旁的 lib/，并安装 libstdc++6/libgcc-s1。升级前停止全部旧应用副本，不混跑旧 profile；019 迁移重建历史样本，人工关联不变。若旧 Compose 留有 voiceprints 容器，更新 Compose 后可用 `docker compose up -d --remove-orphans` 移除旧服务。声纹样本与任务仍使用 PostgreSQL 备份恢复；临时音频和模型文件不持有业务状态。详见[内置推理](feature/people/architecture/embedded-voiceprints.md)。

@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: inspect-instance
-title: 查看站点运行状态与日志
-createdAt: 2026-10-18T14:01:49.299Z
-kind: use-case
-feature: docs/feature/administration/README.md
----
-
 # 查看站点运行状态与日志
 
 管理员进入“站点概览”，查看数据库连通性、当前实例运行时间、账号与任务状态、blob 用量和清理失败数量，手动刷新取得新快照。数据库故障时明确失败，不以 0 代替未知数据；存在失败或待核对任务时提示关注，不能宣称后台工作全部健康。

@@ -1,15 +1,6 @@
----
-format: concord.document/v1
-id: call-logs
-title: 统一外部调用记录
-createdAt: 2026-10-23T02:11:52.083Z
-kind: feature
-constitutionRefs:
-  - docs/constitution.md#c-001
-  - docs/constitution.md#c-004
----
-
 # 统一外部调用记录
+
+本功能遵守[用户控制](../../taste.md#t-1)与[应用无状态](../../taste.md#t-4)原则。
 
 ## 目标
 

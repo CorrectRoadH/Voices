@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: check-updates
-title: 查看与检查更新
-createdAt: 2026-10-18T06:31:40.173Z
-kind: use-case
-feature: docs/feature/updates/README.md
----
-
 # 查看与检查更新
 
 管理员进入服务器设置，看到当前构建版本和更新服务状态。启用服务后可手动检查，最多 5 秒的上游请求与至少 60 秒的检查间隔不影响录音及转写功能；并发检查合并。后台启动检查及每日检查随应用取消而退出。
@@ -17,4 +8,4 @@ feature: docs/feature/updates/README.md
 
 验收覆盖成功、失败、首次未知、禁用、版本比较、缓存过期公告、权限拒绝、请求取消和移动端布局。发布说明唯一来源为 GitHub Releases，公告独立随 Worker 部署更新。
 
-部署者可设置 UPDATE_TELEMETRY=true；默认开启（UPDATE_TELEMETRY=false 可关闭），恢复模式禁发。启用后实际检查向 UPDATE_URL 发送随机安装 ID、版本、Go版本、OS、架构；不发送业务内容。数据库克隆为独立部署时须重新生成安装 ID，不改变任务租约身份。统计失败不影响更新，身份读取最多2秒，缺行或错误时仅禁用统计。验收覆盖关闭/开启/恢复模式、身份稳定与失败降级，详见 [统计方案](../../../research/release-updates/telemetry.md)。
+部署者可设置 UPDATE_TELEMETRY=true；默认开启（UPDATE_TELEMETRY=false 可关闭），恢复模式禁发。启用后实际检查向 UPDATE_URL 发送随机安装 ID、版本、Go版本、OS、架构；不发送业务内容。数据库克隆为独立部署时须重新生成安装 ID，不改变任务租约身份。统计失败不影响更新，身份读取最多2秒，缺行或错误时仅禁用统计。验收覆盖关闭/开启/恢复模式、身份稳定与失败降级，详见 [统计方案](../architecture/telemetry.md)。

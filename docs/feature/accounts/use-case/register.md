@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: register
-title: 注册账号与首位管理员
-createdAt: 2026-10-18T02:44:13.825Z
-kind: use-case
-feature: docs/feature/accounts/README.md
----
-
 # 注册账号与首位管理员
 
 ## 行为

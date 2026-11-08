@@ -1,16 +1,3 @@
----
-format: concord.document/v1
-id: natural-language-test-minimization
-title: 自然语言 E2E 迁移与重复测试精简验收
-createdAt: 2026-10-21T09:54:27.596Z
-kind: memory
-memoryKind: note
-state: captured
-epoch: 0
-promotions: []
-history: []
----
-
 # 自然语言 E2E 与最小低层测试
 
 用户要求让自然语言 E2E 承担主要行为验收，非自然语言测试尽量少。实现遵循 `docs/engineering/delivery/README.md`：先迁移并通过真实页面/Go/PostgreSQL 验收，再删重复断言；不以合并函数或更换中文名称制造比例。

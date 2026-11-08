@@ -1,12 +1,3 @@
----
-format: concord.document/v1
-id: manage-access
-title: 管理账号与会话权限
-createdAt: 2026-10-18T02:44:14.694Z
-kind: use-case
-feature: docs/feature/accounts/README.md
----
-
 # 管理账号与会话权限
 
 ## 行为
