@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-// @use-case docs/feature/people/use-case/link-person.md
+// @use-case docs/feature/people/use-case/manage-person.md#edit
 func TestPersonAvatarLifecycleAndIsolation(t *testing.T) {
 	f := setup(t)
 	other := anotherAccount(t, f, "avatar-other")

@@ -1,14 +1,12 @@
 # 站点运行状态与日志设计
 
-## 对比与范围
+## 范围
 
-本地 OpenTickly 的 package 名称为 opentoggl。其 `AdminOverviewTab.tsx` 有版本、账号和依赖健康展示，`AdminUsersTab.tsx` 有搜索及状态筛选。其健康接口将 job_backlog 固定为0，Voices 不采用占位统计。`AuditLogPage.tsx` 提供组织审计，不是容器日志查看器。
-
-Voices 采用运行概览、账号筛选、管理审计和安全运行异常。保留账号启停、角色、注册开关、服务器配置与更新功能。不新增组织、SSO、邮件、任意 shell、容器 stdout 读取、在线恢复或跨用户业务数据访问。
+概览从数据库读取真实统计，查询失败明确返回错误，不用零值代替未知。管理审计记录管理动作，运行日志记录安全诊断和本地声纹生命周期；不提供任意 shell、容器 stdout 读取、在线恢复或跨用户业务内容访问。
 
 ## 入口与权限
 
-管理员入口：`/admin/overview`、`/admin/logs`、`/admin/accounts`、`/admin/server`。日志以 shadcn Tabs 区分管理审计和运行异常。使用 Base UI、Tailwind、语义颜色，支持窄屏和深色。
+管理员入口：`/admin/overview`、`/admin/logs`、`/admin/accounts`、`/admin/server`。日志以 shadcn Tabs 区分管理审计和运行日志。使用 Base UI、Tailwind、语义颜色，支持窄屏和深色。
 
 普通用户没有导航入口，直接页面访问回录音库，API 返回403。读取使用既有 cookie session 和 no-store。写入继续遵守 CSRF、来源和恢复模式约束。管理统计只聚合数据，不返回录音标题、音频、转写、人物或远端资源ID。
 
@@ -28,7 +26,7 @@ Voices 采用运行概览、账号筛选、管理审计和安全运行异常。�
 | insights | LLM 摘要的 queued、running、failed 数量 |
 | cleanup_failed | provider_resources 中 cleanup_state=failed 数量 |
 | limits | max_upload_bytes、prepare_concurrency、transcription_concurrency |
-| runtime_log_dropped | 本实例启动后未写入的运行异常次数 |
+| runtime_log_dropped | 本实例启动后未写入的运行日志次数 |
 
 stale_running 是 running 中 lease_until 为空或过期部分。数据库可查询不代表 worker、外部服务或全集群健康。实例时间、限制与丢弃数可能随响应副本不同。页面手动刷新，显示快照时间与解释，不调用付费接口。
 
@@ -54,7 +52,7 @@ item 包含 id、created_at、action、actor、target、details。actor/target �
 
 沿用 admin_audit_events 表、事务写入及长期保留，不增加删除或导出接口。页面展示操作、时间、身份和可读变更。
 
-### 运行异常
+### 运行日志
 
 `GET /api/v1/admin/runtime-events` 筛选 kind、request_id、job_id、from、to，ID 须为UUID。item 为 id、created_at、instance_id、kind、code，以及可空的 request_id、route、status、job_id。
 
@@ -66,30 +64,46 @@ item 包含 id、created_at、action、actor、target、details。actor/target �
 
 status 为 active/disabled，role 为 admin/user，非法值400。页面改变筛选后重置 cursor，提供空态及错误态。账号修改契约不变。
 
-## 运行异常表
+## 运行日志表
 
-迁移009新增 runtime_events，不改变旧表语义。所有未标可空字段均 NOT NULL：
+`runtime_events` 保存运行事件，类型约束包含本地声纹生命周期。所有未标可空字段均 NOT NULL：
 
 | 字段 | 类型与约束 |
 | --- | --- |
 | id | UUID PK，应用生成 |
 | created_at | timestamptz，数据库 clock_timestamp 默认值 |
 | instance_id | UUID |
-| kind | text，限定五类事件 |
+| kind | text，限定下表十一类事件 |
 | code | text，最多64字符 |
 | request_id / job_id | nullable UUID，无业务外键 |
 | route | nullable text，最多200字符 |
 | status | nullable smallint，500..599 |
 
-kind 为 request_failed、job_failed、job_claim_failed、maintenance_failed、job_failure_persistence_failed。索引为降序时间/id，以及 kind、request_id、job_id 各自加时间/id；后两个为非空部分索引。
+| kind | 含义 |
+| --- | --- |
+| `request_failed` | HTTP 5xx |
+| `job_failed` | 任务失败 |
+| `job_claim_failed` | 任务领取失败 |
+| `maintenance_failed` | 后台维护失败 |
+| `job_failure_persistence_failed` | 任务失败状态保存失败 |
+| `voiceprint_started` | 本地声纹处理开始 |
+| `voiceprint_completed` | 当前代次成功发布；`samples_ready` 表示建立样本，`insufficient_audio` 表示无合格样本 |
+| `voiceprint_failed` | 声纹处理失败 |
+| `voiceprint_claim_failed` | 声纹任务领取失败 |
+| `voiceprint_cleanup_failed` | 声纹执行槽清理失败 |
+| `voiceprint_failure_persistence_failed` | 声纹失败状态保存失败 |
 
-不保存 owner、邮箱、正文、原始 URL/query、cookie、header、服务商响应、堆栈、密钥或转写。HTTP仅记录匹配后的 r.Pattern 模板；stdout 同样移除原始路径。后台事件使用 internal 或 postgres:五位SQLSTATE，任务失败仅使用受控 provider/processing 错误码。未知码归 internal。
+声纹完成事件只在当前 generation 成功发布后记录，过期结果不报成功；既有历史任务不补造事件。本地声纹不计入外部调用日志，不保存音频、向量、转写正文、服务地址或原始错误。原因使用固定安全代码，界面提供中文和英文说明。
+
+索引为降序时间/id，以及 kind、request_id、job_id 各自加时间/id；后两个为非空部分索引。
+
+不保存 owner、邮箱、正文、原始 URL/query、cookie、header、服务商响应、堆栈、密钥或转写。HTTP仅记录匹配后的 r.Pattern 模板；stdout 同样移除原始路径。数据库故障使用 `internal` 或 `postgres:五位SQLSTATE`；任务失败和声纹生命周期使用各自固定安全代码白名单。未知码归 `internal`。
 
 ## 写入与清理生命周期
 
 每个 App 有一个非阻塞写入槽。未取得槽立即增加 dropped；取得后同步 INSERT 一次，使用独立于请求取消的150ms上下文，随后释放。无队列、无后台写入 goroutine、无重试。
 
-运行异常不参与业务事务。写入失败只增加 dropped，不递归记录，不改变原响应。App 内存只有写入槽和当前实例计数，持久事件在 PostgreSQL。
+运行日志不参与业务事务。写入失败只增加 dropped，不递归记录，不改变原响应。App 内存只有写入槽和当前实例计数，持久事件在 PostgreSQL。
 
 App.Run 用既有 wait group 拥有独立清理 goroutine；原子标志防止同 App 重复启动。启动时与每10秒清理一次，恢复模式也执行，不依赖任务领取或远端清理。退出取消并等待。
 
@@ -97,6 +111,6 @@ App.Run 用既有 wait group 拥有独立清理 goroutine；原子标志防止�
 
 ## 验收
 
-真实 PostgreSQL 验证权限、计数、审计入口与脱敏、日期/UUID/分页及同时间事件。HTTP handler 和 failJob 验证运行异常，覆盖跨实例读取、敏感路径不入库、写入槽丢弃、150ms超时与清理保留审计。
+真实 PostgreSQL 验证权限、计数、审计入口与脱敏、日期/UUID/分页及同时间事件。HTTP handler 和 failJob 验证运行日志，覆盖跨实例读取、敏感路径不入库、写入槽丢弃、150ms超时与清理保留审计。
 
 浏览器验证管理员实际写入可在日志读取、筛选分页、请求ID、空/错误态、普通用户入口隔离、深色和窄屏。执行 Go tests/vet、前端 tests/build、OpenAPI 类型生成与 Concord 检查。

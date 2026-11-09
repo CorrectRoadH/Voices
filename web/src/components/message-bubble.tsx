@@ -1,5 +1,6 @@
 // @concord-file
-// @concord-implements docs/feature/transcription/use-case/transcribe.md
+// @concord-implements docs/feature/transcription/use-case/read-transcript.md
+// @concord-implements docs/feature/transcription/use-case/edit-transcript.md
 import { tr } from "@/lib/i18n";
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { MoreHorizontal } from "lucide-react";

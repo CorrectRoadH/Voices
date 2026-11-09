@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/transcription/use-case/transcribe.md
+// @concord-implements docs/feature/transcription/use-case/search-transcript.md
 import { useEffect, useMemo, useState } from "react";
 import { errorMessage } from "./api";
 import type { TranscriptStore } from "./transcript-store";

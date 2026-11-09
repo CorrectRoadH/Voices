@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/transcription/use-case/transcribe.md
+// @concord-implements docs/feature/transcription/use-case/read-transcript.md
 // @concord-implements docs/feature/sentence-links/use-case/copy-sentence-link.md
 import { useEffect, useLayoutEffect, useReducer, useRef, type RefObject } from "react";
 import { request, errorMessage } from "./api";

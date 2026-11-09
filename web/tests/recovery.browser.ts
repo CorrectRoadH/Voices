@@ -2,7 +2,7 @@ import { test } from "@e2e-dev/web";
 import { expect } from "e2e";
 import { api, fixture, noOverflow } from "./support/session";
 
-// @use-case docs/feature/transcription/use-case/transcribe.md
+// @use-case docs/feature/transcription/use-case/recover-task.md
 test("任务原因、安全重试与确认风险后重新转写", async ({ app, browser, screen }) => {
   const id = fixture("VOICES_TEST_RECORDING");
   const job = fixture("VOICES_TEST_JOB");

@@ -13,7 +13,7 @@ const response = (data: unknown) =>
   new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
 afterEach(() => vi.unstubAllGlobals());
 
-// @use-case docs/feature/transcription/use-case/transcribe.md#正文搜索
+// @use-case docs/feature/transcription/use-case/search-transcript.md
 describe("shared transcript HTTP reads", () => {
   it("shares in-flight first page, cursor aliases and cached anchor with search", async () => {
     let release!: (value: Response) => void;

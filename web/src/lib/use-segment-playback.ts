@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/transcription/use-case/transcribe.md
+// @concord-implements docs/feature/transcription/use-case/read-transcript.md#play-sentence
 import { useCallback, useEffect, useRef, useState } from "react";
 import { tr } from "./i18n";
 import { errorMessage } from "./api";

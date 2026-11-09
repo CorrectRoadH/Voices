@@ -2,17 +2,7 @@
 
 ## 产品契约
 
-- [统一外部调用记录](feature/call-logs/README.md)
-
-- [版本更新与公告](feature/updates/README.md)
-
-- [独立账号与系统管理](feature/accounts/README.md)
-
-- [录音库与拖入导入](feature/recording-library/README.md)
-- [多服务商转写、语言与结果编辑](feature/transcription/README.md)
-- [说话人与人物管理](feature/people/README.md)
-- [逐句引用与深链接](feature/sentence-links/README.md)
-- [无状态应用部署](feature/stateless-deployment/README.md)
+从[产品功能](feature/README.md)按目标进入录音、转写、人物、引用、摘要、账号及运维契约；每项功能链接完整用户路径。[全站交互](feature/interface-interactions/ui.md)拥有通用加载、行内编辑与操作反馈。
 
 ## 架构与依据
 

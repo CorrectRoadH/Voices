@@ -1,12 +1,12 @@
 # 内置声纹推理
 
-## 目标与既有约束
+## 能力与边界
 
-声纹识别是默认内置能力。启动 Voices（包括 `air .`）即可处理声纹，无 Python、独立 HTTP 服务、服务地址或引擎选择。移除 `VOICEPRINT_URL`、独立 Compose 服务及其发布镜像；保留当前人物、样本、队列、账号隔离、人工优先及匹配阈值。范围不含 STT、更改用户实际录音的标注或生产部署。
+声纹识别是默认内置能力。启动 Voices（包括 `air .`）即可处理声纹，无 Python、独立 HTTP 服务、服务地址或引擎选择。人物、样本和队列由应用与 PostgreSQL 持有，遵守账号隔离、人工优先及匹配阈值。
 
 ## 原生推理与打包
 
-使用官方 `github.com/k2-fsa/sherpa-onnx-go` v1.13.8（已查明 Go 模块最新稳定版本，原 Python wheel 使用 2.0.1）。CAMPPlus ONNX 原始 SHA256 `f682b514c05d947ee3fa91cd6ec6c5c7543479a128373fa29b1faedccd21fd11`，约 27 MiB，作为仓库工件通过 `go:embed` 编入程序；附上游出处与许可，构建和运行均不下载模型。进程内 CPU 两线程，输入 s16le/16k/mono、3–10 秒，输出 192 维归一化有限向量；保留能量和削波检查。模型固定，无面向用户配置。
+使用官方 `github.com/k2-fsa/sherpa-onnx-go` v1.13.8。CAMPPlus ONNX 原始 SHA256 `f682b514c05d947ee3fa91cd6ec6c5c7543479a128373fa29b1faedccd21fd11`，约 27 MiB，作为仓库工件通过 `go:embed` 编入程序；附上游出处与许可，构建和运行均不下载模型。进程内 CPU 两线程，输入 s16le/16k/mono、3–10 秒，输出 192 维归一化有限向量；保留能量和削波检查。模型固定，无面向用户配置。
 
 官方 Go 绑定需要 CGO 与动态原生库，不能承诺纯 Go 或单一静态文件。Linux amd64/arm64 正式产物采用匹配架构的 Debian Bookworm 原生编译，分发 Voices、web、lib（sherpa C API / ONNX Runtime）及许可证；程序 rpath 指向 `$ORIGIN/lib`。Docker 在应用镜像内包含库，原应用 ffmpeg 依赖保留。macOS 开发采用官方模块对应库；其它未验收平台不新增发行承诺。
 
@@ -22,9 +22,9 @@ App.Run 退出时先等待工作 goroutine 结束，再 Close Engine；Close 与
 
 ## 接口与迁移
 
-保留 HTTP 状态接口中的 `configured` 字段并恒 true（兼容既有消费者，含义为内置能力可用，不代表任务成功），删除 409 voiceprints_unconfigured 路径。UI 不提供声纹面板、按钮、配置或样本管理页面；后台自动补齐任务并重试暂时失败，录音页内部观察发布并刷新人物。恢复模式禁止执行/写入，不等于未配置。底层推理仅通过 App 内部 Extract/Close 接口注入测试替身，不公开可切换 provider 配置。
+保留 HTTP 状态接口中的 `configured` 字段并恒 true（兼容既有消费者，含义为内置能力可用，不代表任务成功），UI 不提供声纹面板、按钮、配置或样本管理页面；后台自动补齐任务并重试暂时失败，录音页内部观察发布并刷新人物。恢复模式禁止执行/写入，不等于未配置。底层推理仅通过 App 内部 Extract/Close 接口注入测试替身，不公开可切换 provider 配置。
 
-由于运行库版本不同且尚无足够向量等价证据，将 profile 改为 `campplus-zh-v2:sherpa-1.13.8:s16le-16000-mono:<同SHA>`，禁止新旧混比。新增 019 迁移对所有 ready 录音的 succeeded 转写（有标签）upsert queued 并换 generation，包括旧 failed/succeeded；不更改人工/自动关联和历史标签语义。旧向量保留至对应任务成功或编辑使其失效，新 profile 查询不计入旧向量；重建在后台执行。升级前停止旧程序，不支持旧 URL 服务和新程序混跑。此迁移可排队历史录音，但不能自动覆写旧人工匿名/已关联人物。
+运行库版本不同不保证向量等价，固定 profile 为 `campplus-zh-v2:sherpa-1.13.8:s16le-16000-mono:<同SHA>`，禁止新旧混比。019 升级迁移对所有 ready 录音的 succeeded 转写（有标签）upsert queued 并换 generation，包括旧 failed/succeeded；不更改人工/自动关联和历史标签语义。旧向量保留至对应任务成功或编辑使其失效，新 profile 查询不计入旧向量；重建在后台执行。升级前停止旧程序，不支持旧 URL 服务和新程序混跑。此迁移可排队历史录音，但不能自动覆写旧人工匿名/已关联人物。
 
 ## 验收
 

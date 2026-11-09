@@ -71,15 +71,15 @@ JSON 快照使用 JSONB，应用校验结构；关系和唯一性使用独立字
 | transcriptions | id PK, recording_id FK, provider, model, options_json, capability_snapshot_json, state, error_code?, revision, raw_response_blob_id? UNIQUE FK blobs | recording_id/created_at；每次用户重转均新建；成功版本保留 |
 | speaker_labels | id PK, transcription_id FK, provider_label?, display_name, person_id? FK people, revision | UNIQUE(transcription_id,provider_label)；NULL 用于人工标签；person_id 索引；不跨版本复用 |
 | segments | id PK, transcription_id FK, ordinal, start_ms?, end_ms?, source_text, edited_text?, source_speaker_label_id?, assignment_mode, assigned_label_id?, revision | UNIQUE(transcription_id,ordinal)；transcription_id/start_ms；时间同时有值或同时 NULL，0 ≤ start ≤ end；assignment_mode 为 inherit/label/unknown |
-| people | id PK, owner_id FK users, display_name, notes, archived_at?, builtin_key?, is_self BOOLEAN, avatar_png BYTEA?, avatar_revision, revision | display_name 非唯一；builtin_key 为 background/music/system_prompt，每账号注册时自动建立且只读；每账号至多一个 is_self；头像 ≤ 512 KiB，内置人物无头像；归档保留引用，初版无合并与硬删除 |
+| people | id PK, owner_id FK users, display_name, notes, archived_at?, builtin_key?, is_self BOOLEAN, avatar_png BYTEA?, avatar_revision, revision | display_name 非唯一；builtin_key 为 background/music/system_prompt，每账号注册时自动建立且只读；每账号至多一个 is_self；头像 ≤ 512 KiB，内置人物无头像；归档保留引用，无合并与硬删除 |
 | jobs | id PK, kind, recording_id FK, transcription_id? FK, dedupe_key UNIQUE, stage, state, attempt, next_run_at, lease_owner?, lease_until?, lease_generation, error_code?, cancel_requested | state/next_run_at；每个逻辑任务唯一键；状态 queued/running/retry_wait/uncertain/restore_hold/succeeded/failed/cancelled |
 | provider_resources | id PK, transcription_id FK, provider, kind, remote_id, cleanup_state, next_cleanup_at?, last_error? | UNIQUE(provider,kind,remote_id)；cleanup_state/next_cleanup_at；远端文件和任务均独立记录 |
 | provider_operations | id PK, job_id FK, transcription_id FK, kind, lease_generation, state, remote_id?, resolution_note?, terminal_evidence JSONB? | kind 为 upload/submit；state 为 prepared/sent/known/uncertain/confirmed_absent；每次远端创建操作先持久化意图 |
 | idempotency_keys | owner_id, scope, key, request_hash, resource_id, created_at | PK(owner_id,scope,key)；转写请求键保留至关联录音删除，重用不同请求体返回冲突 |
-| server_settings | id, revision, value_json, llm_test_revision, updated_at | 实例单行配置，id=1；包含服务商凭据，仅管理员可管理 |
+| server_settings | id, revision, value_json, llm_test_revision?, updated_at | 实例单行配置，id=1；包含服务商凭据，仅管理员可管理 |
 | settings | owner_id, key, value_json | PK(owner_id,key)； 仅白名单非秘密设置；默认语言和模型等 |
 | sessions | id_hash PK, user_id FK users, csrf_hash, expires_at, created_at | expires_at；仅保存会话 token 哈希 |
-| users | id PK, email UNIQUE, username? UNIQUE, display_name, password_hash, role, status | email 小写去空白；username 为小写登录别名，2–32 字符且不含 @；role 为 admin/user，status 为 active/disabled |
+| users | id PK, email UNIQUE, username? UNIQUE, display_name, password_hash?, ui_language, role, status | email 小写去空白；username 为小写登录别名，2–32 字符且不含 @；role 为 admin/user，status 为 active/disabled；ui_language 为 zh-CN/en，默认 zh-CN；OIDC 账号可无本地密码 |
 | instance_settings | id=1, bootstrap_completed BOOLEAN, site_setup_completed BOOLEAN, registration_open BOOLEAN | 首位管理员资格、独立站点初始化状态与注册开关，单行 |
 | admin_audit_events | id PK, actor_id? FK users, target_user_id? FK users, action, details JSONB | created_at/id、target_user_id/created_at；记录角色、启停、注册开关与服务器设置字段名，不含秘密 |
 
@@ -98,7 +98,7 @@ ready 事务依据该快照创建唯一 auto-transcribe 任务与转写版本，
 source_text 和源标签是不可变来源；展示与搜索使用 edited_text 非空时的值。空字符串是有效人工删除，不等同 NULL。
 
 使用 pgxpool 连接池和数据库外键；唯一约束处理并发去重，禁止用应用层先查后写代替约束。
-使用单套有序 PostgreSQL 迁移，迁移时获取 advisory lock，失败中止启动；初版没有旧数据兼容层或跨数据库抽象。
+使用单套有序 PostgreSQL 迁移，迁移时获取 advisory lock，失败中止启动；不提供跨数据库抽象；升级按有序迁移的前置条件执行。
 SQL 集成测试运行真实 PostgreSQL，不用内存数据库代替。JSONB 只用于配置快照，不取代片段、标签等关系模型。
 
 ## 音频存储、上传和发布
@@ -129,12 +129,12 @@ prepare 任务取得数据库租约后，把 original blob 流式下载到新的
 同事务依据导入快照创建唯一自动转写任务。重新执行不得覆盖已发布副本；失败保留数据库原件，临时目录可直接丢弃。
 
 原件不可变。转写格式转换也发布独立 blob，不改变音频时间基准；网络上传从数据库分块读取。
-长于模型时长限制的录音可保留，但拒绝该次转写。初版不自动切分音频，避免隐含改变说话人作用域和拼接语义。
+长于模型时长限制的录音可保留，但拒绝该次转写。不自动切分音频，避免隐含改变说话人作用域和拼接语义。
 
 ## 范围读取与回收
 
 HTTP Range 由服务端把字节范围映射为块序号，顺序读取并截取首尾块，返回 206、Content-Range 和正确 Content-Length。
-无 Range 返回 200；不可满足的范围返回 416；初版多范围请求忽略 Range 并返回完整 200。支持后缀与开放结束位置范围。
+无 Range 返回 200；不可满足的范围返回 416；多范围请求忽略 Range 并返回完整 200。支持后缀与开放结束位置范围。
 一次最多缓存两个块，数据库短事务完成后再写网络；慢客户端不占用整段播放时长的事务。
 
 开始读取时短事务锁定录音与 blob，验证未删除、ready，创建 30 秒读租约；读流每 10 秒续租。
@@ -173,7 +173,7 @@ UPDATE RETURNING 写入唯一实例 ID 与递增租约代次，限制对所有�
 认证失败与参数不支持不自动重试。已有远端 ID 的恢复只查询原任务，不创建新任务。
 上传或提交请求超时、响应丢失，或在 uploading/submitting 阶段崩溃且远端操作无 ID 时进入 uncertain。
 适配器若有可证明的幂等键或查询能力才自动恢复；否则用户查看服务商控制台后决定继续等待或明确新建可能重复计费的任务。
-未知远端资源不能谎报清理完成；保留内部 uncertain 状态，界面统一显示失败。初版不承诺外部服务 exactly-once。
+未知远端资源不能谎报清理完成；保留内部 uncertain 状态，界面统一显示失败。不承诺外部服务 exactly-once。
 
 资源登记是受限例外：旧执行者可凭已有 operation ID 幂等补记该操作的 remote_id，并建立待清理资源；不得改变任务或发布结果。
 登记事务锁定 provider_operations，验证 provider、kind 与归属；remote_id 首次写入后不可改成另一个值，冲突转人工处理。
@@ -224,7 +224,7 @@ Markdown 标签转义反斜杠、方括号、排版标记与 HTML/实体，换�
 前端核对 URL 中三者归属，不依赖已加载列表或句子 ordinal。Clipboard API 不可用时展示可选中手动复制的内容，不谎报复制成功。
 
 归一化优先使用服务商句界，在说话人切换处断开；存在 token 时间时按句聚合。无可靠句界时保留服务商片段，不编造单句时间戳。
-初版不提供片段拆分/合并删除；已有片段可改字、时间与归属，稳定 ID 保持有效。
+不提供片段拆分/合并删除；已有片段可改字、时间与归属，稳定 ID 保持有效。
 
 ## HTTP 契约
 
@@ -257,8 +257,8 @@ Markdown 标签转义反斜杠、方括号、排版标记与 HTML/实体，换�
 | GET/PATCH /admin/server-settings | 管理员读取脱敏配置、以修订号保存站点/STT/LLM；更新与字段名审计同事务 |
 | GET /providers、GET/PATCH /settings | 能力目录与非秘密默认配置 |
 
-轮询任务/录音状态即可满足初版，不引入 WebSocket。使用默认 2 秒轮询，后台页面降频。
-全文搜索初版对激活版本的有效文本做参数化并转义通配符的 ILIKE 子串查询；不承诺分词和相关性排名。
+任务和录音状态使用轮询，不引入 WebSocket。各页面按所属 UI 契约选择间隔；后台标签暂停轮询，重新可见时刷新。
+录音库全文搜索对激活版本的有效文本做参数化并转义通配符的 ILIKE 子串查询；不承诺分词和相关性排名。
 筛选人物按激活版本片段的有效标签归属计算，不能仅根据存在未使用标签认定人物出现。
 
 ## 安全与运维边界
@@ -303,9 +303,9 @@ restore_hold 禁止普通 retry、自动提交与硬删除；恢复模式不得�
 
 ## 摘要与管理运维
 
-[摘要设计](feature/insights/architecture.md)定义 transcription_insights：一版本一条当前生成记录，PostgreSQL 持久排队、全实例一个有效运行租约；openai-go SDK 仅执行一次有界请求，生成结果由服务端校验真实片段。请求取消、超时或未知结果不会自动再收费，恢复入口隔离 queued/running。完成/失败清空输入快照，录音删除级联结果并回收幂等键。普通重启可继续 queued，不能与快照恢复混淆。
+[摘要设计](feature/insights/architecture.md)定义 transcription_insights：一版本一条当前生成记录，PostgreSQL 持久排队、全实例一个有效运行租约；openai-go SDK 仅执行一次有界请求，生成结果由服务端校验真实片段。请求取消、超时或未知结果不会自动再收费，恢复入口隔离 queued/running。完成/失败清空输入与 LLM 配置快照，录音删除级联结果并回收幂等键。普通重启可继续 queued，不能与快照恢复混淆。
 
-[管理设计](feature/administration/architecture.md)定义只读 Repeatable Read 概览和 keyset 日志读取。runtime_events 保存结构化安全异常，最近7天可见，独立有界清理不受恢复模式影响；admin_audit_events 长期保留且不经尽力写入器。新表可由旧二进制忽略，不修改历史表含义。
+[管理设计](feature/administration/architecture.md)定义只读 Repeatable Read 概览和 keyset 日志读取。runtime_events 保存结构化安全运行事件（含本地声纹生命周期），最近7天可见，独立有界清理不受恢复模式影响；admin_audit_events 长期保留且不经尽力写入器。升级与回退须遵守各能力的迁移约束，不能忽略摘要配置快照的清理要求。
 
 模块：internal/insights 负责 SDK 调用及输出验证；internal/app/insights.go 负责所有权内的任务与结果；admin_overview.go/admin_events.go/runtime_events.go 分别负责统计、脱敏读取及尽力记录。
 
@@ -325,4 +325,6 @@ Job API 附带 error_detail 与 retry_allowed。retry_allowed 根据 failed/retr
 
 请求层将调用方取消与 30 秒超时合并。useResource 将首次 loading 与 refreshing 分开，轮询只在可见文档运行且不重叠；动态轮询间隔改变不触发额外初始读取。列表 hook 按 scope 隔离对象、按 path 绑定筛选与游标；同 scope 切换 path 可保留上一组展示并标记 stale，但不允许旧游标加载更多。刷新从首页沿服务端游标读取到已展示条数，原子替换列表；分页只追加去重结果，失败不丢列表。录音库与人物文字筛选等待 250ms。
 
-正文搜索只保存当前组件、当前版本与 revision 的完整结果，清空关键词不销毁已完成结果；上限 20000 片段或 8 MiB 字符估算，超限结果仅服务本次非空搜索，清空后释放。版本、revision、重试改变即失效，不跨页面或会话共享。调用日志名称以页面和 endpoint 为边界，有界保存 500 条；缺失 ID 按最多 4 并发读取，刷新清空名称以核对修改，取消请求不记失败。
+正文窗口、目录定位和搜索共用页面内的 TranscriptStore，归属、请求合并、版本隔离与释放见[转写读取架构](feature/transcription/architecture.md)。搜索全量数据随转写长度增长，不声明固定内存上限。调用日志名称读取由[调用日志架构](feature/call-logs/architecture.md#录音名称读取)拥有。
+
+行内编辑由 `InlineEdit` 持有草稿、聚焦、键盘、保存状态与错误；业务调用方持有字段校验和版本冲突规则。编辑开始绑定值和回调，轮询不能替换草稿或更新保存基准。可观察行为见[全站交互](feature/interface-interactions/ui.md#加载与行内编辑)。

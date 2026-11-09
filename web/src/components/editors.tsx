@@ -1,5 +1,6 @@
 // @concord-file
-// @concord-implements docs/feature/transcription/README.md
+// @concord-implements docs/feature/transcription/use-case/edit-transcript.md
+// @concord-implements docs/feature/recording-library/use-case/edit-recording.md
 // @concord-implements docs/feature/people/use-case/link-person.md
 import { personName, labelName } from "@/lib/person-name";
 import { tr, interfaceLocale } from "@/lib/i18n";

@@ -2,7 +2,7 @@
 
 ## 目标与边界
 
-新增 OpenAI 文件转写，保留 Soniox/AssemblyAI 现有上传、提交、轮询和远端清理语义；管理员可在服务器设置配置独立 OpenAI STT 地址与密钥，用户在既有转写选项选择服务商/模型。LLM 设置增加从当前表单连接获取模型 ID 并在输入框下拉选择，仍允许手填。直接转写不自动触发摘要；本页不授权真实付费调用或部署。
+新增 OpenAI 文件转写，保留 Soniox/AssemblyAI 现有上传、提交、轮询和远端清理语义；管理员可在服务器设置配置独立 OpenAI STT 地址与密钥，用户在既有转写选项选择服务商/模型。直接转写不自动触发摘要；本页不授权真实付费调用或部署。
 
 ## 证据
 
@@ -11,7 +11,6 @@
 - 当前网页要求说话人区分（options.tsx）；首批只暴露 `gpt-4o-transcribe-diarize`，保留按服务商选择模型的通用结构，不能把不支持说话人的普通模型标为兼容。
 - 官方资料（2026-10-19）：[转写指南](https://developers.openai.com/api/docs/guides/speech-to-text)。Diarized JSON 提供 speaker/start/end；>30 秒指定 chunking_strategy=auto；文件上限 25 MB。
 - [创建转写接口](https://developers.openai.com/api/reference/resources/audio/subresources/transcriptions/methods/create)。
-- [模型列表接口](https://developers.openai.com/api/reference/resources/models/methods/list)。
 
 ## Provider 与任务契约（待独立审查）
 
@@ -35,15 +34,14 @@
 
 ## 已采用的相关能力
 
-LLM 模型发现由[服务器管理用例](../feature/accounts/use-case/manage-server.md)声明，不属于本页待决范围。直接转写方案尚未采用，不能据此改变服务商执行模型。
+LLM 模型发现由[已采用的接口契约](../feature/accounts/api.md#llm-模型发现)声明，不属于本页待决范围。直接转写方案尚未采用，不能据此改变服务商执行模型。
 
 ## 验收
 
 - Adapter HTTP fake 验证 multipart 参数、显式 credentials/环境隔离、格式/文件限制、响应结构/时间校验、无重试/无重定向/限流和超时、reader 关闭与取消。
 - 隔离 PostgreSQL + 正式 App 初始化/HTTP/worker：配置保存重启/catalog；OpenAI 成功归一化持久化；失败不重发。验证 stale lease、双实例、cancel/delete fence、恢复 queued/running 不重放、无远端资源、retry/reconcile 拒绝不安全路径；原 async 回归。
-- LLM 模型发现真实 HTTP fake + admin HTTP：权限/CSRF、revision、密钥不回显、同地址复用与换地址阻断、空 key、新 key、invalid/oversize response、redirect/错误受控、GET only。
-- 浏览器 E2E：STT 配置卡片与导入/重转模型选择、能力限制；LLM 获取/输入框内选取/手填、失败/空列表、连接变化废弃旧结果；手机/深色；typecheck/build、go test/vet、Concord check 与 OpenAPI 类型同步。所有真实收费调用不执行。
+- 浏览器 E2E：STT 配置卡片与导入/重转模型选择、能力限制；手机/深色；typecheck/build、go test/vet、Concord check 与 OpenAPI 类型同步。所有真实收费调用不执行。
 
 ## 审查
 
-待原生 Codex / GPT-6.1 Sol Review：直接请求持久化 guard 对 crash、lease、retry、restore/delete 的闭环；模型发现 saved key 与目标绑定；边界是否遗漏，是否需要调整后实现。
+待原生 Codex / GPT-6.1 Sol Review：直接请求持久化 guard 对 crash、lease、retry、restore/delete 的闭环；边界是否遗漏，是否需要调整后实现。

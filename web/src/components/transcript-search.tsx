@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/transcription/use-case/transcribe.md
+// @concord-implements docs/feature/transcription/use-case/search-transcript.md
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { ArrowDown, ArrowUp, X } from "lucide-react";

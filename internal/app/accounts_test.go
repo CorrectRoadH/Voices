@@ -185,7 +185,7 @@ func TestAccountBusinessIsolation(t *testing.T) {
 	}
 }
 
-// @use-case docs/feature/accounts/use-case/manage-access.md
+// @feature docs/feature/accounts/README.md
 func TestAccountManagementAndSessions(t *testing.T) {
 	a := setup(t)
 	b := anotherAccount(t, a, "other")

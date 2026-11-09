@@ -15,7 +15,7 @@ declare global {
   }
 }
 
-// @use-case docs/feature/transcription/use-case/transcribe.md
+// @use-case docs/feature/transcription/use-case/read-transcript.md#locate
 test("目录复用正文、慢请求保留阅读位置并且最后一次定位获胜", async ({
   app,
   agent,

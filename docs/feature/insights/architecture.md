@@ -4,7 +4,7 @@
 
 采用官方 `github.com/openai/openai-go/v3`，版本固定在 go.mod。管理员的 llm_base_url/model/api_key 用于兼容 OpenAI 的 Chat Completions。[SDK](https://github.com/openai/openai-go)提供地址、超时及重试控制。
 
-Eino 提供图编排，LangChainGo 提供链与检索；单次结构化生成不引入这些框架。地址和模型必填，本地服务可留空密钥。只用进程启动生效配置，不继承 SDK 环境，不回退地址或模型。
+Eino 提供图编排，LangChainGo 提供链与检索；单次结构化生成不引入这些框架。地址和模型必填，本地服务可留空密钥。新任务在接受事务内读取数据库配置，执行只使用任务保存的不可变快照；不继承 SDK 环境，不回退地址或模型。
 
 用户手动为成功转写版本生成摘要与主题目录。界面说明发送转写文本及可能收费，重新生成替换旧结果。不自动生成、不上传音频、不引入聊天或 RAG。结果标为 AI 辅助内容，须核对原文。
 
@@ -12,7 +12,7 @@ Eino 提供图编排，LangChainGo 提供链与检索；单次结构化生成不
 
 ## 持久化模型
 
-迁移010新增 transcription_insights，一行对应一个转写版本。无旧数据迁移，旧程序可忽略该表回滚。未标可空的字段均 NOT NULL：
+`transcription_insights` 一行对应一个转写版本。未标可空的字段均 NOT NULL：
 
 | 字段 | 类型与含义 |
 | --- | --- |
@@ -21,21 +21,22 @@ Eino 提供图编排，LangChainGo 提供链与检索；单次结构化生成不
 | state | text，CHECK queued/running/succeeded/failed |
 | source_hash | text，有序片段 id/start_ms/end_ms/text 的 JSON SHA256 |
 | input_json | nullable jsonb，生成期间的文本快照 |
+| llm_config_json | nullable jsonb，接受任务时的 `{base_url,api_key,model}` 配置快照，含凭据 |
 | result_json | nullable jsonb，summary 与 chapters |
 | model | text，入队模型名称 |
 | error_code | nullable text，受控错误码 |
 | created_at / updated_at | timestamptz，数据库 clock_timestamp 默认值 |
 | lease_until | nullable timestamptz |
 
-索引 `(state,created_at)` 仅覆盖 queued/running。result 的章节保存 segment_id/title/start_ms；start_ms 可空，由服务端从快照推导，不接受模型时间。完成或失败清空 input_json，录音删除级联回收。
+索引 `(state,created_at)` 仅覆盖 queued/running。result 的章节保存 segment_id/title/start_ms；start_ms 可空，由服务端从快照推导，不接受模型时间。完成、失败、超时或恢复隔离时同时清空 `input_json` 与 `llm_config_json`，录音删除级联回收。
 
-hash 不含人物或说话人名称；改人物不使结果失效，改文本或时间则失效。旧结果仍可读并标过期。baseURL/key 不入任务表。
+hash 不含人物或说话人名称；改人物不使结果失效，改文本或时间则失效。旧结果仍可读并标过期。配置快照仅供服务端执行，不能通过 API、日志或审计返回；数据库和备份按包含凭据保护。
 
 ## HTTP 契约
 
 ### 读取
 
-`GET /api/v1/transcriptions/{id}/insights` 返回 configured 和可空 insight。configured 表示 active 地址及模型齐全，不代表服务已验证。沿用转写所有权，管理员没有越权例外；删除中录音不可读。
+`GET /api/v1/transcriptions/{id}/insights` 返回 configured 和可空 insight。configured 表示数据库中最新 LLM 地址及模型齐全，不代表服务已验证。沿用转写所有权，管理员没有越权例外；删除中录音不可读。
 
 insight 包含 generation、state、model、created_at、updated_at、error_code、stale、summary、chapters。没有结果时 summary 为空字符串、chapters为空数组；stale 比较当前文本快照 hash。
 
@@ -55,19 +56,25 @@ App.Run 拥有调度与执行 goroutine，退出用 wait group 等待。每秒�
 
 领取锁 recording 行，要求非 deleting、转写 succeeded。账号 disabled 时 queued 变 failed/account_disabled。领取后释放事务，再调用服务。没有自动重试。
 
-queued 可跨普通重启继续执行。running 固定180秒 lease，HTTP最多120秒，无心跳；过期仅变 failed/interrupted，清空输入，不重新调用。关闭服务取消HTTP，使用独立2秒预算持久失败。
+queued 可跨普通重启继续执行。running 固定180秒 lease，HTTP最多120秒，无心跳；过期仅变 failed/interrupted，清空输入和配置快照，不重新调用。关闭服务取消HTTP，使用独立2秒预算持久失败。
 
 最终写入重新锁 recording，generation+running+有效lease 作 fence。已删除的录音不重建结果，旧执行者不覆盖新代次。生成期间允许修改正文，完成后 GET 会标 stale。
 
-Restore 正式入口在既有恢复事务中将全部 queued/running 变 failed/interrupted，清空输入与lease，保留成功结果。恢复模式不领取；退出后用户须显式再生成，不能重放快照中的排队任务。
+Restore 正式入口在既有恢复事务中将全部 queued/running 变 failed/interrupted，清空输入、配置快照与 lease，保留成功结果。恢复模式不领取；退出后用户须显式再生成，不能重放快照中的排队任务。
 
-失败或中断提示上次可能已计费，再生成会再次调用。worker 模型须与入队 model 相同，否则 configuration_changed。地址或凭据切换前须完成队列；队列执行使用 worker 当时生效配置。
+失败或中断提示上次可能已计费，再生成会再次调用。worker 只使用 `llm_config_json`，快照缺失或其模型与入队 `model` 不一致时返回 `configuration_changed`。保存新配置不改变已有队列；新任务采用新配置，不要求先排空队列。
+
+## 升级边界
+
+013 迁移为任务增加配置快照；历史 queued/running 任务没有快照时标为 interrupted，不推测旧凭据、不自动重放。升级须停止旧 worker，不能混跑不具备快照读取和清理语义的旧版本；回退见[部署与恢复](../../operations.md#首次站点初始化与升级)。
 
 ## SDK 与输出验证
 
 使用 `NewChatCompletionService`，服务构造不读取环境；显式设置 BaseURL、APIKey、空 Organization/Project。隔离全部 OPENAI_*，包括 CUSTOM_HEADERS。关闭重试，禁止重定向，响应body最多1MiB，max_completion_tokens=4096。
 
 请求使用 JSON object response format。服务不支持参数时返回失败，不自动降级再请求。system 要求转写是数据而非指令，摘要语言与原文一致；用户内容以 JSON 发送。不启用 tools，不执行输出，不渲染原始HTML。
+
+模型请求使用本次快照内按顺序分配的短编号（s1、s2 等），避免模型抄写数据库 UUID。输出只能引用本次提供的编号，严格校验首章、顺序和成员关系后映射回真实片段 ID；时间仍取自快照，不接受模型时间。不猜测、模糊匹配或丢弃非法章节，也不自动增加付费重试。
 
 严格解码一个JSON对象，无额外字段。summary为1..4000字，chapters为1..30项，title为1..120字。锚点必须存在于输入，严格按输入位置递增；首章须引用首片段。拒绝截断、拒答、未知锚点、重复或逆序锚点。
 

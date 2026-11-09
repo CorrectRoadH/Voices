@@ -9,7 +9,7 @@
 
 ## 账号与角色
 
-一个 user 就是一个数据隔离单位，本期不建 tenants / memberships 表，不提供切换租户、共享内容或邀请成员。
+一个 user 就是一个数据隔离单位，不建 tenants / memberships 表，不提供切换租户、共享内容或邀请成员。
 
 注册使用邮箱、用户名和密码，登录接受用户名或邮箱。邮箱去除首尾空白并转为小写，须为单个合法地址且不超过 254 字节。显示名称独立于登录别名，可以重复。
 
@@ -17,7 +17,7 @@
 
 角色为 `admin` / `user`，状态为 `active` / `disabled`。系统管理员管理注册开关、账号启停和角色。业务 API 对管理员仍执行自身归属检查，不提供查看他人录音、人物或转写的管理入口。管理员启停、角色修改和注册开关写入不含秘密的审计记录。不能停用或降级最后一个 active admin。相关修改用同一数据库锁串行保护。普通用户可以修改自己的显示名称和密码，不能指定角色、状态或 owner。
 
-默认开放注册。管理员可关闭后续注册。关闭时显示明确提示并拒绝新注册，不影响已有用户登录。服务商密钥属于数据库优先的[服务器配置](server-settings.md)，所有 active 用户使用同一服务商额度。本期不提供每用户密钥、计费或配额。开放注册意味着注册用户可以发起消耗实例额度的转写，管理员可按部署需要关闭注册。
+默认开放注册。管理员可关闭后续注册。关闭时显示明确提示并拒绝新注册，不影响已有用户登录。服务商密钥属于数据库优先的[服务器配置](server-settings.md)，所有 active 用户使用同一服务商额度。不提供每用户密钥、计费或配额。开放注册意味着注册用户可以发起消耗实例额度的转写，管理员可按部署需要关闭注册。
 
 ## 首位管理员的原子产生
 
@@ -29,7 +29,7 @@
 
 ## 持久模型与约束
 
-- `users`：`id uuid PRIMARY KEY`。`email text NOT NULL UNIQUE`，存规范化邮箱并加长度与小写 CHECK。`display_name text NOT NULL`。`password_hash text`（无本地密码的 OIDC 账号允许 NULL）。`role text NOT NULL CHECK(role IN ('admin','user'))`。`status text NOT NULL CHECK(status IN ('active','disabled'))`。`created_at/updated_at timestamptz NOT NULL`。用户 ID 与业务归属不可变。
+- `users`：`id uuid PRIMARY KEY`。`email text NOT NULL UNIQUE`，存规范化邮箱并加长度与小写 CHECK。`username text NULL` 为唯一规范化登录别名，规则见下文；`display_name text NOT NULL` 可重复。`ui_language text NOT NULL DEFAULT 'zh-CN'` 只允许 zh-CN/en。`password_hash text`（无本地密码的 OIDC 账号允许 NULL）。`role text NOT NULL CHECK(role IN ('admin','user'))`。`status text NOT NULL CHECK(status IN ('active','disabled'))`。`created_at/updated_at timestamptz NOT NULL`。用户 ID 与业务归属不可变。
 - `sessions` 增加 `user_id uuid NOT NULL REFERENCES users(id)`，保留随机令牌摘要、CSRF 摘要与到期时间。新增 `(user_id)` 索引。每次鉴权联查用户 active 状态与实时角色。停用用户或改密码的事务删除其全部会话。修改密码后前端重新登录。
 - `recordings`、`people` 增加 `owner_id uuid NOT NULL REFERENCES users(id)` 以及 `UNIQUE(owner_id,id)`。录音去重改为 `UNIQUE(owner_id,sha256)`。列表索引改为 `(owner_id,recorded_at DESC,id)`，人物列表按 owner 建索引。同音频不同用户各自入库，不共享 blob，不暴露全局重复情况。
 - `media_assets`、`transcriptions`、`speaker_labels`、`segments`、`jobs`、`provider_resources`、`provider_operations` 增加不可空 `owner_id`。写入值由数据库插入触发器从父实体导出，保留 UUID 主键并增加被引用所需的 `UNIQUE(owner_id,id)`。父子关联改为含 owner 的复合外键。同一录音内的 active version、同一转写内的标签关联继续保留原有更严格约束。speaker label 关联人物必须使用 `(owner_id,person_id)` 外键，阻止跨账号关联。
@@ -50,7 +50,7 @@
 
 后台调度仍可全局领取任务，这是内部受信边界。领取结果包含 owner，每次读取或写入业务链条都同时约束 job owner，服务商回包由内部 operation/job 映射归属，不能信任远端回传的 owner。全局 GC 可以清理各用户资源，但必须遵守既有引用、租约和不确定请求保护。
 
-停用账号阻止新登录和新请求。已经接受的任务继续执行和清理，不能因停用中断远端核对或造成资源泄漏。本期不删除账号或内容，不承诺停用撤回已发送的 STT 请求。停用提交前已通过鉴权的在途请求允许完成。需要强制中断在途请求属于另一个契约。
+停用账号阻止新登录和新请求。已接受的 STT 任务继续执行和清理，不能因停用中断远端核对或造成资源泄漏。不删除账号或内容，不承诺停用撤回已发送的 STT 请求。排队摘要在领取时若账号已停用则失败并清除输入和配置快照，见[摘要生命周期](../../insights/architecture.md#执行和资源生命周期)。停用提交前已通过鉴权的在途请求允许完成。需要强制中断在途请求属于另一个契约。
 
 ## HTTP 与界面契约
 
@@ -87,3 +87,9 @@ Cookie、CSRF、Origin、管理员守卫与恢复模式写保护适用于各对�
 邮箱标准化及用户名别名均按[账号契约](../README.md)执行。显示名称不作为唯一身份，用户 UUID 是持久身份；关联约束不使用可修改的登录标识。
 
 来源校验允许 PUBLIC_BASE_URL 的来源与显式 ALLOWED_ORIGINS 列表，仍拒绝 cross-site 请求。列表只接受完整 http/https origin，不允许通配符、路径、用户信息或任意 Host 推导。
+
+## 用户名登录别名
+
+既有认证仍由 user ID、原密码校验、账号状态与会话机制决定；用户名只扩展账号查询入口，不改变信任边界或授权。users 增加 nullable username TEXT，normalized lower(trim)、长度 2–32、无 @ 与空白，非空唯一。迁移只将合法且标准化后唯一的已有 display_name 补入；不为重复名称猜选账号。旧账号邮箱与密码保持可用，API 旧 email 字段继续支持；新登录可传 identifier，未提供时退回 email，含 @ 查 email，其余查 username。
+
+注册可选 username；网页要求填写并同步为初始 display_name。PATCH me 可选 username（空串清除）并保留已有 display_name 更新。唯一冲突返回 username_taken；数据库唯一索引裁决并发。返回 User.username 空串表示未设置。用户名和邮箱命中同一 user ID 后共享 login_account 限流，未命中使用 identifier 限流并走 dummy bcrypt，保留 IP 限流与通用错误。此为可独立回滚的别名扩展，不迁移既有身份主键或所有权。

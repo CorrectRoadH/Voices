@@ -2,7 +2,7 @@
 
 ## 范围
 
-行为归 [转写用例](use-case/transcribe.md)，不改后端 API、持久化和权限。
+行为分别归[阅读](use-case/read-transcript.md)、[校对](use-case/edit-transcript.md)和[搜索](use-case/search-transcript.md)，界面细节见 [UI 契约](ui.md)。后端 API、持久化与权限沿用现有边界。
 
 ## 共享数据所有者
 

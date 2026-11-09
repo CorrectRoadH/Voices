@@ -1,6 +1,6 @@
 // @concord-file
-// @concord-implements docs/feature/appearance/README.md
-// @concord-implements docs/feature/transcription/use-case/transcribe.md
+// @concord-implements docs/feature/interface-interactions/ui.md
+// @concord-implements docs/feature/transcription/use-case/edit-transcript.md
 import { useId, useRef, useState, type ReactNode } from "react";
 import { Check, Pencil, X } from "lucide-react";
 import { cn } from "cn";

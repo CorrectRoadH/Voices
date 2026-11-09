@@ -1,6 +1,10 @@
 // @concord-file
 // @concord-implements docs/feature/sentence-links/use-case/copy-sentence-link.md
 // @concord-implements docs/feature/transcription/use-case/transcribe.md
+// @concord-implements docs/feature/transcription/use-case/read-transcript.md
+// @concord-implements docs/feature/transcription/use-case/edit-transcript.md
+// @concord-implements docs/feature/transcription/use-case/search-transcript.md
+// @concord-implements docs/feature/recording-library/use-case/edit-recording.md
 import { TranscriptStore } from "@/lib/transcript-store";
 import { useVoiceprintPublication } from "@/lib/voiceprints";
 import { segmentSpeakerName, labelName } from "@/lib/person-name";

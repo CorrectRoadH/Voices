@@ -95,7 +95,7 @@ it("成功状态的损坏 JSON 不会泄露响应原文", async () => {
   await expect(request("/providers")).rejects.toThrow("服务器返回的数据无法解析");
 });
 
-// @feature docs/feature/appearance/README.md
+// @feature docs/feature/interface-interactions/ui.md
 it("调用方取消信号不会关闭读取超时，超时后可以重新读取", async () => {
   const timeout = new AbortController();
   const spy = vi.spyOn(AbortSignal, "timeout").mockReturnValue(timeout.signal);
@@ -129,7 +129,7 @@ it("调用方取消信号不会关闭读取超时，超时后可以重新读取"
   await expect(request("/jobs", { signal: caller.signal })).resolves.toEqual({ items: [] });
 });
 
-// @feature docs/feature/appearance/README.md
+// @feature docs/feature/interface-interactions/ui.md
 it("主动取消保持取消原因且不重试", async () => {
   const caller = new AbortController();
   const fetchMock = vi.fn(

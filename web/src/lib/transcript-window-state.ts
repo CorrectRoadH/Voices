@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/transcription/use-case/transcribe.md
+// @concord-implements docs/feature/transcription/use-case/read-transcript.md
 import type { Schema, Segment, TranscriptionDetail } from "./types";
 
 export type WindowPage = Schema["SegmentList"];

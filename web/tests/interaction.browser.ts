@@ -3,7 +3,7 @@ import { expect } from "e2e";
 import { writeFile } from "node:fs/promises";
 import { api, fixture, noOverflow } from "./support/session";
 
-// @use-case docs/feature/transcription/use-case/transcribe.md
+// @feature docs/feature/interface-interactions/ui.md
 test("加载阶段、行内编辑快捷键、保存状态与真实并发冲突", async ({ app, browser, screen }) => {
   const id = fixture("VOICES_TEST_RECORDING");
   await app.open();
@@ -216,7 +216,7 @@ test("加载阶段、行内编辑快捷键、保存状态与真实并发冲突",
   );
 });
 
-// @feature docs/feature/appearance/README.md
+// @feature docs/feature/interface-interactions/ui.md
 test("异步操作反馈、筛选空态与刷新保留内容", async ({ app, browser, screen }) => {
   const base = fixture("VOICES_TEST_URL");
   const target = fixture("VOICES_TEST_UI_USER");

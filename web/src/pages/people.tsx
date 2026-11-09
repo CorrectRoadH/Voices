@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/people/use-case/link-person.md
+// @concord-implements docs/feature/people/use-case/manage-person.md
 import { usePagedResource } from "@/lib/use-paged-resource";
 import { personName } from "@/lib/person-name";
 import { tr } from "@/lib/i18n";

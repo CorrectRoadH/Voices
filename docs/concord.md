@@ -13,7 +13,7 @@ Concord 连接产品契约、源码实现标记、测试标记和工程经验。
 
 Spec 没有 frontmatter。仓库相对路径是身份，正文唯一的一级标题是名称。Feature、Engineering、Roadmap 包内页面使用 README、use-case、cli、library、api、format、ui、performance、architecture、data-model 等固定种类。architecture 与 data-model 描述内部实现，其余页面描述可观察行为。
 
-同一种页面需要多份时使用同名目录及 README 入口。移动文件同时更新 Markdown 链接、源码和测试标记，不能只修改导航。
+除 Use Case 外，同一种可拆分页面需要多份时使用同名目录及 README 入口。`use-case/README.md` 是可选导航页，每条用户路径仍独立成文。移动文件同时更新 Markdown 链接、源码和测试标记，不能只修改导航。
 
 ## 原则、术语与写作
 

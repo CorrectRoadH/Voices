@@ -8,4 +8,4 @@
 
 账号管理支持邮箱、用户名、显示名称搜索和角色、启停状态筛选，保留最后管理员保护、CSRF 和恢复模式约束。所有新界面复用 shadcn/ui + Tailwind 语义颜色，支持深色和窄屏。
 
-[设计与对比](architecture.md) · [查看运行状态与日志](use-case/inspect-instance.md)
+[日志模型与生命周期](architecture.md) · [查看运行状态与日志](use-case/inspect-instance.md)

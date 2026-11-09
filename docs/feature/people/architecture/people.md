@@ -2,7 +2,7 @@
 
 ## 范围与兼容
 
-在既有 owner 隔离与 person_id 关联契约内增加内置分类。已有普通人物、标签和片段的语义不变，既有 API 默认返回行为保留。新增字段与筛选均可独立停用，不改变权限边界或资源所有权，不迁移既有归属；按普通局部功能扩展处理，由主 agent 实现验收。
+在既有 owner 隔离与 person_id 关联契约内增加内置分类。已有普通人物、标签和片段的语义不变，既有 API 默认返回行为保留。新增字段与筛选均可独立停用，不改变权限边界或资源所有权，不迁移既有归属。
 
 ## 数据与生命周期
 
@@ -18,7 +18,7 @@ Person 增加 nullable builtin_key，Segment 增加 nullable person_builtin_key�
 
 GET transcriptions/:id/segments 增加 hide_builtin=true，可选且默认 false。隐藏条件为有效 person 的 builtin_key IS NULL。服务端先筛选再分页，不能在前端过滤后留下整页空白。anchor_id 的窗口位置按筛选后目标之前的条数计算，保留原 ordinal 和稳定片段 ID。
 
-正文默认发送 hide_builtin=true，提供显示背景声等片段的开关。打开具体句子深链接默认开启显示隐藏片段，确保原链接仍能定位。全文为空时显示没有可见片段并提供显示开关，不宣称转写没有数据。导出与原始文本 API 不受 UI 隐藏影响。单句播放范围保持该句 start_ms/end_ms，不受下一可见句影响。
+正文默认隐藏内置人物片段，提供显示开关；共享读取按[转写读取架构](../../transcription/architecture.md)获取原始页并投影，API 的 `hide_builtin` 参数继续供显式调用。打开具体句子深链接默认开启显示隐藏片段，确保原链接仍能定位。全文为空时显示没有可见片段并提供显示开关，不宣称转写没有数据。导出与原始文本 API 不受 UI 隐藏影响。单句播放范围保持该句 start_ms/end_ms，不受下一可见句影响。
 
 Recording 增加 people 数组，元素仅 id/display_name。由当前 active_transcription_id 下片段的有效标签归属聚合，排除内置人物和明确未知归属，按人物 UUID 去重后按名称/id 排序。多个标签属于同一人物只显示一次；没有实际片段的标签不计入。GET recording、列表与导入响应使用相同投影，空名单返回 []。保持 owner 隔离及既有列表人物筛选逻辑，不扩大访问范围。录音行在日期下展示“人物：…”文本，溢出截断并可查看完整标题。
 
@@ -38,12 +38,10 @@ people 增加 is_self BOOLEAN NOT NULL DEFAULT false，保持原有 owner/person
 
 头像作为 people 的可选属性存于同一行 avatar_png BYTEA，最多 512 KiB，avatar_revision 仅在头像修改时递增。沿用人物所有权、事务与删除生命周期，不新增独立资源或外部文件存储。创建/修改人物可提交 avatar_data（PNG data URL），PATCH 的 null 清除，未提供时不改变。服务端先检查编码、字节数与 256×256 尺寸上限，再解码重编码 PNG，去掉元数据；拒绝 SVG 和其它未规范化格式。客户端接受常见图片、中心裁切成 256×256 PNG 后提交。
 
-Person 返回 has_avatar、avatar_revision，不在列表内嵌图片。GET /people/:id/avatar 沿用人物鉴权与 owner 检查，返回 image/png、nosniff、no-store；不存在头像返回 404。内置人物仍不接受写改。默认头像显示姓名首字；连续有效人物相同的片段仅在组尾显示头像，组首显示姓名，各片段保留独立 ID、播放和编辑入口。
+Person 返回 has_avatar、avatar_revision，不在列表内嵌图片。GET /people/:id/avatar 沿用人物鉴权与 owner 检查，返回 image/png、nosniff、no-store；不存在头像返回 404。内置人物仍不接受写改。默认头像显示姓名首字；连续有效人物相同的片段在组首和组尾显示头像，组首显示姓名，各片段保留独立 ID、播放和编辑入口。
 
 正文采用滚动自动加载，追加/前插后按 ordinal 保持时序并按片段 ID 去重，保留两端游标。前插时补偿当前首条消息位置；请求在途不重复加载。切换录音、版本或过滤时重新开始窗口。
 
 ## 用户名登录别名
 
-既有认证仍由 user ID、原密码校验、账号状态与会话机制决定；用户名只扩展账号查询入口，不改变信任边界或授权。users 增加 nullable username TEXT，normalized lower(trim)、长度 2–32、无 @ 与空白，非空唯一。迁移只将合法且标准化后唯一的已有 display_name 补入；不为重复名称猜选账号。旧账号邮箱与密码保持可用，API 旧 email 字段继续支持；新登录可传 identifier，未提供时退回 email，含 @ 查 email，其余查 username。
-
-注册可选 username；网页要求填写并同步为初始 display_name。PATCH me 可选 username（空串清除）并保留已有 display_name 更新。唯一冲突返回 username_taken；数据库唯一索引裁决并发。返回 User.username 空串表示未设置。用户名和邮箱命中同一 user ID 后共享 login_account 限流，未命中使用 identifier 限流并走 dummy bcrypt，保留 IP 限流与通用错误。此为可独立回滚的别名扩展，不迁移既有身份主键或所有权。
+用户名属于账号，规则见[账号登录标识](../../accounts/architecture/accounts.md#用户名登录别名)。

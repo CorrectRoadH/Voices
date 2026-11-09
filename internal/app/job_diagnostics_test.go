@@ -7,7 +7,7 @@ import (
 	"voices/internal/providers"
 )
 
-// @use-case docs/feature/transcription/use-case/transcribe.md
+// @use-case docs/feature/transcription/use-case/recover-task.md
 func TestJobDiagnosticsAndRecovery(t *testing.T) {
 	remote := fakeRemote(t)
 	f := setup(t)

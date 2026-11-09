@@ -14,7 +14,7 @@ import (
 	"testing"
 )
 
-// @use-case docs/feature/transcription/use-case/transcribe.md
+// @use-case docs/feature/transcription/use-case/recover-task.md
 func TestCreationDiagnosticsPreserveSafetyAndExcludeSecrets(t *testing.T) {
 	for _, provider := range []string{"soniox", "assemblyai"} {
 		for _, tc := range []struct {

@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// @feature docs/feature/appearance/README.md
+// @feature docs/feature/interface-interactions/ui.md
 func TestLoadingBrowser(t *testing.T) {
 	if os.Getenv("VOICES_BROWSER_TEST") != "1" {
 		t.Skip("set VOICES_BROWSER_TEST=1 after building web")

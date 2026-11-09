@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/transcription/use-case/transcribe.md
+// @concord-implements docs/feature/transcription/use-case/search-transcript.md#results
 export function HighlightedText({ text, query }: { text: string; query: string }) {
   const needle = query.trim();
   if (!needle) return text;

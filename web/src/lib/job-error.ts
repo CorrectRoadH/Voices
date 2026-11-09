@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/transcription/use-case/transcribe.md
+// @concord-implements docs/feature/transcription/use-case/recover-task.md#inspect
 import { tr } from "./i18n";
 import type { Job } from "./types";
 

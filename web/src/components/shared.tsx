@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/appearance/README.md
+// @concord-implements docs/feature/interface-interactions/ui.md
 import { tr } from "@/lib/i18n";
 import { Spinner } from "./ui/spinner";
 import { AlertCircle, AudioLines, CheckCircle2, RefreshCw } from "lucide-react";

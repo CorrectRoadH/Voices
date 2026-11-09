@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/appearance/README.md
+// @concord-implements docs/feature/interface-interactions/ui.md
 import { useEffect, useRef, useState } from "react";
 import { tr } from "./i18n";
 import { errorMessage, request } from "./api";

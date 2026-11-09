@@ -12,7 +12,7 @@ declare global {
     };
   }
 }
-// @feature docs/feature/appearance/README.md
+// @feature docs/feature/interface-interactions/ui.md
 test("筛选保留内容、分页刷新全范围、搜索与名称复用、后台暂停轮询", async ({ app, browser }) => {
   await app.open();
   await browser.locator("#email").fill("tester@example.test");

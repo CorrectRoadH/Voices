@@ -330,7 +330,7 @@ func TestHTTPImportCrossInstanceRangesAndIdempotency(t *testing.T) {
 	f.json(t, "PATCH", "/api/v1/recordings/"+rid, map[string]any{"revision": 2, "title": "覆盖"}, 409, "")
 }
 
-// @use-case docs/feature/transcription/use-case/transcribe.md
+// @feature docs/feature/transcription/README.md
 func TestTranscriptionLifecycleVersionsAndEdits(t *testing.T) {
 	remote := fakeRemote(t)
 	f := setup(t)
@@ -678,7 +678,7 @@ func TestReadRetriesStopAndNeverResubmitKnownTask(t *testing.T) {
 	}
 }
 
-// @use-case docs/feature/people/use-case/link-person.md
+// @feature docs/feature/people/README.md
 func TestPersonAssignmentOverridesAndArchive(t *testing.T) {
 	fakeRemote(t)
 	f := setup(t)
@@ -794,7 +794,7 @@ func TestBuiltinPeopleVisibilityAndLibraryPeople(t *testing.T) {
 	}
 }
 
-// @use-case docs/feature/people/use-case/link-person.md
+// @use-case docs/feature/people/use-case/manage-person.md#self
 func TestSelfPersonReplacementAndConflictRollback(t *testing.T) {
 	f := setup(t)
 	_, first := f.json(t, "POST", "/api/v1/people", map[string]any{"display_name": "甲"}, 201, uuid.NewString())

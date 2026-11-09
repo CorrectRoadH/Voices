@@ -60,7 +60,7 @@ GET /jobs 支持 recording_id,state,cursor,limit；POST /jobs/{id}/retry body `{
 
 ## 前端
 
-UI 为中文个人工作台，浅色默认，克制的中性色与一个强调色；适配移动端。使用实际 shadcn Base UI 源码组件和语义 token。
+UI 支持简体中文与英文，主题默认跟随系统，采用克制的中性色与一个强调色；适配移动端。使用实际 shadcn Base UI 源码组件和语义 token。
 
 导航为录音库、人物、任务、设置。录音列表、拖入上传、录音详情、播放器、版本和句子编辑须走真实 API，无生产假数据。
 
@@ -84,9 +84,11 @@ Upload/Submit 每次只发一个创建操作；网络错误返回 uncertain。�
 
 ## 账号与权限
 
-邮箱和密码用于登录，注册另填用户名（显示名称）。邮箱规范化后唯一，用户名可重复。首次注册创建管理员，事务锁保证并发唯一。公开接口为 `/auth/status`、`POST /users`、`POST /session`；其余接口要求会话。Session 返回 user 摘要。账号接口与角色约束见 [账号契约](../feature/accounts/README.md) 和 [具体方案](../feature/accounts/architecture/accounts.md)。
+用户名或邮箱加密码用于本地登录。邮箱规范化后唯一；用户名是可空的唯一登录别名，与可重复的显示名称分离。网页注册要求用户名，并将它作为初始显示名称。OIDC 账号可没有本地密码，用户摘要以 `has_password` 表示，绝不返回密码哈希。首次注册创建管理员，事务锁保证并发唯一。公开接口为 `/auth/status`、`POST /users`、`POST /session`；其余接口要求会话。Session 返回 user 摘要。账号接口与角色约束见 [账号契约](../feature/accounts/README.md) 和 [具体方案](../feature/accounts/architecture/accounts.md)。
 
 业务资源归属来自会话，客户端不能指定 owner。所有资源 ID 路由先通过归属守卫；列表、搜索和幂等键按 owner 隔离。系统管理员访问他人业务内容仍返回 404。管理接口需要实时 admin 角色；角色修改和启停记录审计，不能移除最后一个有效管理员。
+
+普通 uncertain 任务在网页显示失败并提供重新转写；只有 restore_hold 保留登记核对入口。底层核对 API 仍支持 uncertain 与 restore_hold，不能把 UI 的简化解释为删除 API。恢复模式禁止核对写入。
 
 远端资源归属不能由 Web 账号自行声明。`POST /jobs/{id}/resolve` 可保存观察、确认本操作已有 ID；未知远端 ID 返回 403 `operator_reconciliation_required`，须使用本机运维命令核对并登记。
 

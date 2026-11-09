@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/people/use-case/link-person.md
+// @concord-implements docs/feature/people/use-case/manage-person.md
 import { tr } from "@/lib/i18n";
 import { builtinPersonName } from "@/lib/person-name";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";

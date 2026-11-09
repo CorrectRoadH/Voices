@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// @use-case docs/feature/transcription/use-case/transcribe.md
+// @feature docs/feature/interface-interactions/ui.md
 func TestInteractionBrowser(t *testing.T) {
 	if os.Getenv("VOICES_BROWSER_TEST") != "1" {
 		t.Skip("set VOICES_BROWSER_TEST=1 after building web")

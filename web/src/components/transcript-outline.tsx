@@ -1,5 +1,5 @@
 // @concord-file
-// @concord-implements docs/feature/transcription/use-case/transcribe.md
+// @concord-implements docs/feature/transcription/use-case/read-transcript.md#locate
 import { tr } from "@/lib/i18n";
 import type { Segment } from "@/lib/types";
 import { duration } from "@/lib/format";

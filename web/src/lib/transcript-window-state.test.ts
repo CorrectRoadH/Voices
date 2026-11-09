@@ -37,7 +37,7 @@ function loaded(state: WindowState, id: string) {
 }
 const initial = () => loaded(sync(emptyWindow, null), "0");
 
-// @use-case docs/feature/transcription/use-case/transcribe.md
+// @use-case docs/feature/transcription/use-case/read-transcript.md
 describe("正文窗口导航和缓存边界", () => {
   it("已加载定位不创建请求；未加载定位保留当前正文，取消后不接受旧结果", () => {
     const current = initial();

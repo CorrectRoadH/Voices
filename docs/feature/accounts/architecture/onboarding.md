@@ -1,6 +1,6 @@
 # 注册与站点初始化分离
 
-## 目标与现状
+## 目标与边界
 
 注册只创建账号。首次管理员注册后进入独立 /onboarding，配置 LLM、获取模型、显式测试并完成站点初始化。部署不依赖 .env 文件；DATABASE_URL（或 _FILE）及非默认部署所需 PUBLIC_BASE_URL 等基础参数仍由环境提供。LLM 不是部署模板的输入要求，旧环境首启导入保留兼容。
 
@@ -36,7 +36,7 @@ GET /admin/server-settings 的 active LLM 字段反映最新数据库配置，re
 
 onboarding 复用现有服务器表单，呈现站点、STT 和 LLM 卡片，展示配置保存、测试状态、完成/暂不启用操作。按钮等待自动保存完成并绑定最新 revision；变更立即清除前端成功标记。获取模型沿用已有 ModelPicker。完成后刷新 session/状态进入工作台。管理员日后可在服务器设置再次测试。
 
-保留基础 PUBLIC_BASE_URL 的可信来源约束，不从未受信 Host 自动推导，不把来源策略随 LLM 热更新。STT 与站点参数在初始化页和现有设置页均可管理并明确重启要求。本次不修改转写 provider 资源生命周期。compose、README、operations、.env.example 将 LLM 从部署步骤移至浏览器初始化，.env 仅可选便利方式。
+保留基础 PUBLIC_BASE_URL 的可信来源约束，不从未受信 Host 自动推导，不把来源策略随 LLM 热更新。STT 与站点参数在初始化页和现有设置页均可管理并明确重启要求。转写 provider 资源生命周期保持独立。部署模板不要求 LLM 参数，LLM 在浏览器初始化中配置；`.env` 仅提供可选的环境导入方式。
 
 ## 验收
 

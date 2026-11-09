@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// @use-case docs/feature/transcription/use-case/transcribe.md
+// @use-case docs/feature/transcription/use-case/recover-task.md
 func TestJobRecoveryBrowser(t *testing.T) {
 	if os.Getenv("VOICES_BROWSER_TEST") != "1" {
 		t.Skip("set VOICES_BROWSER_TEST=1 after building web")
