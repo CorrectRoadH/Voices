@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+	"voices/internal/providers"
 
 	"github.com/google/uuid"
 )
@@ -30,7 +31,7 @@ func TestVoiceprintAir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.a.Providers["soniox"] = voiceprintSTT{f.a.Providers["soniox"]}
+	f.a.Providers["soniox"] = voiceprintSTT{f.a.Providers["soniox"].(providers.AsyncAdapter)}
 	seed := func(title string) (string, string) {
 		f.upload(t, raw, map[string]any{"title": title, "auto_transcribe": true, "transcription_options": options()}, uuid.NewString(), 201)
 		f.run(t, "prepare")

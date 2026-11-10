@@ -128,7 +128,7 @@ export function RecordingProgress({
             {tr("重试")}
           </Button>
         )}
-        {state === "uncertain" && canCreate && (
+        {(state === "uncertain" || job?.duplicate_risk) && canCreate && (
           <Button size="sm" onClick={onRetranscribe}>
             {tr("重新转写")}
           </Button>

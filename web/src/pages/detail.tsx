@@ -203,8 +203,7 @@ export function DetailPage() {
     notify(message, true),
   );
   const { queueSeek, flushSeek } = playback;
-  const uncertain =
-    jobs.data?.items.some((j) => ["uncertain", "restore_hold"].includes(j.state)) || false;
+  const uncertain = jobs.data?.items.some((j) => j.duplicate_risk) || false;
   const refresh = () => {
     setReload((n) => n + 1);
     versions.refresh();
@@ -1538,7 +1537,7 @@ export function DetailPage() {
             <Alert variant="destructive">
               <AlertTitle>{tr("重新转写")}</AlertTitle>
               <AlertDescription>
-                {tr("新的转写可能造成重复收费；旧任务继续保留，需核对远端 ID 和清理状态。")}{" "}
+                {tr("新的转写可能造成重复收费；旧任务继续保留，直接转写不会自动重发。")}{" "}
               </AlertDescription>
             </Alert>
           )}

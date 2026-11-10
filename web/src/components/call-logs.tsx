@@ -19,6 +19,7 @@ import { PageHeading, ErrorBox, Loading, EmptyState } from "@/components/shared"
 
 type Call = Schema["ExternalCall"];
 const operations: Record<string, string> = {
+  transcribe: "直接转写",
   upload: "上传音频",
   submit: "提交转写",
   poll: "查询进度",
@@ -205,6 +206,7 @@ export function CallLogs({ admin = false }: { admin?: boolean }) {
             soniox: "Soniox",
             assemblyai: "AssemblyAI",
             openai_compatible: "OpenAI Compatible",
+            openai: "OpenAI",
           })}
           <Field className="min-w-0">
             <FieldLabel htmlFor="call-model">{tr("模型 ID")}</FieldLabel>
@@ -345,6 +347,7 @@ function CallRow({ call, admin, name }: { call: Call; admin: boolean; name?: str
       soniox: "Soniox",
       assemblyai: "AssemblyAI",
       openai_compatible: "OpenAI Compatible",
+      openai: "OpenAI",
     }[call.provider] || call.provider;
   return (
     <article className="flex min-w-0 flex-col gap-4 p-4 text-sm sm:p-5">

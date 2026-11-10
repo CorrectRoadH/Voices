@@ -16,8 +16,8 @@ import (
 const effectiveCallState = `CASE WHEN e.state='running' AND e.deadline_at<=clock_timestamp() THEN 'interrupted' ELSE e.state END`
 
 var callEnums = map[string]string{
-	"category": "stt ai", "operation": "upload submit poll fetch_result delete_file delete_transcription generate_insights list_models test_model",
-	"provider": "soniox assemblyai openai_compatible", "state": "running succeeded failed uncertain interrupted",
+	"category": "stt ai", "operation": "transcribe upload submit poll fetch_result delete_file delete_transcription generate_insights list_models test_model",
+	"provider": "soniox assemblyai openai_compatible openai", "state": "running succeeded failed uncertain interrupted",
 }
 
 type callCursor struct {

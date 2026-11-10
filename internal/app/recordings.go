@@ -125,6 +125,9 @@ func (a *App) uploadRecording(w http.ResponseWriter, r *http.Request) error {
 	if len(name) > 1000 {
 		return bad("invalid_filename", "文件名过长")
 	}
+	if meta.Options != nil && meta.Options.Provider == "openai" && !providers.ValidOpenAIFilename(name) {
+		return bad("direct_unsupported_format", "OpenAI 不支持此音频格式")
+	}
 	tmp, err := os.CreateTemp(a.Config.TempDir, "voices-import-*")
 	if err != nil {
 		return err

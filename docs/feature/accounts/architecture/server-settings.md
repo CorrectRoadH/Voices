@@ -2,11 +2,15 @@
 
 ## 目标与范围
 
-管理员在 /admin/server 管理站点 Public Base URL、额外可信 origins、STT（Soniox / AssemblyAI API Key）、LLM（OpenAI-compatible Base URL、模型、API Key）。LLM 配置由[录音摘要与主题目录](../../insights/architecture.md)使用；保存配置本身不发起模型请求。实际 STT 适配器使用数据库配置。
+管理员在 /admin/server 管理站点 Public Base URL、额外可信 origins、STT（Soniox / AssemblyAI API Key、OpenAI STT Base URL / API Key）、LLM（OpenAI-compatible Base URL、模型、API Key）。LLM 配置由[录音摘要与主题目录](../../insights/architecture.md)使用；保存配置本身不发起模型请求。实际 STT 适配器使用数据库配置。
 
 ## 持久化与优先级
 
-新增 server_settings 单行表：id smallint PK CHECK id=1；revision bigint NOT NULL DEFAULT 1 CHECK >0。value_json jsonb NOT NULL；updated_at timestamptz NOT NULL DEFAULT now()。value_json 为固定 Go 结构，包含 public_base_url、allowed_origins、soniox_api_key、assemblyai_api_key、llm_base_url、llm_model、llm_api_key。无用户 owner，这是实例配置，不能复用个人 settings。
+新增 server_settings 单行表：id smallint PK CHECK id=1；revision bigint NOT NULL DEFAULT 1 CHECK >0。value_json jsonb NOT NULL；updated_at timestamptz NOT NULL DEFAULT now()。
+
+value_json 为固定 Go 结构，包含 public_base_url、allowed_origins、soniox_api_key、assemblyai_api_key、openai_stt_base_url、openai_stt_api_key。LLM 字段为 llm_base_url、llm_model、llm_api_key。
+
+无用户 owner，这是实例配置，不能复用个人 settings。
 
 启动可加载工作目录 .env（已存在的进程环境优先于 .env），用环境取得 DATABASE_URL 并连接迁移。然后 INSERT 初始配置 ON CONFLICT DO NOTHING，再 SELECT 数据库配置。并发首启只有一个成功初始值，数据库存在时整份配置优先，包括空字符串；更改 .env 不能覆盖或复活已清除的密钥。只在缺少整行时导入和验证环境业务值，避免失效的旧环境阻断已有数据库配置。数据库失败不回退环境。数据库连接、监听、目录、恢复模式、上传限制及 worker 并发仍是基础部署参数，不入表。LLM 首启导入支持 LLM_BASE_URL、LLM_MODEL、LLM_API_KEY 及 LLM_API_KEY_FILE。
 
@@ -29,3 +33,7 @@ Base URL 路径变更要求前端构建 BASE_URL、代理和健康检查同步�
 ## 验收
 
 真实 PostgreSQL 验证首启导入、并发初始值、重启数据库优先、清除值不回退环境、非法旧环境不阻断既有配置；管理权限/CSRF/恢复禁写/非法值/null/过期 revision。响应与审计不泄漏密钥；构造新应用后的 STT adapters 使用新凭据（fake 只在 HTTP 服务商边界）。前端验证管理员入口、字段保存、留空保留与显式清除、保存后清空密码、待重启状态和普通用户不能访问。Go tests/vet、前端 tests/build、Concord check 与定向浏览器验收。
+
+## OpenAI STT 配置
+
+独立 openai_stt_base_url/openai_stt_api_key，首启环境导入 OPENAI_STT_BASE_URL 与 OPENAI_STT_API_KEY 或 OPENAI_STT_API_KEY_FILE。空 URL 调用默认 https://api.openai.com/v1，空密钥禁用；旧 JSON 缺字段按空处理，绝不借用 LLM 密钥。读取仅返回 openai_stt_configured；地址变化且已有密钥时必须显式替换或清除密钥。保存、URL 校验、重启生效与凭据保密沿用其它 STT 设置。

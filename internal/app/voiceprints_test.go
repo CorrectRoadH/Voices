@@ -14,7 +14,7 @@ import (
 	"voices/internal/voiceprints"
 )
 
-type voiceprintSTT struct{ providers.Adapter }
+type voiceprintSTT struct{ providers.AsyncAdapter }
 
 func (p voiceprintSTT) FetchResult(context.Context, providers.Resource) (providers.Result, error) {
 	a, b, c := int64(0), int64(8000), int64(16000)
@@ -23,7 +23,7 @@ func (p voiceprintSTT) FetchResult(context.Context, providers.Resource) (provide
 }
 func voiceprintRecording(t *testing.T, f *fixture, seconds int) (rid, tid, label string) {
 	t.Helper()
-	f.a.Providers["soniox"] = voiceprintSTT{f.a.Providers["soniox"]}
+	f.a.Providers["soniox"] = voiceprintSTT{f.a.Providers["soniox"].(providers.AsyncAdapter)}
 	out := f.upload(t, wav(seconds), map[string]any{"title": "声纹验收", "auto_transcribe": true, "transcription_options": options()}, uuid.NewString(), 201)
 	rid = out["recording"].(map[string]any)["id"].(string)
 	f.run(t, "prepare")

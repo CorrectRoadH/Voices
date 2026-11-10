@@ -94,6 +94,8 @@ type Draft = {
   baseURL: string;
   origins: string;
   llmURL: string;
+  openaiURL: string;
+  openai: Secret;
   model: string;
   soniox: Secret;
   assembly: Secret;
@@ -112,6 +114,8 @@ function settingsPatch(draft: Draft, data: Response): Schema["ServerSettingsPatc
     ),
   ];
   if (baseURL !== data.saved.public_base_url) patch.public_base_url = baseURL;
+  const openaiURL = draft.openaiURL.trim().replace(/\/+$/, "");
+  if (openaiURL !== data.saved.openai_stt_base_url) patch.openai_stt_base_url = openaiURL;
   if (llmURL !== data.saved.llm_base_url) patch.llm_base_url = llmURL;
   if (draft.model.trim() !== data.saved.llm_model) patch.llm_model = draft.model.trim();
   if (JSON.stringify(origins) !== JSON.stringify(data.saved.allowed_origins))
@@ -120,6 +124,7 @@ function settingsPatch(draft: Draft, data: Response): Schema["ServerSettingsPatc
     ["soniox_api_key", draft.soniox],
     ["assemblyai_api_key", draft.assembly],
     ["llm_api_key", draft.llm],
+    ["openai_stt_api_key", draft.openai],
   ] as const) {
     if (secret.clear || secret.value) patch[key] = secret.clear ? "" : secret.value;
   }
@@ -141,12 +146,14 @@ export function ServerSettingsForm({
     baseURL: initial.saved.public_base_url,
     origins: initial.saved.allowed_origins.join("\n"),
     llmURL: initial.saved.llm_base_url,
+    openaiURL: initial.saved.openai_stt_base_url,
+    openai: { value: "", clear: false },
     model: initial.saved.llm_model,
     soniox: { value: "", clear: false },
     assembly: { value: "", clear: false },
     llm: { value: "", clear: false },
   }));
-  const { baseURL, origins, llmURL, model, soniox, assembly, llm } = draft;
+  const { baseURL, origins, llmURL, model, soniox, assembly, llm, openaiURL, openai } = draft;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [invalid, setInvalid] = useState(false);
@@ -199,7 +206,7 @@ export function ServerSettingsForm({
         });
         saved.current = result;
         const next = { ...latest.current };
-        for (const key of ["soniox", "assembly", "llm"] as const) {
+        for (const key of ["soniox", "assembly", "llm", "openai"] as const) {
           if (next[key] === submitted[key]) next[key] = { value: "", clear: false };
         }
         latest.current = next;
@@ -399,6 +406,46 @@ export function ServerSettingsForm({
                   active={data.active.assemblyai_configured}
                   secret={assembly}
                   onChange={(value) => update("assembly", value)}
+                />
+              </FieldGroup>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>OpenAI STT</CardTitle>
+              <CardDescription>{tr("直接转写，支持说话人区分；文件最大 25 MB。")}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FieldGroup>
+                <Field>
+                  <FieldLabel htmlFor="openai-stt-base-url">OpenAI STT Base URL</FieldLabel>
+                  <Input
+                    id="openai-stt-base-url"
+                    type="url"
+                    maxLength={2048}
+                    value={openaiURL}
+                    placeholder="https://api.openai.com/v1"
+                    onChange={(e) => update("openaiURL", e.target.value)}
+                  />
+                  <FieldDescription>
+                    {tr(
+                      "留空使用 https://api.openai.com/v1，与 LLM 配置独立。更改地址时请重新输入或清除密钥。",
+                    )}
+                  </FieldDescription>
+                  {data.active.openai_stt_base_url !== data.saved.openai_stt_base_url && (
+                    <FieldDescription className="break-all">
+                      {tr("当前生效：")}
+                      {data.active.openai_stt_base_url || "https://api.openai.com/v1"}
+                    </FieldDescription>
+                  )}
+                </Field>
+                <SecretField
+                  id="openai-stt-key"
+                  label="OpenAI STT"
+                  configured={data.saved.openai_stt_configured}
+                  active={data.active.openai_stt_configured}
+                  secret={openai}
+                  onChange={(value) => update("openai", value)}
                 />
               </FieldGroup>
             </CardContent>

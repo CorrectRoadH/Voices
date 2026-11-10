@@ -23,16 +23,20 @@ import (
 
 // ServerSettings contains secrets and must never be returned by an HTTP handler.
 type ServerSettings struct {
-	PublicBaseURL  string   `json:"public_base_url"`
-	AllowedOrigins []string `json:"allowed_origins"`
-	SonioxKey      string   `json:"soniox_api_key"`
-	AssemblyAIKey  string   `json:"assemblyai_api_key"`
-	LLMBaseURL     string   `json:"llm_base_url"`
-	LLMModel       string   `json:"llm_model"`
-	LLMKey         string   `json:"llm_api_key"`
+	OpenAISTTBaseURL string   `json:"openai_stt_base_url"`
+	OpenAISTTKey     string   `json:"openai_stt_api_key"`
+	PublicBaseURL    string   `json:"public_base_url"`
+	AllowedOrigins   []string `json:"allowed_origins"`
+	SonioxKey        string   `json:"soniox_api_key"`
+	AssemblyAIKey    string   `json:"assemblyai_api_key"`
+	LLMBaseURL       string   `json:"llm_base_url"`
+	LLMModel         string   `json:"llm_model"`
+	LLMKey           string   `json:"llm_api_key"`
 }
 
 type serverSettingsView struct {
+	OpenAISTTBaseURL     string   `json:"openai_stt_base_url"`
+	OpenAISTTConfigured  bool     `json:"openai_stt_configured"`
 	PublicBaseURL        string   `json:"public_base_url"`
 	AllowedOrigins       []string `json:"allowed_origins"`
 	SonioxConfigured     bool     `json:"soniox_configured"`
@@ -44,15 +48,16 @@ type serverSettingsView struct {
 
 func settingsFromConfig(c Config) ServerSettings {
 	origins := append([]string{}, c.AllowedOrigins...)
-	return ServerSettings{c.PublicBaseURL, origins, c.SonioxKey, c.AssemblyAIKey, c.LLMBaseURL, c.LLMModel, c.LLMKey}
+	return ServerSettings{PublicBaseURL: c.PublicBaseURL, AllowedOrigins: origins, SonioxKey: c.SonioxKey, AssemblyAIKey: c.AssemblyAIKey, LLMBaseURL: c.LLMBaseURL, LLMModel: c.LLMModel, LLMKey: c.LLMKey, OpenAISTTBaseURL: c.OpenAISTTBaseURL, OpenAISTTKey: c.OpenAISTTKey}
 }
 func (s ServerSettings) view() serverSettingsView {
-	return serverSettingsView{s.PublicBaseURL, append([]string{}, s.AllowedOrigins...), s.SonioxKey != "", s.AssemblyAIKey != "", s.LLMBaseURL, s.LLMModel, s.LLMKey != ""}
+	return serverSettingsView{PublicBaseURL: s.PublicBaseURL, AllowedOrigins: append([]string{}, s.AllowedOrigins...), SonioxConfigured: s.SonioxKey != "", AssemblyAIConfigured: s.AssemblyAIKey != "", LLMBaseURL: s.LLMBaseURL, LLMModel: s.LLMModel, LLMConfigured: s.LLMKey != "", OpenAISTTBaseURL: s.OpenAISTTBaseURL, OpenAISTTConfigured: s.OpenAISTTKey != ""}
 }
 func (s ServerSettings) apply(c Config) Config {
 	c.PublicBaseURL, c.AllowedOrigins = s.PublicBaseURL, append([]string{}, s.AllowedOrigins...)
 	c.SonioxKey, c.AssemblyAIKey = s.SonioxKey, s.AssemblyAIKey
 	c.LLMBaseURL, c.LLMModel, c.LLMKey = s.LLMBaseURL, s.LLMModel, s.LLMKey
+	c.OpenAISTTBaseURL, c.OpenAISTTKey = s.OpenAISTTBaseURL, s.OpenAISTTKey
 	c.seedEnv = nil
 	return c
 }
@@ -73,8 +78,9 @@ func seedServerSettings(c Config) (ServerSettings, error) {
 			s.AllowedOrigins = append(s.AllowedOrigins, value)
 		}
 	}
+	s.OpenAISTTBaseURL = values["OPENAI_STT_BASE_URL"]
 	s.LLMBaseURL, s.LLMModel = values["LLM_BASE_URL"], values["LLM_MODEL"]
-	for key, dest := range map[string]*string{"SONIOX_API_KEY": &s.SonioxKey, "ASSEMBLYAI_API_KEY": &s.AssemblyAIKey, "LLM_API_KEY": &s.LLMKey} {
+	for key, dest := range map[string]*string{"OPENAI_STT_API_KEY": &s.OpenAISTTKey, "SONIOX_API_KEY": &s.SonioxKey, "ASSEMBLYAI_API_KEY": &s.AssemblyAIKey, "LLM_API_KEY": &s.LLMKey} {
 		value, err := configSecret(values, key)
 		if err != nil {
 			return s, err
@@ -123,7 +129,7 @@ func NewServer(ctx context.Context, c Config, db *pgxpool.Pool) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	return New(c, db, providers.NewSoniox(c.SonioxKey), providers.NewAssemblyAI(c.AssemblyAIKey)), nil
+	return New(c, db, providers.NewSoniox(c.SonioxKey), providers.NewAssemblyAI(c.AssemblyAIKey), providers.NewOpenAI(c.OpenAISTTBaseURL, c.OpenAISTTKey)), nil
 }
 
 func validConfigURL(value string, originOnly bool) bool {
@@ -148,6 +154,10 @@ func validConfigURL(value string, originOnly bool) bool {
 func (s *ServerSettings) validate() error {
 	s.PublicBaseURL = strings.TrimRight(strings.TrimSpace(s.PublicBaseURL), "/")
 	s.LLMBaseURL = strings.TrimRight(strings.TrimSpace(s.LLMBaseURL), "/")
+	s.OpenAISTTBaseURL = strings.TrimRight(strings.TrimSpace(s.OpenAISTTBaseURL), "/")
+	if s.OpenAISTTBaseURL != "" && !validConfigURL(s.OpenAISTTBaseURL, false) {
+		return bad("invalid_openai_stt_base_url", "OpenAI STT Base URL 必须是规范的 HTTP/HTTPS 绝对地址")
+	}
 	if !validConfigURL(s.PublicBaseURL, false) {
 		return bad("invalid_public_base_url", "站点 Base URL 必须是规范的 HTTP/HTTPS 绝对地址，不能包含凭据、查询参数或片段")
 	}
@@ -170,7 +180,7 @@ func (s *ServerSettings) validate() error {
 		}
 	}
 	s.AllowedOrigins = origins
-	for _, secret := range []string{s.SonioxKey, s.AssemblyAIKey, s.LLMKey} {
+	for _, secret := range []string{s.SonioxKey, s.AssemblyAIKey, s.LLMKey, s.OpenAISTTKey} {
 		if len(secret) > 8192 || !utf8.ValidString(secret) || strings.IndexFunc(secret, unicode.IsControl) >= 0 {
 			return bad("invalid_api_key", "API Key 最多 8192 字节，不能包含控制字符")
 		}
@@ -200,7 +210,7 @@ func (a *App) adminServerSettings(w http.ResponseWriter, r *http.Request) error 
 		}
 		for key, value := range fields {
 			switch key {
-			case "public_base_url", "allowed_origins", "soniox_api_key", "assemblyai_api_key", "llm_base_url", "llm_model", "llm_api_key":
+			case "openai_stt_base_url", "openai_stt_api_key", "public_base_url", "allowed_origins", "soniox_api_key", "assemblyai_api_key", "llm_base_url", "llm_model", "llm_api_key":
 			default:
 				return bad("invalid_request", "包含未知配置字段")
 			}
@@ -223,6 +233,7 @@ func (a *App) adminServerSettings(w http.ResponseWriter, r *http.Request) error 
 				return err
 			}
 			oldURL, oldKey := saved.LLMBaseURL, saved.LLMKey
+			oldSTTURL, oldSTTKey := saved.OpenAISTTBaseURL, saved.OpenAISTTKey
 			patch, _ := json.Marshal(fields)
 			if err := json.Unmarshal(patch, &saved); err != nil {
 				return bad("invalid_request", "配置字段类型不正确")
@@ -232,6 +243,9 @@ func (a *App) adminServerSettings(w http.ResponseWriter, r *http.Request) error 
 			}
 			if _, explicit := fields["llm_api_key"]; oldKey != "" && oldURL != saved.LLMBaseURL && !explicit {
 				return bad("saved_key_target_changed", "LLM 地址已更改，请输入新密钥或明确清除原密钥")
+			}
+			if _, explicit := fields["openai_stt_api_key"]; oldSTTKey != "" && oldSTTURL != saved.OpenAISTTBaseURL && !explicit {
+				return bad("saved_key_target_changed", "OpenAI STT 地址已更改，请输入新密钥或明确清除原密钥")
 			}
 			revision++
 			if _, err := tx.Exec(r.Context(), "UPDATE server_settings SET value_json=$1,revision=$2,llm_test_revision=NULL,updated_at=clock_timestamp() WHERE id=1", jsonBytes(saved), revision); err != nil {

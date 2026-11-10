@@ -52,11 +52,23 @@ type Result struct {
 type Adapter interface {
 	ID() string
 	Models() []Model
+}
+
+// AsyncAdapter owns durable remote resources managed by the caller.
+type AsyncAdapter interface {
+	Adapter
 	Upload(context.Context, io.Reader, string, int64) (Resource, error)
 	Submit(context.Context, Resource, Options) (Resource, error)
 	Poll(context.Context, Resource) (RemoteState, error)
 	FetchResult(context.Context, Resource) (Result, error)
 	DeleteResource(context.Context, Resource) error
+}
+
+// DirectAdapter returns a result in one request without durable remote resources.
+// The caller owns audio and must provide durable protection against replay.
+type DirectAdapter interface {
+	Adapter
+	Transcribe(context.Context, io.Reader, string, int64, Options) (Result, error)
 }
 
 // Error.Code is auth, invalid, rate_limited, transient, uncertain, unsupported,

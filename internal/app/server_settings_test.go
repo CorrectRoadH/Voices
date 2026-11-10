@@ -14,6 +14,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"voices/internal/providers"
 )
 
 func seedFixtureSettings(t *testing.T, f *fixture) {
@@ -209,7 +210,7 @@ func TestServerSettingsSTTCredentialsAndHealth(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, id := range []string{"soniox", "assemblyai"} {
-		if _, err := a.Providers[id].Upload(context.Background(), bytes.NewReader([]byte("audio")), "test.wav", 5); err != nil {
+		if _, err := a.Providers[id].(providers.AsyncAdapter).Upload(context.Background(), bytes.NewReader([]byte("audio")), "test.wav", 5); err != nil {
 			t.Fatal(id, err)
 		}
 	}
@@ -300,5 +301,53 @@ func TestAdminServerSettingsConcurrentEdits(t *testing.T) {
 	}
 	if revision != 2 || auditCount != 1 {
 		t.Fatal("save and audit were not atomic")
+	}
+}
+
+// @use-case docs/feature/accounts/use-case/manage-server.md
+func TestOpenAISTTSettingsSeedSaveRestartAndSecretIsolation(t *testing.T) {
+	f := setup(t)
+	ctx := context.Background()
+	if _, err := f.db.Exec(ctx, "DELETE FROM server_settings"); err != nil {
+		t.Fatal(err)
+	}
+	keyFile := t.TempDir() + "/stt-key"
+	if err := os.WriteFile(keyFile, []byte("seed-stt-key\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	c := f.a.Config
+	c.seedEnv = map[string]string{"PUBLIC_BASE_URL": f.server.URL, "OPENAI_STT_BASE_URL": "https://stt.example/v1/", "OPENAI_STT_API_KEY_FILE": keyFile, "LLM_API_KEY": "separate-llm-key"}
+	loaded, err := LoadServerConfig(ctx, f.db, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.OpenAISTTBaseURL != "https://stt.example/v1" || loaded.OpenAISTTKey != "seed-stt-key" || loaded.LLMKey != "separate-llm-key" {
+		t.Fatal("STT seed isolation failed")
+	}
+	f.a.Config = loaded
+	_, view := f.json(t, "GET", "/api/v1/admin/server-settings", nil, 200, "")
+	raw, _ := json.Marshal(view)
+	if bytes.Contains(raw, []byte("seed-stt-key")) || view["saved"].(map[string]any)["openai_stt_configured"] != true {
+		t.Fatal("secret view")
+	}
+	f.json(t, "PATCH", "/api/v1/admin/server-settings", map[string]any{"revision": 1, "openai_stt_base_url": "https://new.example/v1"}, 400, "")
+	f.json(t, "PATCH", "/api/v1/admin/server-settings", map[string]any{"revision": 1, "openai_stt_base_url": "https://new.example/v1", "openai_stt_api_key": "replacement-key"}, 200, "")
+	restarted, err := NewServer(ctx, c, f.db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restarted.Config.OpenAISTTKey != "replacement-key" || restarted.Config.OpenAISTTBaseURL != "https://new.example/v1" {
+		t.Fatal("restart ignored database")
+	}
+	f.json(t, "PATCH", "/api/v1/admin/server-settings", map[string]any{"revision": 2, "openai_stt_api_key": ""}, 200, "")
+	next, err := LoadServerConfig(ctx, f.db, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if next.OpenAISTTKey != "" {
+		t.Fatal("cleared key revived from environment")
+	}
+	for _, value := range []any{nil, "https://user:key@example.com/v1", "https://example.com/v1?key=secret"} {
+		f.json(t, "PATCH", "/api/v1/admin/server-settings", map[string]any{"revision": 3, "openai_stt_base_url": value}, 400, "")
 	}
 }

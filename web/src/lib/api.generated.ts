@@ -6583,6 +6583,7 @@ export interface components {
             retry_allowed?: boolean;
             /** @description Current title of the associated recording owned by the job owner; null when unavailable or deleting. */
             recording_title?: string | null;
+            duplicate_risk: boolean;
         };
         Model: {
             id: string;
@@ -6782,6 +6783,8 @@ export interface components {
             soniox_configured: boolean;
             assemblyai_configured: boolean;
             llm_configured: boolean;
+            openai_stt_base_url: string;
+            openai_stt_configured: boolean;
         };
         ServerSettingsResponse: {
             revision: number;
@@ -6802,6 +6805,8 @@ export interface components {
             /** @description Omit to preserve; empty string clears. Never returned. */
             llm_api_key?: string;
             revision: number;
+            openai_stt_base_url?: string;
+            openai_stt_api_key?: string;
         };
         UpdateAnnouncement: {
             id: string;

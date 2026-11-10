@@ -20,7 +20,7 @@ import (
 
 const testKey = "secret-never-return-this-key"
 
-func withServer(t *testing.T, provider string, handler http.HandlerFunc) Adapter {
+func withServer(t *testing.T, provider string, handler http.HandlerFunc) AsyncAdapter {
 	t.Helper()
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)

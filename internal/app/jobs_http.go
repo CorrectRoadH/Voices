@@ -49,6 +49,13 @@ func (a *App) retryJob(w http.ResponseWriter, r *http.Request) error {
 		if err := tx.QueryRow(r.Context(), "SELECT kind,state,transcription_id FROM jobs WHERE id=$1 FOR UPDATE", r.PathValue("id")).Scan(&kind, &state, &tid); err != nil {
 			return err
 		}
+		var directBlocked bool
+		if err := tx.QueryRow(r.Context(), "SELECT direct_request_started_at IS NOT NULL OR COALESCE(error_code='direct_request_interrupted',false) FROM jobs WHERE id=$1", r.PathValue("id")).Scan(&directBlocked); err != nil {
+			return err
+		}
+		if directBlocked {
+			return &apiError{409, "direct_request_interrupted", "直接转写不能重试，请新建版本；新的请求可能再次收费"}
+		}
 		if state != "failed" && state != "retry_wait" {
 			return &apiError{409, "unsafe_retry", "当前任务不能安全重试；不确定任务须先核对远端 ID"}
 		}
@@ -120,6 +127,9 @@ func (a *App) reconcileJob(ctx context.Context, jobID string, in reconciliation,
 		var rid, state, tid, provider string
 		if err := tx.QueryRow(ctx, "SELECT j.recording_id,j.transcription_id,t.provider FROM jobs j JOIN transcriptions t ON t.id=j.transcription_id WHERE j.id=$1", jobID).Scan(&rid, &tid, &provider); err != nil {
 			return err
+		}
+		if provider == "openai" {
+			return &apiError{409, "direct_reconciliation_unsupported", "直接转写没有可核对的远端 ID，请新建版本"}
 		}
 		if _, err := tx.Exec(ctx, "SELECT id FROM recordings WHERE id=$1 FOR UPDATE", rid); err != nil {
 			return err

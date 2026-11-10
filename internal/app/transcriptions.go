@@ -74,9 +74,9 @@ func (a *App) createTranscription(w http.ResponseWriter, r *http.Request) error 
 	hash := digest(jsonBytes(in))
 	rid := r.PathValue("id")
 	err = persistence.Transaction(r.Context(), a.DB, func(tx pgx.Tx) error {
-		var state string
+		var state, originalName string
 		var duration, size int64
-		if err := tx.QueryRow(r.Context(), "SELECT state,duration_ms,size_bytes FROM recordings WHERE id=$1 FOR UPDATE", rid).Scan(&state, &duration, &size); err != nil {
+		if err := tx.QueryRow(r.Context(), "SELECT state,duration_ms,size_bytes,original_name FROM recordings WHERE id=$1 FOR UPDATE", rid).Scan(&state, &duration, &size, &originalName); err != nil {
 			return err
 		}
 		if state != "ready" {
@@ -91,7 +91,7 @@ func (a *App) createTranscription(w http.ResponseWriter, r *http.Request) error 
 			return tx.QueryRow(r.Context(), "SELECT id FROM jobs WHERE transcription_id=$1", id).Scan(&job)
 		}
 		var risky bool
-		if err := tx.QueryRow(r.Context(), "SELECT EXISTS(SELECT 1 FROM jobs WHERE recording_id=$1 AND kind='transcribe' AND state IN ('uncertain','restore_hold'))", rid).Scan(&risky); err != nil {
+		if err := tx.QueryRow(r.Context(), "SELECT EXISTS(SELECT 1 FROM jobs j WHERE j.recording_id=$1 AND j.kind='transcribe' AND "+duplicateRiskSQL+")", rid).Scan(&risky); err != nil {
 			return err
 		}
 		if risky && !in.Acknowledge {
@@ -100,6 +100,9 @@ func (a *App) createTranscription(w http.ResponseWriter, r *http.Request) error 
 		model, err := a.validateOptions(in.Options, duration, size)
 		if err != nil {
 			return err
+		}
+		if in.Provider == "openai" && !providers.ValidOpenAIFilename(originalName) {
+			return bad("direct_unsupported_format", "OpenAI 不支持此音频格式")
 		}
 		id, job, err = a.insertTranscription(r.Context(), tx, rid, in.Options, model, "")
 		if err != nil {

@@ -7868,6 +7868,9 @@
               "null"
             ],
             "description": "Current title of the associated recording owned by the job owner; null when unavailable or deleting."
+          },
+          "duplicate_risk": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -7879,7 +7882,8 @@
           "stage",
           "attempt",
           "error_code",
-          "created_at"
+          "created_at",
+          "duplicate_risk"
         ],
         "additionalProperties": false
       },
@@ -8761,6 +8765,12 @@
           },
           "llm_configured": {
             "type": "boolean"
+          },
+          "openai_stt_base_url": {
+            "type": "string"
+          },
+          "openai_stt_configured": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -8770,7 +8780,9 @@
           "allowed_origins",
           "soniox_configured",
           "assemblyai_configured",
-          "llm_configured"
+          "llm_configured",
+          "openai_stt_base_url",
+          "openai_stt_configured"
         ],
         "additionalProperties": false
       },
@@ -8843,6 +8855,14 @@
           "revision": {
             "type": "integer",
             "minimum": 1
+          },
+          "openai_stt_base_url": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "openai_stt_api_key": {
+            "type": "string",
+            "maxLength": 8192
           }
         },
         "required": [

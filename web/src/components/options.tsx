@@ -17,7 +17,7 @@ export const blankOptions: Options = {
 export function optionError(
   options: Options,
   providers: Provider[],
-  limits?: { duration_ms?: number; size_bytes?: number },
+  limits?: { duration_ms?: number; size_bytes?: number; original_name?: string },
 ) {
   const provider = providers.find((p) => p.id === options.provider);
   const model = provider?.models.find((m) => m.id === options.model);
@@ -53,6 +53,12 @@ export function optionError(
     return tr("录音时长超过该模型限制，请选择其他模型。");
   if (limits?.size_bytes && model.max_file_bytes > 0 && limits.size_bytes > model.max_file_bytes)
     return tr("文件大小超过该模型限制，请选择其他模型。");
+  if (
+    options.provider === "openai" &&
+    limits?.original_name &&
+    !/\.(mp3|mp4|mpeg|mpga|m4a|wav|webm)$/i.test(limits.original_name)
+  )
+    return tr("OpenAI 支持 MP3、MP4、MPEG、MPGA、M4A、WAV 和 WebM 文件，请选择其他模型或文件。");
   return "";
 }
 export function OptionsFields({
