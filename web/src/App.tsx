@@ -50,6 +50,7 @@ import { DetailPage } from "@/pages/detail";
 import { ReferencePage } from "@/pages/reference";
 import { PeoplePage, PersonPage } from "@/pages/people";
 import { CallLogs } from "@/components/call-logs";
+import { AdminSTTCallsPage, AdminSTTPricesPage } from "@/pages/stt-pricing";
 import { JobsPage } from "@/pages/jobs";
 import { AccountPage, AdminAccountsPage } from "@/pages/accounts";
 import { AdminOverviewPage, AdminLogsPage } from "@/pages/administration";
@@ -341,6 +342,20 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
               <span>{tr("站点概览")}</span>
             </NavLink>
             <NavLink
+              to="/admin/stt/calls"
+              className={({ isActive }) => cn("nav-item", isActive && "nav-active")}
+            >
+              <ListTodo />
+              <span>{tr("STT 调用")}</span>
+            </NavLink>
+            <NavLink
+              to="/admin/stt/prices"
+              className={({ isActive }) => cn("nav-item", isActive && "nav-active")}
+            >
+              <ListTodo />
+              <span>{tr("模型价格")}</span>
+            </NavLink>
+            <NavLink
               to="/admin/calls"
               className={({ isActive }) => cn("nav-item", isActive && "nav-active")}
             >
@@ -438,6 +453,26 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
               element={
                 session.user.role === "admin" ? (
                   <AdminOverviewPage />
+                ) : (
+                  <Navigate to="/recordings" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/stt/calls"
+              element={
+                session.user.role === "admin" ? (
+                  <AdminSTTCallsPage />
+                ) : (
+                  <Navigate to="/recordings" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/stt/prices"
+              element={
+                session.user.role === "admin" ? (
+                  <AdminSTTPricesPage />
                 ) : (
                   <Navigate to="/recordings" replace />
                 )

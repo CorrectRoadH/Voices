@@ -161,6 +161,7 @@ const actions: Record<string, string> = {
   site_setup_completed: "完成站点初始化记录",
   password_reset: "重置密码",
   job_reconciled: "核对任务",
+  stt_price_created: "创建 STT 参考价",
 };
 const detailLabels: Record<string, string> = {
   old_role: "原角色",
@@ -171,6 +172,9 @@ const detailLabels: Record<string, string> = {
   fields: "修改字段",
   job_id: "任务 ID",
   operation_id: "操作 ID",
+  price_version_id: "价格版本",
+  provider: "服务商",
+  model: "模型",
 };
 const detailValues: Record<string, string> = {
   admin: "管理员",

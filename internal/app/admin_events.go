@@ -17,7 +17,7 @@ type eventCursor struct {
 	ID        string    `json:"id"`
 }
 
-var auditActions = map[string]bool{"account_updated": true, "registration_updated": true, "server_settings_updated": true, "password_reset": true, "job_reconciled": true}
+var auditActions = map[string]bool{"account_updated": true, "registration_updated": true, "server_settings_updated": true, "password_reset": true, "job_reconciled": true, "stt_price_created": true}
 var runtimeKinds = map[string]bool{"voiceprint_started": true, "voiceprint_completed": true, "voiceprint_failed": true, "voiceprint_claim_failed": true, "voiceprint_cleanup_failed": true, "voiceprint_failure_persistence_failed": true, "request_failed": true, "job_failed": true, "job_claim_failed": true, "maintenance_failed": true, "job_failure_persistence_failed": true}
 
 func eventQuery(r *http.Request, runtime bool) (string, []any, int, error) {
@@ -101,6 +101,15 @@ func safeAuditDetails(action string, raw json.RawMessage) map[string]any {
 	_ = json.Unmarshal(raw, &in)
 	out := map[string]any{}
 	switch action {
+	case "stt_price_created":
+		if id, ok := in["price_version_id"].(string); ok && validID(id) {
+			out["price_version_id"] = id
+		}
+		provider, _ := in["provider"].(string)
+		model, _ := in["model"].(string)
+		if (provider == "soniox" || provider == "assemblyai") && len(model) <= 200 {
+			out["provider"], out["model"] = provider, model
+		}
 	case "account_updated":
 		for _, k := range []string{"old_role", "role", "old_status", "status"} {
 			v, _ := in[k].(string)
