@@ -1,6 +1,6 @@
 # 使用 Concord 开发 Voices
 
-Concord 连接产品契约、源码实现标记、测试标记和工程经验。使用前运行 `concord --skill`，按任务读取 `document`、`code`、`test`、`memory` 或 `trace` 等主题；命令参数以当前安装版本的 `--help` 为准。
+Concord 连接产品契约、源码实现标记、测试标记和工程经验，落实[产品契约原则](taste.md#t-3)。使用前运行 `concord --skill`，按任务读取 `document`、`code`、`test`、`memory` 或 `trace` 等主题；命令参数以当前安装版本的 `--help` 为准。
 
 ## 文档归属
 

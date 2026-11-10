@@ -23,7 +23,7 @@
 - [CI、Docker 与发布](engineering/delivery/README.md)
 - [发布与更新服务设计](feature/updates/architecture/service.md)
 
-使用 [Concord](concord.md) 管理产品契约及代码/测试关系。Go 与前端测试入口见 [开发与测试](development.md)，不用默认 Node runner 声称验证 Go。
+项目遵守[产品契约原则](taste.md#t-3)，使用 [Concord](concord.md) 管理产品契约及代码/测试关系。Go 与前端测试入口见 [开发与测试](development.md)，不用默认 Node runner 声称验证 Go。
 文档与源码、测试之间的关系由 Concord 派生；功能验收以实际测试结果为准。
 
 跨录音声纹自动认人见[声纹识别](feature/people/use-case/recognize-speaker.md)，无需独立服务，见[内置推理](feature/people/architecture/embedded-voiceprints.md)。超长录音自动切片与团队协作未纳入当前实现承诺。

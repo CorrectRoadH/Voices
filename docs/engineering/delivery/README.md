@@ -1,5 +1,7 @@
 # CI、Docker 与发布
 
+构建与验收遵守[技术栈原则](../../taste.md#t-2)。
+
 ## 目标
 
 涉及可执行输入的 PR 与 main 更新验证 Go、PostgreSQL、前端和更新 Worker。正式版本的镜像、版本号和 GitHub Release 对应同一 tag。
