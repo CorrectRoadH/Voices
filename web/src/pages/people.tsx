@@ -6,7 +6,8 @@ import { tr } from "@/lib/i18n";
 import { requestKey } from "@/lib/request-key";
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Plus, Users } from "lucide-react";
+import { ArrowLeft, Plus, Search, Users } from "lucide-react";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -178,12 +179,17 @@ export function PeoplePage() {
           <FieldLabel className="sr-only" htmlFor="people-search">
             {tr("搜索人物")}{" "}
           </FieldLabel>
-          <Input
-            id="people-search"
-            value={params.get("q") || ""}
-            placeholder={tr("搜索人物…")}
-            onChange={(e) => filter("q", e.target.value)}
-          />
+          <InputGroup>
+            <InputGroupAddon>
+              <Search />
+            </InputGroupAddon>
+            <InputGroupInput
+              id="people-search"
+              value={params.get("q") || ""}
+              placeholder={tr("搜索人物…")}
+              onChange={(e) => filter("q", e.target.value)}
+            />
+          </InputGroup>
         </Field>
         <Field>
           <FieldLabel className="sr-only" htmlFor="people-archived">

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { AudioLines, ArrowUpRight, CalendarDays, Plus, Search, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -134,15 +135,17 @@ export function LibraryPage() {
               <FieldLabel htmlFor="recording-search" className="sr-only">
                 {tr("搜索标题")}{" "}
               </FieldLabel>
-              <div className="search-input">
-                <Search />
-                <Input
+              <InputGroup>
+                <InputGroupAddon>
+                  <Search />
+                </InputGroupAddon>
+                <InputGroupInput
                   id="recording-search"
                   placeholder={tr("搜索录音标题…")}
                   value={search.get("q") || ""}
                   onChange={(e) => filter("q", e.target.value)}
                 />
-              </div>
+              </InputGroup>
             </Field>
             <Field>
               <FieldLabel htmlFor="state-filter" className="sr-only">

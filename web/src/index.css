@@ -51,22 +51,22 @@
 }
 
 :root {
-  --background: oklch(0.977 0.004 255);
-  --foreground: oklch(0.255 0.022 260);
+  --background: oklch(0.985 0 0);
+  --foreground: oklch(0.25 0 0);
   --card: oklch(1 0 0);
   --card-foreground: var(--foreground);
   --popover: var(--card);
   --popover-foreground: var(--foreground);
-  --primary: oklch(0.49 0.18 265);
+  --primary: oklch(0.55 0.19 275);
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.947 0.019 265);
-  --secondary-foreground: oklch(0.43 0.13 265);
-  --muted: oklch(0.952 0.006 255);
-  --muted-foreground: oklch(0.49 0.016 260);
+  --secondary: oklch(0.955 0 0);
+  --secondary-foreground: oklch(0.32 0 0);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.49 0 0);
   --accent: var(--secondary);
   --accent-foreground: var(--primary);
   --destructive: oklch(0.52 0.2 25);
-  --border: oklch(0.912 0.009 255);
+  --border: oklch(0.9 0 0);
   --input: var(--border);
   --ring: var(--primary);
   --chart-1: var(--primary);
@@ -74,37 +74,37 @@
   --chart-3: var(--muted);
   --chart-4: var(--muted-foreground);
   --chart-5: var(--foreground);
-  --radius: 0.7rem;
-  --sidebar: oklch(0.99 0.002 255);
+  --radius: 0.5rem;
+  --sidebar: oklch(0.955 0 0);
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: var(--secondary);
-  --sidebar-accent-foreground: var(--primary);
+  --sidebar-accent: var(--card);
+  --sidebar-accent-foreground: var(--foreground);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
 }
 
 .dark {
-  --background: oklch(0.22 0.018 260);
-  --foreground: oklch(0.93 0.008 255);
-  --card: oklch(0.265 0.018 260);
+  --background: oklch(0.2 0 0);
+  --foreground: oklch(0.93 0 0);
+  --card: oklch(0.25 0 0);
   --card-foreground: var(--foreground);
   --popover: var(--card);
   --popover-foreground: var(--foreground);
   --primary: oklch(0.76 0.13 265);
   --primary-foreground: oklch(0.2 0.045 265);
-  --secondary: oklch(0.32 0.045 265);
-  --secondary-foreground: oklch(0.84 0.09 265);
-  --muted: oklch(0.3 0.018 260);
-  --muted-foreground: oklch(0.73 0.018 255);
+  --secondary: oklch(0.3 0 0);
+  --secondary-foreground: oklch(0.88 0 0);
+  --muted: oklch(0.29 0 0);
+  --muted-foreground: oklch(0.73 0 0);
   --accent: var(--secondary);
   --accent-foreground: var(--primary);
   --destructive: oklch(0.74 0.16 25);
-  --border: oklch(0.37 0.018 260);
+  --border: oklch(0.36 0 0);
   --input: var(--border);
   --ring: var(--primary);
-  --sidebar: oklch(0.24 0.018 260);
+  --sidebar: oklch(0.23 0 0);
 }
 
 @layer base {
@@ -158,7 +158,7 @@
   flex-shrink: 0;
   background: var(--sidebar);
   border-right: 1px solid var(--border);
-  padding: 34px 20px 18px;
+  padding: 24px 14px 18px;
   position: fixed;
   inset: 0 auto 0 0;
   display: flex;
@@ -169,8 +169,8 @@
   display: flex;
   align-items: center;
   gap: 11px;
-  font-size: 27px;
-  font-weight: 700;
+  font-size: 23px;
+  font-weight: 650;
   letter-spacing: -1.2px;
   text-decoration: none;
 }
@@ -200,7 +200,7 @@
 .sidebar nav {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 4px;
 }
 .brand {
   margin-bottom: 24px;
@@ -237,7 +237,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 15px;
+  padding: 8px 12px;
   font-size: 14px;
   border-radius: 9px;
   color: var(--muted-foreground);
@@ -257,6 +257,7 @@
   background: var(--sidebar-accent);
   color: var(--sidebar-accent-foreground);
   font-weight: 600;
+  box-shadow: 0 1px 3px color-mix(in oklch, var(--foreground), transparent 90%);
 }
 .sidebar-bottom {
   margin-top: auto;
@@ -339,10 +340,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  margin-bottom: 30px;
+  margin-bottom: 24px;
 }
 .page-heading h1 {
-  font-size: 31px;
+  font-size: 26px;
   margin: 9px 0;
 }
 .page-heading p.text-muted-foreground {
@@ -395,21 +396,6 @@
   grid-template-columns: minmax(180px, 1fr) 150px 150px;
   gap: 12px;
   margin-bottom: 14px;
-}
-.search-input {
-  position: relative;
-}
-.search-input > svg {
-  width: 16px;
-  height: 16px;
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  color: var(--muted-foreground);
-  pointer-events: none;
-}
-.search-input input {
-  padding-left: 37px;
 }
 .date-filters {
   margin-bottom: 18px;

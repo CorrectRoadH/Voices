@@ -11,6 +11,9 @@ test("加载阶段、行内编辑快捷键、保存状态与真实并发冲突",
   await screen.getByLabel("密码", { exact: true }).fill("acceptance-password");
   await screen.getByRole("button", { name: "进入工作台" }).click();
   await expect(screen.getByRole("button", { name: "导入录音" }).first()).toBeVisible();
+  await browser.emulateMedia({ reducedMotion: "reduce" });
+  await noOverflow(browser);
+  await app.screenshot("desktop-library-shadcn");
   await browser.goto(`${fixture("VOICES_TEST_URL")}/recordings/${id}`);
   await expect(screen.getByRole("status", { name: "正在准备音频" })).toBeVisible();
   await expect(screen.getByText("暂无转写", { exact: true })).toHaveCount(0);
@@ -71,9 +74,10 @@ test("加载阶段、行内编辑快捷键、保存状态与真实并发冲突",
     hold = undefined;
   }
   await expect(screen.getByRole("heading", { name: "新的标题", exact: true })).toBeVisible();
-  expect(
-    await browser.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? null),
-  ).toBe("编辑标题");
+  // InlineEdit returns focus on the next animation frame after mounting its trigger.
+  await expect
+    .poll(() => browser.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? null))
+    .toBe("编辑标题");
 
   await title.click();
   await browser.keyboard.press("Enter");
@@ -292,7 +296,7 @@ test("异步操作反馈、筛选空态与刷新保留内容", async ({ app, bro
     screen.getByRole("link", { name: "背景声 内置", exact: false }).first(),
   ).toBeVisible();
   await browser.setViewport({ width: 375, height: 812 });
-  await browser.emulateMedia({ colorScheme: "dark" });
+  await browser.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
   await noOverflow(browser);
   await app.screenshot("手机人物列表减少重复说明");
   await browser.setViewport({ width: 1440, height: 1000 });
