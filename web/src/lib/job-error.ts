@@ -18,6 +18,18 @@ export function jobError(job: Job): string {
     local_persistence: "保存远端操作结果失败，受理状态需要核对。",
   };
   const codes: Record<string, string> = {
+    direct_request_interrupted: "直接转写已中断，不能重试；请新建版本，可能再次收费。",
+    direct_auth: "服务商拒绝授权，请检查 OpenAI STT 密钥、权限和账户额度。",
+    direct_invalid: "请求参数或音频不符合 OpenAI 要求。",
+    direct_unsupported: "OpenAI 不支持当前转写选项。",
+    direct_not_found: "OpenAI 转写接口不可用，请检查 STT 地址。",
+    direct_rate_limited: "OpenAI 请求频率受限；本任务不会自动重发。",
+    direct_uncertain: "直接请求受理结果不明；本任务不会自动重发。",
+    direct_invalid_result: "OpenAI 返回的说话人或时间戳无效。",
+    direct_invalid_file_size: "OpenAI 音频文件须大于 0 且不超过 25 MB。",
+    direct_unsupported_format: "OpenAI 不支持此音频文件格式。",
+    direct_result_persistence_failed: "直接转写结果保存失败；请新建版本，可能再次收费。",
+    direct_request_failed: "直接转写失败；本任务不会自动重发。",
     auth: "服务商拒绝授权，请检查 API 密钥、权限和账户额度。",
     invalid: "请求参数或音频不符合要求，请检查转写设置。",
     rate_limited: "服务商请求频率受限，请稍后重试。",

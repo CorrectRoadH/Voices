@@ -1028,5 +1028,22 @@
   "声纹处理失败": "Voiceprint processing failed",
   "声纹任务领取失败": "Failed to claim voiceprint task",
   "声纹执行槽释放失败": "Failed to release voiceprint execution slot",
-  "声纹失败状态保存失败": "Failed to save voiceprint failure state"
+  "声纹失败状态保存失败": "Failed to save voiceprint failure state",
+  "直接转写": "Direct transcription",
+  "直接转写，支持说话人区分；文件最大 25 MB。": "Direct transcription with speaker labels; maximum file size 25 MB.",
+  "留空使用 https://api.openai.com/v1，与 LLM 配置独立。更改地址时请重新输入或清除密钥。": "Leave blank to use https://api.openai.com/v1. STT uses separate credentials from LLM. Re-enter or clear the key when changing the URL.",
+  "OpenAI 支持 MP3、MP4、MPEG、MPGA、M4A、WAV 和 WebM 文件，请选择其他模型或文件。": "OpenAI supports MP3, MP4, MPEG, MPGA, M4A, WAV, and WebM files. Choose another model or file.",
+  "新的转写可能造成重复收费；旧任务继续保留，直接转写不会自动重发。": "A new transcription may incur another charge. The old job is retained; direct transcription is never replayed automatically.",
+  "直接转写已中断，不能重试；请新建版本，可能再次收费。": "Direct transcription was interrupted and cannot be retried. Create a new version, which may incur another charge.",
+  "服务商拒绝授权，请检查 OpenAI STT 密钥、权限和账户额度。": "Authorization was rejected. Check the OpenAI STT key, permissions, and account balance.",
+  "请求参数或音频不符合 OpenAI 要求。": "The request options or audio do not meet OpenAI requirements.",
+  "OpenAI 不支持当前转写选项。": "OpenAI does not support these transcription options.",
+  "OpenAI 转写接口不可用，请检查 STT 地址。": "The OpenAI transcription endpoint is unavailable. Check the STT URL.",
+  "OpenAI 请求频率受限；本任务不会自动重发。": "OpenAI rate limited the request. This job will not be resent automatically.",
+  "直接请求受理结果不明；本任务不会自动重发。": "The direct request outcome is unknown. This job will not be resent automatically.",
+  "OpenAI 返回的说话人或时间戳无效。": "OpenAI returned invalid speaker labels or timestamps.",
+  "OpenAI 音频文件须大于 0 且不超过 25 MB。": "OpenAI audio files must be larger than zero and no larger than 25 MB.",
+  "OpenAI 不支持此音频文件格式。": "OpenAI does not support this audio file format.",
+  "直接转写结果保存失败；请新建版本，可能再次收费。": "The direct transcription result could not be saved. Create a new version, which may incur another charge.",
+  "直接转写失败；本任务不会自动重发。": "Direct transcription failed. This job will not be resent automatically."
 }

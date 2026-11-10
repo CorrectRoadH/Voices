@@ -49,7 +49,7 @@ func callOutcome(err error, m outbound.Metadata) (string, any, any) {
 	var pe *providers.Error
 	if errors.As(err, &pe) {
 		switch pe.Code {
-		case "auth", "invalid", "rate_limited", "transient", "uncertain", "unsupported", "not_found", "transcription_failed", "invalid_result":
+		case "direct_auth", "direct_invalid", "direct_rate_limited", "direct_uncertain", "direct_unsupported", "direct_not_found", "direct_invalid_result", "direct_invalid_file_size", "direct_unsupported_format", "direct_result_persistence_failed", "direct_request_failed", "auth", "invalid", "rate_limited", "transient", "uncertain", "unsupported", "not_found", "transcription_failed", "invalid_result":
 			code = pe.Code
 		}
 		if code == "uncertain" {

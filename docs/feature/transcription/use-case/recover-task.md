@@ -29,3 +29,7 @@
 ## 契约来源
 
 [HTTP 核对边界](../../../api/implementation-contract.md#账号与权限) · [备份与恢复](../../../operations.md#备份与恢复) · [任务生命周期](../../../architecture.md) · [任务界面](../ui.md)
+
+## 直接请求隔离
+
+OpenAI 已消耗发送许可或 error_code=direct_request_interrupted 时不允许同一任务重试；API 返回 409/direct_request_interrupted。Job API 的 duplicate_risk 将未成功且已消耗许可或恢复隔离的直接任务标记为收费风险，包含取消后的任务；明确确认新版本才允许新请求。OpenAI 不支持 remote ID 核对（409/direct_reconciliation_unsupported）。快照恢复隔离所有非成功直接任务，并为尚无任务的 OpenAI 自动转写意图建立失败版本；本地预处理可恢复，不自动发送转写。

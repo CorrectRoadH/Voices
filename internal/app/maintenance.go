@@ -65,7 +65,7 @@ func (a *App) cleanupRemote(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	p, ok := a.Providers[provider]
+	p, ok := a.Providers[provider].(providers.AsyncAdapter)
 	if !ok {
 		return nil
 	}

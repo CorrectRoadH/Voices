@@ -131,6 +131,13 @@ func (a *App) transcribe(ctx context.Context, j job) error {
 	if err := json.Unmarshal(optionsRaw, &options); err != nil {
 		return err
 	}
+	if direct, ok := p.(providers.DirectAdapter); ok {
+		return a.transcribeDirect(ctx, j, direct, originalName, duration, options)
+	}
+	async, ok := p.(providers.AsyncAdapter)
+	if !ok {
+		return &providers.Error{Code: "unsupported", Definitive: true}
+	}
 	// Any abandoned sent request is unsafe even if the job stage was not advanced.
 	var uncertain bool
 	if err := a.DB.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM provider_operations WHERE job_id=$1 AND state IN ('sent','uncertain') AND remote_id IS NULL)", j.ID).Scan(&uncertain); err != nil {
@@ -165,7 +172,7 @@ func (a *App) transcribe(ctx context.Context, j job) error {
 				return err
 			}
 			file, err = a.remoteCreate(ctx, j, provider, "upload", func(c context.Context) (providers.Resource, error) {
-				return p.Upload(c, reader, originalName, reader.Size)
+				return async.Upload(c, reader, originalName, reader.Size)
 			})
 			reader.Close()
 			if err != nil {
@@ -175,7 +182,7 @@ func (a *App) transcribe(ctx context.Context, j job) error {
 		if err := a.stage(ctx, &j, "submitting"); err != nil {
 			return err
 		}
-		remote, err = a.remoteCreate(ctx, j, provider, "submit", func(c context.Context) (providers.Resource, error) { return p.Submit(c, file, options) })
+		remote, err = a.remoteCreate(ctx, j, provider, "submit", func(c context.Context) (providers.Resource, error) { return async.Submit(c, file, options) })
 		if err != nil {
 			return err
 		}
@@ -185,7 +192,7 @@ func (a *App) transcribe(ctx context.Context, j job) error {
 	}
 	for {
 		stepCtx, cancel := context.WithTimeout(ctx, a.Config.HTTPTimeout)
-		state, err := observedSTT(stepCtx, a, *j.TranscriptionID, "poll", func(c context.Context) (providers.RemoteState, error) { return p.Poll(c, remote) })
+		state, err := observedSTT(stepCtx, a, *j.TranscriptionID, "poll", func(c context.Context) (providers.RemoteState, error) { return async.Poll(c, remote) })
 		cancel()
 		if err != nil {
 			return err
@@ -208,11 +215,15 @@ completed:
 		return err
 	}
 	stepCtx, cancel := context.WithTimeout(ctx, a.Config.HTTPTimeout)
-	result, err := observedSTT(stepCtx, a, *j.TranscriptionID, "fetch_result", func(c context.Context) (providers.Result, error) { return p.FetchResult(c, remote) })
+	result, err := observedSTT(stepCtx, a, *j.TranscriptionID, "fetch_result", func(c context.Context) (providers.Result, error) { return async.FetchResult(c, remote) })
 	cancel()
 	if err != nil {
 		return err
 	}
+	return a.publishTranscription(ctx, j, result, duration)
+}
+
+func (a *App) publishTranscription(ctx context.Context, j job, result providers.Result, duration int64) error {
 	// Reject invalid provider structure instead of inventing timings or silently truncating it.
 	for _, s := range result.Segments {
 		if (s.StartMS == nil) != (s.EndMS == nil) || s.StartMS != nil && (*s.StartMS < 0 || *s.EndMS < *s.StartMS || *s.EndMS > duration+1000) {

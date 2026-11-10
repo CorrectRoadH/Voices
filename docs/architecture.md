@@ -328,3 +328,45 @@ Job API 附带 error_detail 与 retry_allowed。retry_allowed 根据 failed/retr
 正文窗口、目录定位和搜索共用页面内的 TranscriptStore，归属、请求合并、版本隔离与释放见[转写读取架构](feature/transcription/architecture.md)。搜索全量数据随转写长度增长，不声明固定内存上限。调用日志名称读取由[调用日志架构](feature/call-logs/architecture.md#录音名称读取)拥有。
 
 行内编辑由 `InlineEdit` 持有草稿、聚焦、键盘、保存状态与错误；业务调用方持有字段校验和版本冲突规则。编辑开始绑定值和回调，轮询不能替换草稿或更新保存基准。可观察行为见[全站交互](feature/interface-interactions/ui.md#加载与行内编辑)。
+
+## OpenAI 直接转写执行与恢复
+
+Adapter 仅提供 ID/Models。
+
+AsyncAdapter 负责原上传、提交、轮询、取结果及清理，DirectAdapter 的 Transcribe 一次返回归一化结果，不生成 provider_operations/provider_resources。
+
+022 为 jobs 添加 nullable direct_request_started_at。
+
+它记录唯一发送许可的消耗，不保证远端受理。
+
+读取音频并校验后，按 recording→job 的 fence 锁顺序 CAS NULL 标记并同事务建立 transcribe/openai 调用日志。
+
+只有明确提交成功的执行栈能发送。
+
+commit 不明、lease 接管或标记已存在均绝不补发。
+
+HTTP 子期限 30 分钟，沿用 heartbeat 取消及发布 fence，reader 由调用者关闭。
+
+无 retry/redirect。
+
+发送后的本地保存失败也不自动重试。
+
+
+
+恢复事务锁定录音，为 auto_transcribe 且 import provider=openai、无 auto:<recording-id> dedupe 的未删除录音，建立同 dedupe 的失败版本。
+
+原 prepare 可继续生成播放音频但不再创建可发送任务。
+
+所有非 succeeded 的 OpenAI transcribe job（包含 failed/cancelled/queued 与 NULL 标记）置 failed/direct_request_interrupted、清 lease、递增 generation，同步转写状态。
+
+通用异步恢复明确排除 OpenAI。
+
+隔离错误码独立于发送许可，retry/claim/reconcile 不得清除。
+
+取消保留隔离事实。
+
+成功版本保持。
+
+Job duplicate_risk 与新版本请求使用相同判据：原 uncertain/restore_hold 或未成功直接任务已消耗许可/恢复隔离，需既有 acknowledge_duplicate_risk 确认。
+
+无需等待不存在的远端资源完成本地删除。

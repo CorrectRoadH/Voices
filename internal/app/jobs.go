@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,6 +29,9 @@ func (a *App) Restore(ctx context.Context) error {
 		if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(771940002)"); err != nil {
 			return err
 		}
+		if err := a.restoreDirectIntents(ctx, tx); err != nil {
+			return err
+		}
 		for _, sql := range []string{
 			"UPDATE voiceprint_execution SET run_id=NULL,lease_until=NULL WHERE id",
 			"UPDATE voiceprint_tasks SET generation=gen_random_uuid(),state='queued',lease_until=NULL,error_code=NULL,updated_at=clock_timestamp() WHERE state='running'",
@@ -35,10 +39,10 @@ func (a *App) Restore(ctx context.Context) error {
 			"UPDATE external_calls SET state='interrupted',error_code='interrupted',error_reason='database_restore' WHERE state='running'",
 			"UPDATE transcription_insights SET state='failed',error_code='interrupted',input_json=NULL,llm_config_json=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE state IN ('queued','running')",
 			"UPDATE blobs SET write_generation=write_generation+1,write_lease_until=NULL,writer_id=NULL WHERE state='writing'",
-			"UPDATE jobs SET lease_generation=lease_generation+1,lease_owner=NULL,lease_until=NULL,state=CASE WHEN kind='transcribe' THEN 'restore_hold' WHEN state IN ('running','retry_wait') THEN 'queued' ELSE state END,error_code=CASE WHEN kind='transcribe' THEN 'restore_hold' ELSE error_code END WHERE state<>'succeeded' OR EXISTS(SELECT 1 FROM provider_operations o WHERE o.job_id=jobs.id AND o.state IN ('prepared','sent','uncertain'))",
+			"UPDATE jobs SET lease_generation=lease_generation+1,lease_owner=NULL,lease_until=NULL,state=CASE WHEN kind='transcribe' THEN 'restore_hold' WHEN state IN ('running','retry_wait') THEN 'queued' ELSE state END,error_code=CASE WHEN kind='transcribe' THEN 'restore_hold' ELSE error_code END WHERE (state<>'succeeded' OR EXISTS(SELECT 1 FROM provider_operations o WHERE o.job_id=jobs.id AND o.state IN ('prepared','sent','uncertain'))) AND NOT EXISTS(SELECT 1 FROM transcriptions dt WHERE dt.id=jobs.transcription_id AND dt.provider='openai')",
 			"UPDATE transcriptions t SET state='restore_hold',error_code='restore_hold',revision=revision+1 WHERE EXISTS(SELECT 1 FROM jobs j WHERE j.transcription_id=t.id AND j.state='restore_hold')",
 			"UPDATE provider_operations o SET state='uncertain' WHERE o.state IN ('prepared','sent') AND EXISTS(SELECT 1 FROM jobs j WHERE j.id=o.job_id AND j.state='restore_hold')",
-			`INSERT INTO provider_operations(id,job_id,transcription_id,kind,lease_generation,state,resolution_note) SELECT gen_random_uuid(),j.id,j.transcription_id,k.kind,j.lease_generation,'uncertain','数据库快照之后的远端状态须核对' FROM jobs j CROSS JOIN (VALUES ('upload'),('submit')) AS k(kind) WHERE j.state='restore_hold' AND NOT EXISTS(SELECT 1 FROM provider_operations o WHERE o.job_id=j.id AND o.kind=k.kind AND o.state IN ('known','uncertain','sent','prepared'))`,
+			`INSERT INTO provider_operations(id,job_id,transcription_id,kind,lease_generation,state,resolution_note) SELECT gen_random_uuid(),j.id,j.transcription_id,k.kind,j.lease_generation,'uncertain','数据库快照之后的远端状态须核对' FROM jobs j CROSS JOIN (VALUES ('upload'),('submit')) AS k(kind) WHERE j.state='restore_hold' AND NOT EXISTS(SELECT 1 FROM transcriptions dt WHERE dt.id=j.transcription_id AND dt.provider='openai') AND NOT EXISTS(SELECT 1 FROM provider_operations o WHERE o.job_id=j.id AND o.kind=k.kind AND o.state IN ('known','uncertain','sent','prepared'))`,
 		} {
 			if _, err := tx.Exec(ctx, sql); err != nil {
 				return err
@@ -225,6 +229,16 @@ func (a *App) failJob(ctx context.Context, j job, cause error) error {
 	err := persistence.Transaction(ctx, a.DB, func(tx pgx.Tx) error {
 		if err := a.fence(ctx, tx, j); err != nil {
 			return err
+		}
+		var directBlocked bool
+		if err := tx.QueryRow(ctx, "SELECT direct_request_started_at IS NOT NULL OR COALESCE(error_code='direct_request_interrupted',false) FROM jobs WHERE id=$1", j.ID).Scan(&directBlocked); err != nil {
+			return err
+		}
+		if directBlocked {
+			state = "failed"
+			if !strings.HasPrefix(code, "direct_") {
+				code = "direct_result_persistence_failed"
+			}
 		}
 		if _, err := tx.Exec(ctx, "UPDATE jobs SET state=$2,error_code=$3,error_detail=$5,attempt=attempt+1,next_run_at=clock_timestamp()+$4::interval,lease_owner=NULL,lease_until=NULL WHERE id=$1", j.ID, state, code, delay.String(), detail); err != nil {
 			return err

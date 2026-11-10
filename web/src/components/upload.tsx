@@ -93,6 +93,7 @@ export function UploadDialog({
     if (metadata.auto_transcribe) {
       const invalid = optionError(metadata.transcription_options!, providers, {
         size_bytes: entry.file.size,
+        original_name: entry.file.name,
       });
       if (invalid) {
         patch(entry.id, { status: "error", error: invalid });

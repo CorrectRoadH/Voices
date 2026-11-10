@@ -11,7 +11,7 @@ type assemblyAI struct{ remoteHTTP }
 
 // NewAssemblyAI pins the US production REST endpoint; URLs returned by Upload
 // are opaque resource identifiers and are never used as authenticated targets.
-func NewAssemblyAI(apiKey string) Adapter {
+func NewAssemblyAI(apiKey string) AsyncAdapter {
 	return &assemblyAI{newRemoteHTTP("https://api.assemblyai.com", apiKey)}
 }
 

@@ -210,7 +210,7 @@ function TaskList() {
                     {tr("重试")}{" "}
                   </Button>
                 )}
-                {job.state === "uncertain" &&
+                {(job.state === "uncertain" || job.duplicate_risk) &&
                   job.kind === "transcribe" &&
                   !session.restore_mode && (
                     <Button

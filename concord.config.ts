@@ -19,6 +19,13 @@ export default {
       "check"
     ],
     "sourceFiles": [
+      "internal/app/direct_transcription.go",
+      "internal/app/direct_transcription_test.go",
+      "internal/providers/openai.go",
+      "internal/providers/openai_test.go",
+      "internal/persistence/migrations/022_direct_transcription.sql",
+      "web/tests/openai-stt.browser.ts",
+      "web/e2e.openai-stt.config.ts",
       "internal/app/voiceprints.go",
       "internal/app/voiceprints_test.go",
       "internal/app/voiceprints_browser_test.go",

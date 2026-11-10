@@ -13,7 +13,7 @@ import (
 type soniox struct{ remoteHTTP }
 
 // NewSoniox uses the production REST API. It performs no retries or polling loop.
-func NewSoniox(apiKey string) Adapter {
+func NewSoniox(apiKey string) AsyncAdapter {
 	return &soniox{newRemoteHTTP("https://api.soniox.com", apiKey)}
 }
 

@@ -12,17 +12,17 @@
 - 官方资料（2026-10-19）：[转写指南](https://developers.openai.com/api/docs/guides/speech-to-text)。Diarized JSON 提供 speaker/start/end；>30 秒指定 chunking_strategy=auto；文件上限 25 MB。
 - [创建转写接口](https://developers.openai.com/api/reference/resources/audio/subresources/transcriptions/methods/create)。
 
-## Provider 与任务契约（待独立审查）
+## Provider 与任务契约
 
 `providers.Adapter` 只含 ID/Models。`AsyncAdapter` 嵌入 Adapter 并保留原六步方法；Soniox/AssemblyAI 构造器返回 AsyncAdapter。`DirectAdapter` 嵌入 Adapter 并提供 `Transcribe(context.Context, io.Reader, string, int64, Options) (Result,error)`，无资源清理 API。App Providers 仍为 map[string]Adapter，执行分支和远端资源清理显式检查相应接口；已有 fake async adapter 无语义变化。
 
-迁移 `011_direct_transcription.sql` 只为 jobs 新增 nullable `direct_request_started_at timestamptz`（无默认、无需索引）；保留既有 RLS 与所有权。它表示该 job 已取得唯一直接调用许可，不证明请求被受理或计费。读音频成功后，在 fence 事务内将 NULL 更新为 clock_timestamp；事务提交后才可调用外部服务。任何再次执行若标记非 NULL，失败为 direct_request_interrupted，绝不重放。发送许可和外部请求间 crash 允许保守失败。
+迁移 `022_direct_transcription.sql` 只为 jobs 新增 nullable `direct_request_started_at timestamptz`（无默认、无需索引）；保留既有 RLS 与所有权。它表示该 job 已取得唯一直接调用许可，不证明请求被受理或计费。读音频成功后，在 fence 事务内将 NULL 更新为 clock_timestamp；事务提交后才可调用外部服务。任何再次执行若标记非 NULL，失败为 direct_request_interrupted，绝不重放。发送许可和外部请求间 crash 允许保守失败。
 
 直接请求不调用 remoteCreate，不写 provider_operations/provider_resources，不伪造远端 ID。正常结果使用共用的归一化校验与 fenced publish 原文 blob、片段、说话人及成功状态事务。标记与现有 lease 确保双实例不双发。收到响应但保存前 crash 会丢失结果，允许用户明确创建新转写版本，说明可能重复收费；不自动补发。
 
 直接请求 deadline 为 30 分钟，执行 heartbeat 沿用现有 job。取消、删除和租约丢失取消本地 HTTP；不承诺取消服务商处理。fenced publish 拒绝晚到结果，关闭 blob reader，无远端资源需清理；不因不可获取的远端 ID 永久阻塞删除。网络错误、429、5xx、非法结果、超时均以非自动重试的 direct_* 错误结束；同一 job 的 retry API 在 direct_request_started_at 非 NULL 时返回 409，提示新建版本及可能再次收费。若在发送许可前发生本地错误，原失败/重试边界保留。
 
-恢复：所有未完成的 OpenAI transcribe job（含快照中尚未发送的 queued job）隔离为 failed/direct_request_interrupted，清 lease、递增 generation。同步 transcriptions 状态，不创建 upload/submit 不确定意图。已成功结果保留。其它 providers 恢复契约不变。恢复模式本身仍禁止新提交。OpenAI 不接受手工 remote ID reconcile；无远端资源可通过这个入口恢复。
+恢复：所有未完成的 OpenAI transcribe job（含快照中尚未发送的 queued job）隔离为 failed/direct_request_interrupted。清 lease、递增 generation。同步 transcriptions 状态，不创建 upload/submit 不确定意图。已成功结果保留。其它 providers 恢复契约不变。恢复模式本身仍禁止新提交。OpenAI 不接受手工 remote ID reconcile；无远端资源可通过这个入口恢复。
 
 ## OpenAI HTTP 与能力
 
@@ -34,7 +34,7 @@
 
 ## 已采用的相关能力
 
-LLM 模型发现由[已采用的接口契约](../feature/accounts/api.md#llm-模型发现)声明，不属于本页待决范围。直接转写方案尚未采用，不能据此改变服务商执行模型。
+LLM 模型发现由[已采用的接口契约](../feature/accounts/api.md#llm-模型发现)声明，不属于本页待决范围。直接转写按下述审查修订收敛后采用；现行契约同步记载执行与恢复边界。
 
 ## 验收
 
@@ -44,4 +44,17 @@ LLM 模型发现由[已采用的接口契约](../feature/accounts/api.md#llm-模
 
 ## 审查
 
-待原生 Codex / GPT-6.1 Sol Review：直接请求持久化 guard 对 crash、lease、retry、restore/delete 的闭环；边界是否遗漏，是否需要调整后实现。
+原生 Codex / GPT-6.1 Sol 独立审查发现三项恢复与风险确认缺口；下节修订已复核收敛。实际行为验收见工程 Memory。
+
+## 审查修订后的精确约束
+
+- 恢复隔离事实采用 error_code=direct_request_interrupted，独立于发送许可。retry 写入口与 retry_allowed 在 direct_request_started_at 非 NULL 或此错误码存在时均拒绝；claim/执行也拒绝该错误码。任何重试、取消、观察与核对不得清除该隔离事实。取消 SQL 保留既有 error_code。只有新建版本能取得新的许可。
+- Restore 在同一事务首先按 recording id 加锁。扫描 auto_transcribe=true、import options provider=openai 且尚无 auto:<recording-id> dedupe 的录音（不限 prepare 状态）；用导入选项和固定 OpenAI 能力快照建立同 dedupe 的 queued 转写/job，再统一隔离。保留 auto 标志，prepare 的现有 dedupe 检查可继续完成本地音频而不创建可发送任务。恢复不要求服务商已配置，不作新语言能力校验。录音处于 deleting 时跳过建立意图。
+- 隔离所有 provider=openai 且 job.state<>succeeded 的 transcribe job，包括 failed/cancelled、NULL 许可。置 failed/direct_request_interrupted。清 lease、递增 generation；同步 transcription；成功不动。通用 async 恢复 SQL 明确排除 openai，绝不创建其 operation/resource。
+- Job API 增加 duplicate_risk 布尔字段：现有 uncertain/restore_hold。或未成功的 OpenAI job 且（发送许可非 NULL 或 error_code=direct_request_interrupted）。服务端新建版本采用同一 SQL 判据强制 acknowledge_duplicate_risk；详情、任务与进度界面使用该字段提供重新转写和收费提示。取消不能去掉判据。
+- reconcile 按持久化 provider=openai 返回 409/direct_reconciliation_unsupported，包括无 remote ID 的观察，不写操作也不解除隔离。
+- 唯一发送许可和 operation=transcribe/provider=openai/deadline=30m 的 external_call 同一 fenced 事务创建，call 不关联 provider_operation。022 同时扩展 external_calls 的 operation/provider CHECK 为新增 transcribe/openai（保留原枚举），避免日志写入阻止许可提交。只有明确 commit 成功才发请求。结果发布与当前 async 共用函数；发送后本地落库失败同样为 direct_*，不可自动退避。重启拒发旧许可不生成第二条调用日志。
+- 发送前本地格式、文件大小及选项验证不消耗许可；worker 读取音频后先检查，再 fenced CAS。30m 仅限制 HTTP 子 context，保持父 context 用于失败落库；reader 在 HTTP 返回后关闭，publish 仍通过 fence。
+- 官方文档截至 2026-11-09 声明指定模型计划于 2027-02-26 停用；本轮保留用户指定模型，不擅自替换。
+
+审查记录保存于 memory/openai-direct-stt-implementation.md；三项 P1 由上述持久隔离、恢复 auto dedupe、新版本统一风险判据解决，原 Review 已复核通过三项 P1。调用日志采用固定 direct_* 白名单并映射 failed，不自动重放；transcribe/openai 筛选枚举同步扩展。

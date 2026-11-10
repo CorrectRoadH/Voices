@@ -19,6 +19,7 @@ type Config struct {
 	AllowedOrigins                                          []string
 	DatabaseURL, ListenAddr, PublicBaseURL, WebDir, TempDir string
 	SonioxKey, AssemblyAIKey                                string
+	OpenAISTTBaseURL, OpenAISTTKey                          string
 	LLMBaseURL, LLMModel, LLMKey                            string
 	seedEnv                                                 map[string]string
 	RestoreMode                                             bool

@@ -23,3 +23,7 @@
 ## 契约来源
 
 [配置架构](../architecture/server-settings.md) · [模型发现接口](../api.md#llm-模型发现) · [设置界面](../ui.md) · [站点初始化](setup-site.md) · [统一身份登录](oidc-login.md)
+
+## OpenAI STT
+
+OpenAI STT 卡片提供独立 Base URL/API Key，空地址使用 https://api.openai.com/v1；空密钥禁用，不借用 LLM 密钥。更改地址时须同时重新输入或明确清除旧密钥。保存不调用服务商，重启后在转写选项显示 gpt-4o-transcribe-diarize，支持说话人与时间戳，最大文件 25 MB。
