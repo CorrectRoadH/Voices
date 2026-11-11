@@ -1,5 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/transcription/use-case/recover-task.md
+import { Spinner } from "@/components/ui/spinner";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { usePagedResource } from "@/lib/use-paged-resource";
 import { CallLogs } from "@/components/call-logs";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -79,7 +81,13 @@ function TaskList() {
   return (
     <>
       <PageHeading title={tr("处理任务")}>
-        <Button variant="outline" loading={data.updating} onClick={data.refresh}>
+        <Button
+          variant="outline"
+          aria-busy={data.updating}
+          disabled={data.updating}
+          onClick={data.refresh}
+        >
+          {data.updating && <Spinner data-icon="inline-start" aria-hidden="true" />}
           <RefreshCw data-icon="inline-start" />
           {tr("刷新")}{" "}
         </Button>
@@ -161,21 +169,25 @@ function TaskList() {
               </CardHeader>
               <CardContent>
                 {job.error_code && <p className="mb-2 text-sm text-destructive">{jobError(job)}</p>}
-                <details className="text-xs text-muted-foreground">
-                  <summary>{tr("任务详情")}</summary>
-                  <div className="mt-2 flex flex-col gap-1 break-all">
-                    <p>
-                      {tr("任务 ID：")}
-                      {job.id}
-                    </p>
-                    {job.error_code && (
+                <Collapsible className="text-xs text-muted-foreground">
+                  <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
+                    {tr("任务详情")}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent keepMounted>
+                    <div className="mt-2 flex flex-col gap-1 break-all">
                       <p>
-                        {tr("错误代码：")}
-                        {job.error_code}
+                        {tr("任务 ID：")}
+                        {job.id}
                       </p>
-                    )}
-                  </div>
-                </details>
+                      {job.error_code && (
+                        <p>
+                          {tr("错误代码：")}
+                          {job.error_code}
+                        </p>
+                      )}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
                 {job.state === "restore_hold" && (
                   <p className="mt-2 text-sm text-muted-foreground">
                     {tr("此任务可能已在服务商受理，不能安全重试或宣称清理完成。")}{" "}
@@ -193,9 +205,9 @@ function TaskList() {
                 </Button>
                 {canRetry(job) && !session.restore_mode && (
                   <Button
-                    loading={action.pendingKey === job.id}
+                    aria-busy={action.pendingKey === job.id}
                     size="sm"
-                    disabled={action.busy}
+                    disabled={action.busy || action.pendingKey === job.id}
                     onClick={() =>
                       void action.run(
                         async () => {
@@ -207,6 +219,9 @@ function TaskList() {
                       )
                     }
                   >
+                    {action.pendingKey === job.id && (
+                      <Spinner data-icon="inline-start" aria-hidden="true" />
+                    )}
                     {tr("重试")}{" "}
                   </Button>
                 )}
@@ -353,12 +368,16 @@ function TaskList() {
               />
             </Field>
             <Button
-              loading={action.busy}
+              aria-busy={action.busy}
               disabled={
-                action.busy || !note.trim() || (!!resolve?.operations?.length && !operationId)
+                action.busy ||
+                !note.trim() ||
+                (!!resolve?.operations?.length && !operationId) ||
+                action.busy
               }
               type="submit"
             >
+              {action.busy && <Spinner data-icon="inline-start" aria-hidden="true" />}
               {tr("保存核对记录")}{" "}
             </Button>
           </FieldGroup>

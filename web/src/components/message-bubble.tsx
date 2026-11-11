@@ -2,9 +2,18 @@
 // @concord-implements docs/feature/transcription/use-case/read-transcript.md
 // @concord-implements docs/feature/transcription/use-case/edit-transcript.md
 import { tr } from "@/lib/i18n";
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { Button } from "./ui/button";
+import { Spinner } from "./ui/spinner";
+import { Bubble, BubbleContent } from "./ui/bubble";
+import { MessageFooter } from "./ui/message";
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuGroup,
+} from "./ui/context-menu";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -23,99 +32,51 @@ export function MessageBubble({
   actions: ReactNode;
   busy?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const triggerId = useId();
-  const press = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
-  const suppressClick = useRef(false);
-  const cancel = useCallback(() => {
-    if (press.current) clearTimeout(press.current.timer);
-    press.current = null;
-    window.removeEventListener("scroll", cancel, true);
-    window.removeEventListener("pointerup", cancel);
-    window.removeEventListener("pointercancel", cancel);
-  }, []);
-  useEffect(() => () => cancel(), [cancel]);
   return (
-    <div
-      className="segment-bubble"
-      data-menu-open={open || busy || undefined}
-      onPointerDown={(event) => {
-        cancel();
-        suppressClick.current = false;
-        if (!actions || busy) return;
-        if (event.pointerType === "mouse" || !event.isPrimary) return;
-        const target = event.target as HTMLElement;
-        if (target.closest("input,textarea,a,[role=menu],button:not(.segment-text)")) return;
-        window.addEventListener("scroll", cancel, { capture: true, passive: true });
-        window.addEventListener("pointerup", cancel);
-        window.addEventListener("pointercancel", cancel);
-        press.current = {
-          x: event.clientX,
-          y: event.clientY,
-          timer: setTimeout(() => {
-            cancel();
-            suppressClick.current = true;
-            setOpen(true);
-          }, 500),
-        };
-      }}
-      onPointerMove={(event) => {
-        if (
-          press.current &&
-          Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 10
-        )
-          cancel();
-      }}
-      onPointerUp={cancel}
-      onPointerCancel={cancel}
-      onClickCapture={(event) => {
-        if (suppressClick.current && event.currentTarget.contains(event.target as Node)) {
-          suppressClick.current = false;
-          event.preventDefault();
-          event.stopPropagation();
-        }
-      }}
-      onContextMenu={(event) => {
-        if (!actions || busy) return;
-        if ((event.target as HTMLElement).closest("input,textarea,[role=menu]")) return;
-        event.preventDefault();
-        cancel();
-        setOpen(true);
-      }}
-      onKeyDown={(event) => {
-        if (!actions || busy) return;
-        if ((event.target as HTMLElement).closest("input,textarea")) return;
-        if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
-          event.preventDefault();
-          setOpen(true);
-        }
-      }}
-    >
-      {children}
-      <div className="message-meta">
+    <Bubble variant="secondary" className="segment-bubble">
+      <ContextMenu
+        onOpenChange={(open, details) => {
+          const target = details.event.target;
+          if (
+            open &&
+            (!actions || busy || (target instanceof Element && target.closest("input,textarea")))
+          )
+            details.cancel();
+        }}
+      >
+        <ContextMenuTrigger data-slot="bubble-content" render={<BubbleContent />}>
+          {children}
+        </ContextMenuTrigger>
+        {actions && (
+          <ContextMenuContent>
+            <ContextMenuGroup>{actions}</ContextMenuGroup>
+          </ContextMenuContent>
+        )}
+      </ContextMenu>
+      <MessageFooter className="gap-1">
         {metadata}
         {actions && (
-          <DropdownMenu triggerId={triggerId} open={open} onOpenChange={setOpen}>
+          <DropdownMenu>
             <DropdownMenuTrigger
-              id={triggerId}
               render={
                 <Button
                   className="message-more"
                   variant="ghost"
                   size="icon-sm"
                   aria-label={tr("更多操作")}
-                  loading={busy}
+                  disabled={busy}
+                  aria-busy={busy}
                 />
               }
             >
-              <MoreHorizontal />
+              {busy ? <Spinner aria-hidden="true" /> : <MoreHorizontal />}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuGroup>{actions}</DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-      </div>
-    </div>
+      </MessageFooter>
+    </Bubble>
   );
 }

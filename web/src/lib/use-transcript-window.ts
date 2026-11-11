@@ -118,7 +118,7 @@ export function useTranscriptWindow({
           throw new Error(tr("服务器返回的窗口未包含引用片段，无法定位。"));
         if (controller.signal.aborted) return;
         if (load.direction === "previous") {
-          const first = panelRef.current?.querySelector<HTMLElement>(".segments > article");
+          const first = panelRef.current?.querySelector<HTMLElement>(".segments > .segment");
           if (first)
             prependAnchor.current = { key, id: first.id, top: first.getBoundingClientRect().top };
         }

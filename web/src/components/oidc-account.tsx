@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/accounts/use-case/oidc-login.md#link
+import { Spinner } from "@/components/ui/spinner";
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { tr } from "@/lib/i18n";
@@ -66,7 +67,7 @@ export function OIDCAccount() {
         {data.linked ? (
           <Button
             variant="outline"
-            loading={action.busy}
+            aria-busy={action.busy}
             disabled={action.busy || session.restore_mode || !data.has_password}
             onClick={() =>
               void action.run(async () => {
@@ -75,12 +76,13 @@ export function OIDCAccount() {
               })
             }
           >
+            {action.busy && <Spinner data-icon="inline-start" aria-hidden="true" />}
             {tr("解绑并退出")}
           </Button>
         ) : (
           <Button
             variant="outline"
-            loading={action.busy}
+            aria-busy={action.busy}
             disabled={action.busy || session.restore_mode || !data.enabled}
             onClick={() =>
               void action.run(async () => {
@@ -89,6 +91,7 @@ export function OIDCAccount() {
               })
             }
           >
+            {action.busy && <Spinner data-icon="inline-start" aria-hidden="true" />}
             {tr("绑定 {{name}}", { name: oidcLabel(data.display_name) })}
           </Button>
         )}

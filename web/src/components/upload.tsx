@@ -1,5 +1,15 @@
 // @concord-file
 // @concord-implements docs/feature/recording-library/use-case/import-audio.md
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyContent,
+} from "@/components/ui/empty";
+import { Item, ItemContent } from "@/components/ui/item";
+import { Spinner } from "@/components/ui/spinner";
 import { tr } from "@/lib/i18n";
 import { requestKey } from "@/lib/request-key";
 import { useEffect, useRef, useState } from "react";
@@ -150,8 +160,8 @@ export function UploadDialog({
         onOpenChange(value);
       }}
     >
-      <div
-        className={cn("upload-zone", dragging && "is-dragging")}
+      <Empty
+        className={cn("border border-dashed", dragging && "outline outline-ring")}
         onDragOver={(e) => {
           e.preventDefault();
           setDragging(true);
@@ -163,13 +173,19 @@ export function UploadDialog({
           add(Array.from(e.dataTransfer.files));
         }}
       >
-        <UploadCloud className="size-8 text-primary" />
-        <strong>{tr("将音频拖到这里")}</strong>
-        <span className="text-sm text-muted-foreground">MP3、M4A、WAV、FLAC、OGG、WebM</span>
-        <Button variant="outline" onClick={() => input.current?.click()}>
-          <Plus data-icon="inline-start" />
-          {tr("选择文件")}{" "}
-        </Button>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <UploadCloud />
+          </EmptyMedia>
+          <EmptyTitle>{tr("将音频拖到这里")}</EmptyTitle>
+          <EmptyDescription>MP3、M4A、WAV、FLAC、OGG、WebM</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button variant="outline" onClick={() => input.current?.click()}>
+            <Plus data-icon="inline-start" />
+            {tr("选择文件")}
+          </Button>
+        </EmptyContent>
         <input
           ref={input}
           type="file"
@@ -182,110 +198,112 @@ export function UploadDialog({
             e.target.value = "";
           }}
         />
-      </div>
+      </Empty>
       <OptionsFields compact value={options} onChange={setOptions} providers={providers} />
       <div className="flex flex-col gap-3">
         {entries.map((entry) => (
-          <section className="upload-file" key={entry.id}>
-            <div className="flex items-start gap-3">
-              <FileAudio className="mt-1 size-5 shrink-0 text-muted-foreground" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{entry.file.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {bytes(entry.file.size)} ·{" "}
-                  {entry.status === "uploading"
-                    ? entry.progress === 100
-                      ? tr("已传输，正在校验与保存…")
-                      : tr("上传中 {{v0}}%", { v0: entry.progress })
-                    : entry.status === "done"
-                      ? entry.existing
-                        ? tr("重复文件 · 已有录音")
-                        : tr("已保存")
-                      : entry.status === "waiting"
-                        ? tr("等待导入")
-                        : tr("上传失败")}
-                </p>
+          <Item variant="outline" key={entry.id}>
+            <ItemContent className="gap-3">
+              <div className="flex items-start gap-3">
+                <FileAudio className="mt-1 size-5 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{entry.file.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {bytes(entry.file.size)} ·{" "}
+                    {entry.status === "uploading"
+                      ? entry.progress === 100
+                        ? tr("已传输，正在校验与保存…")
+                        : tr("上传中 {{v0}}%", { v0: entry.progress })
+                      : entry.status === "done"
+                        ? entry.existing
+                          ? tr("重复文件 · 已有录音")
+                          : tr("已保存")
+                        : entry.status === "waiting"
+                          ? tr("等待导入")
+                          : tr("上传失败")}
+                  </p>
+                </div>
+                {entry.status === "done" ? <CheckCircle2 className="size-5 text-primary" /> : null}
               </div>
-              {entry.status === "done" ? <CheckCircle2 className="size-5 text-primary" /> : null}
-            </div>
-            {entry.status === "uploading" && (
-              <Progress
-                value={entry.progress}
-                aria-label={tr("{{v0}} 上传进度", { v0: entry.file.name })}
-              />
-            )}
-            {entry.error && (
-              <p className="text-sm text-destructive" role="alert">
-                {entry.error}
-              </p>
-            )}
-            <div className="flex flex-wrap gap-2">
-              {entry.status === "waiting" && (
-                <>
+              {entry.status === "uploading" && (
+                <Progress
+                  value={entry.progress}
+                  aria-label={tr("{{v0}} 上传进度", { v0: entry.file.name })}
+                />
+              )}
+              {entry.error && (
+                <p className="text-sm text-destructive" role="alert">
+                  {entry.error}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {entry.status === "waiting" && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => setEditing(editing === entry.id ? null : entry.id)}
+                    >
+                      {tr("录音标题与选项")}{" "}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => setEntries((old) => old.filter((e) => e.id !== entry.id))}
+                    >
+                      {tr("移除")}{" "}
+                    </Button>
+                  </>
+                )}
+                {entry.status === "error" && (
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     disabled={busy}
-                    onClick={() => setEditing(editing === entry.id ? null : entry.id)}
+                    onClick={() => void send(entry)}
                   >
-                    {tr("录音标题与选项")}{" "}
+                    {tr("重新上传")}{" "}
                   </Button>
+                )}
+                {entry.recordingId && (
                   <Button
-                    variant="ghost"
+                    variant="link"
                     size="sm"
-                    disabled={busy}
-                    onClick={() => setEntries((old) => old.filter((e) => e.id !== entry.id))}
+                    nativeButton={false}
+                    render={
+                      <Link
+                        to={`/recordings/${entry.recordingId}`}
+                        onClick={() => onOpenChange(false)}
+                      />
+                    }
                   >
-                    {tr("移除")}{" "}
+                    {tr("查看录音")}{" "}
                   </Button>
-                </>
-              )}
-              {entry.status === "error" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => void send(entry)}
-                >
-                  {tr("重新上传")}{" "}
-                </Button>
-              )}
-              {entry.recordingId && (
-                <Button
-                  variant="link"
-                  size="sm"
-                  nativeButton={false}
-                  render={
-                    <Link
-                      to={`/recordings/${entry.recordingId}`}
-                      onClick={() => onOpenChange(false)}
+                )}
+              </div>
+              {editing === entry.id && entry.status === "waiting" && (
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor={`title-${entry.id}`}>{tr("录音标题")}</FieldLabel>
+                    <Input
+                      id={`title-${entry.id}`}
+                      value={entry.title}
+                      onChange={(e) => patch(entry.id, { title: e.target.value })}
+                    />
+                  </Field>
+                  {
+                    <OptionsFields
+                      providers={providers}
+                      value={entry.options || options}
+                      onChange={(value) => patch(entry.id, { options: value })}
                     />
                   }
-                >
-                  {tr("查看录音")}{" "}
-                </Button>
+                </FieldGroup>
               )}
-            </div>
-            {editing === entry.id && entry.status === "waiting" && (
-              <FieldGroup>
-                <Field>
-                  <FieldLabel htmlFor={`title-${entry.id}`}>{tr("录音标题")}</FieldLabel>
-                  <Input
-                    id={`title-${entry.id}`}
-                    value={entry.title}
-                    onChange={(e) => patch(entry.id, { title: e.target.value })}
-                  />
-                </Field>
-                {
-                  <OptionsFields
-                    providers={providers}
-                    value={entry.options || options}
-                    onChange={(value) => patch(entry.id, { options: value })}
-                  />
-                }
-              </FieldGroup>
-            )}
-          </section>
+            </ItemContent>
+          </Item>
         ))}
       </div>
       <div className="flex justify-end gap-2">
@@ -293,10 +311,11 @@ export function UploadDialog({
           {tr("关闭")}{" "}
         </Button>
         <Button
-          loading={busy}
+          aria-busy={busy}
           disabled={busy || !entries.some((e) => e.status === "waiting")}
           onClick={() => void start()}
         >
+          {busy && <Spinner data-icon="inline-start" aria-hidden="true" />}
           <UploadCloud data-icon="inline-start" />
           {busy ? tr("正在导入…") : tr("开始导入")}
         </Button>

@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/transcription/use-case/transcribe.md
+import { Spinner } from "@/components/ui/spinner";
 import { Link } from "react-router-dom";
 import { tr } from "@/lib/i18n";
 import { stateName } from "@/lib/format";
@@ -116,7 +117,7 @@ export function RecordingProgress({
         {job?.retry_allowed && !session.restore_mode && (
           <Button
             size="sm"
-            loading={action.busy}
+            aria-busy={action.busy}
             disabled={action.busy}
             onClick={() =>
               void action.run(async () => {
@@ -125,6 +126,7 @@ export function RecordingProgress({
               })
             }
           >
+            {action.busy && <Spinner data-icon="inline-start" aria-hidden="true" />}
             {tr("重试")}
           </Button>
         )}

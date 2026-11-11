@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/people/use-case/manage-person.md
+import { Spinner } from "@/components/ui/spinner";
 import { usePagedResource } from "@/lib/use-paged-resource";
 import { personName } from "@/lib/person-name";
 import { tr } from "@/lib/i18n";
@@ -142,7 +143,8 @@ function PersonEditor({
               <FieldDescription>{tr("归档后保留已有引用，不再新增关联。")}</FieldDescription>
             </Field>
           )}
-          <Button loading={action.busy} type="submit" disabled={action.busy || preparing}>
+          <Button aria-busy={action.busy} type="submit" disabled={action.busy || preparing}>
+            {action.busy && <Spinner data-icon="inline-start" aria-hidden="true" />}
             {tr("保存人物")}{" "}
           </Button>
         </FieldGroup>
@@ -306,7 +308,7 @@ export function PersonPage() {
             )}
             {!person.data.builtin_key && (
               <Button
-                loading={selfAction.busy}
+                aria-busy={selfAction.busy}
                 variant="ghost"
                 disabled={selfAction.busy}
                 onClick={() =>
@@ -322,6 +324,7 @@ export function PersonPage() {
                   )
                 }
               >
+                {selfAction.busy && <Spinner data-icon="inline-start" aria-hidden="true" />}
                 {person.data.is_self ? tr("取消本人") : tr("标记为本人")}
               </Button>
             )}

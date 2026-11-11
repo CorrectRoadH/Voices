@@ -14,6 +14,16 @@ test("加载阶段、行内编辑快捷键、保存状态与真实并发冲突",
   await browser.emulateMedia({ reducedMotion: "reduce" });
   await noOverflow(browser);
   await app.screenshot("desktop-library-shadcn");
+  await browser.setViewport({ width: 375, height: 812 });
+  await screen.getByRole("button", { name: "切换导航", exact: true }).click();
+  await expect(screen.getByRole("dialog")).toBeVisible();
+  await app.screenshot("mobile-official-sidebar");
+  await screen.getByRole("link", { name: "人物", exact: true }).click();
+  await expect(screen.getByRole("dialog")).toHaveCount(0);
+  await expect(screen.getByRole("heading", { name: "人物", exact: true })).toBeVisible();
+  await noOverflow(browser);
+  await browser.setViewport({ width: 1440, height: 1000 });
+
   await browser.goto(`${fixture("VOICES_TEST_URL")}/recordings/${id}`);
   await expect(screen.getByRole("status", { name: "正在准备音频" })).toBeVisible();
   await expect(screen.getByText("暂无转写", { exact: true })).toHaveCount(0);
@@ -74,7 +84,7 @@ test("加载阶段、行内编辑快捷键、保存状态与真实并发冲突",
     hold = undefined;
   }
   await expect(screen.getByRole("heading", { name: "新的标题", exact: true })).toBeVisible();
-  // InlineEdit returns focus on the next animation frame after mounting its trigger.
+  // InlineEdit returns focus after mounting its trigger.
   await expect
     .poll(() => browser.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? null))
     .toBe("编辑标题");
@@ -126,15 +136,15 @@ test("加载阶段、行内编辑快捷键、保存状态与真实并发冲突",
   expect((await (await api(browser, `/recordings/${id}`)).json()).notes).toBe("外部备注");
   await browser.unroute(`**/api/v1/recordings/${id}`);
 
-  await screen.getByRole("button", { name: "录音信息", exact: true }).click();
+  await browser.locator('button[aria-controls="recording-info"]').click();
   await expect(screen.getByRole("button", { name: "删除录音", exact: true })).toBeVisible();
-  await browser.locator("#recording-versions > summary").click();
+  await browser.locator('#recording-versions > [data-slot="collapsible-trigger"]').click();
   await expect(screen.getByLabel("转写版本")).toBeVisible();
   await screen.getByRole("button", { name: "编辑备注", exact: true }).click();
   await screen.getByLabel("备注", { exact: true }).fill("第一行\n第二行");
-  await screen.getByRole("button", { name: "录音信息", exact: true }).click();
+  await browser.locator('button[aria-controls="recording-info"]').click();
   await expect(browser.locator(".detail-aside")).not.toBeVisible();
-  await screen.getByRole("button", { name: "录音信息", exact: true }).click();
+  await browser.locator('button[aria-controls="recording-info"]').click();
   await expect(screen.getByLabel("备注", { exact: true })).toHaveValue("第一行\n第二行");
   await screen.getByLabel("备注", { exact: true }).click();
   await browser.keyboard.press("Control+Enter");
@@ -185,6 +195,31 @@ test("加载阶段、行内编辑快捷键、保存状态与真实并发冲突",
     ),
   ).toBe(true);
   await app.screenshot("处理完成与共用编辑组件");
+  const transcriptSearch = screen.getByRole("combobox", { name: "搜索转写正文", exact: true });
+  await transcriptSearch.fill("共用组件修改");
+  await expect(screen.getByRole("option").first()).toBeVisible();
+  await screen.getByRole("option").first().click();
+  await expect(transcriptSearch).toHaveValue("共用组件修改");
+  await expect(segment).toHaveText("共用组件修改的转写正文");
+  await screen.getByRole("button", { name: "清除正文搜索", exact: true }).click();
+  await browser.evaluate(() => {
+    const content = document.querySelector('[data-slot="bubble-content"]')!;
+    const rect = content.getBoundingClientRect();
+    content.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        button: 2,
+        clientX: rect.left + 8,
+        clientY: rect.top + 8,
+      }),
+    );
+    return null;
+  });
+  await expect(screen.getByRole("menuitem", { name: "编辑文字", exact: true })).toBeVisible();
+  await browser.keyboard.press("Escape");
+  await expect(screen.getByRole("menu")).toHaveCount(0);
+
   const original = await (await api(browser, `/recordings/${id}`)).json();
   await screen.getByRole("tab", { name: "录音信息", exact: true }).click();
   await screen.getByRole("button", { name: "新建转写", exact: true }).click();
@@ -203,7 +238,7 @@ test("加载阶段、行内编辑快捷键、保存状态与真实并发冲突",
 
   // 把首个说话人批量关联为系统后，其他说话人的头像与真实发言边界必须保留。
   const visibleIds = await browser.evaluate(() =>
-    Array.from(document.querySelectorAll("article.segment"))
+    Array.from(document.querySelectorAll(".segment"))
       .slice(0, 4)
       .map((node) => node.id),
   );
@@ -379,4 +414,30 @@ test("异步操作反馈、筛选空态与刷新保留内容", async ({ app, bro
     return null;
   });
   await app.screenshot("窄屏调用日志与直接可见的详情");
+  await browser.goto(`${base}/admin/server`);
+  await screen.getByLabel("LLM Base URL", { exact: true }).fill("https://models.example.test/v1");
+  await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+  await browser.route("**/api/v1/admin/llm-models", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ items: [{ id: "alpha-model" }, { id: "beta-model" }] }),
+    });
+  });
+  await screen.getByRole("button", { name: "获取 LLM 模型", exact: true }).click();
+  const model = screen.getByPlaceholder("选择或填写模型 ID", { exact: true });
+  await model.click();
+  await screen.getByRole("option", { name: "alpha-model", exact: true }).click();
+  await browser.keyboard.press("Tab");
+  await expect(model).toHaveValue("alpha-model");
+  await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+  await model.fill("custom-model");
+  await browser.keyboard.press("Tab");
+  await expect(model).toHaveValue("custom-model");
+  await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+  await browser.reload();
+  await expect(model).toHaveValue("custom-model");
+  await noOverflow(browser);
+  await app.screenshot("手机服务器设置与官方模型选择器");
+  await browser.unroute("**/api/v1/admin/llm-models");
 });

@@ -5,6 +5,10 @@
 // @concord-implements docs/feature/transcription/use-case/edit-transcript.md
 // @concord-implements docs/feature/transcription/use-case/search-transcript.md
 // @concord-implements docs/feature/recording-library/use-case/edit-recording.md
+import { Message } from "@/components/ui/message";
+import { Marker, MarkerContent } from "@/components/ui/marker";
+import { Spinner } from "@/components/ui/spinner";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { TranscriptStore } from "@/lib/transcript-store";
 import { useVoiceprintPublication } from "@/lib/voiceprints";
 import { segmentSpeakerName, labelName } from "@/lib/person-name";
@@ -14,7 +18,6 @@ import { Fragment, useEffect, useMemo, useLayoutEffect, useRef, useState } from 
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
-  AudioLines,
   List,
   Copy,
   Link2,
@@ -642,88 +645,87 @@ export function DetailPage() {
           </AlertDescription>
         </Alert>
       ) : r.state === "ready" ? (
-        <div className="player-panel" ref={playerPanel}>
-          <div className="player-icon">
-            <AudioLines />
-          </div>
-          <div className="player-content">
-            <div className="player-caption">
-              <p className="truncate text-xs font-medium">{r.title || r.original_name}</p>
-              {readingReady && (
-                <Popover open={outlineOpen} onOpenChange={setOutlineOpen}>
-                  <PopoverTrigger render={<Button variant="ghost" size="xs" />}>
-                    <List data-icon="inline-start" />
-                    {tr("目录")}
-                  </PopoverTrigger>
-                  <PopoverContent
-                    side="top"
-                    align="end"
-                    finalFocus={false}
-                    className="max-h-[55dvh] overflow-y-auto"
-                  >
-                    <PopoverTitle>{tr("录音目录")}</PopoverTitle>
-                    <Tabs defaultValue="outline">
-                      <TabsList className="w-full">
-                        <TabsTrigger value="outline">{tr("目录")}</TabsTrigger>
-                        <TabsTrigger value="summary">{tr("摘要")}</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="outline">
-                        <InsightOutline
-                          hasTranscription={version?.state === "succeeded"}
-                          data={insights.data}
-                          error={insights.error}
-                          busy={action.pendingKey === "insights"}
-                          disabled={
-                            !selected ||
-                            blocked ||
-                            session.restore_mode ||
-                            version?.state !== "succeeded"
-                          }
-                          onGenerate={() => void generateInsights()}
-                          onRefresh={insights.refresh}
-                          pendingSegment={pendingAnchor}
-                          onJump={jumpChapter}
-                        />
-                      </TabsContent>
-                      <TabsContent value="summary">
-                        <InsightOutline
-                          view="summary"
-                          hasTranscription={version?.state === "succeeded"}
-                          data={insights.data}
-                          error={insights.error}
-                          busy={action.pendingKey === "insights"}
-                          disabled={
-                            !selected ||
-                            blocked ||
-                            session.restore_mode ||
-                            version?.state !== "succeeded"
-                          }
-                          onGenerate={() => void generateInsights()}
-                          onRefresh={insights.refresh}
-                          pendingSegment={pendingAnchor}
-                          onJump={jumpChapter}
-                        />
-                      </TabsContent>
-                    </Tabs>
-                  </PopoverContent>
-                </Popover>
+        <Card className="player-panel" ref={playerPanel}>
+          <CardContent>
+            <div className="player-content">
+              <div className="player-caption">
+                <p className="truncate text-xs font-medium">{r.title || r.original_name}</p>
+                {readingReady && (
+                  <Popover open={outlineOpen} onOpenChange={setOutlineOpen}>
+                    <PopoverTrigger render={<Button variant="ghost" size="xs" />}>
+                      <List data-icon="inline-start" />
+                      {tr("目录")}
+                    </PopoverTrigger>
+                    <PopoverContent
+                      side="top"
+                      align="end"
+                      finalFocus={false}
+                      className="max-h-[55dvh] overflow-y-auto"
+                    >
+                      <PopoverTitle>{tr("录音目录")}</PopoverTitle>
+                      <Tabs defaultValue="outline">
+                        <TabsList className="w-full">
+                          <TabsTrigger value="outline">{tr("目录")}</TabsTrigger>
+                          <TabsTrigger value="summary">{tr("摘要")}</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="outline">
+                          <InsightOutline
+                            hasTranscription={version?.state === "succeeded"}
+                            data={insights.data}
+                            error={insights.error}
+                            busy={action.pendingKey === "insights"}
+                            disabled={
+                              !selected ||
+                              blocked ||
+                              session.restore_mode ||
+                              version?.state !== "succeeded"
+                            }
+                            onGenerate={() => void generateInsights()}
+                            onRefresh={insights.refresh}
+                            pendingSegment={pendingAnchor}
+                            onJump={jumpChapter}
+                          />
+                        </TabsContent>
+                        <TabsContent value="summary">
+                          <InsightOutline
+                            view="summary"
+                            hasTranscription={version?.state === "succeeded"}
+                            data={insights.data}
+                            error={insights.error}
+                            busy={action.pendingKey === "insights"}
+                            disabled={
+                              !selected ||
+                              blocked ||
+                              session.restore_mode ||
+                              version?.state !== "succeeded"
+                            }
+                            onGenerate={() => void generateInsights()}
+                            onRefresh={insights.refresh}
+                            pendingSegment={pendingAnchor}
+                            onJump={jumpChapter}
+                          />
+                        </TabsContent>
+                      </Tabs>
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </div>
+              <audio
+                {...playback.audioProps}
+                key={r.id}
+                controls
+                preload="metadata"
+                src={apiUrl(`/recordings/${r.id}/audio`)}
+                aria-label={tr("录音播放器")}
+              />
+              {playback.failed && (
+                <p className="text-sm text-destructive">
+                  {tr("音频暂时无法加载，请刷新会话或稍后重试。")}
+                </p>
               )}
             </div>
-            <audio
-              {...playback.audioProps}
-              key={r.id}
-              controls
-              preload="metadata"
-              src={apiUrl(`/recordings/${r.id}/audio`)}
-              aria-label={tr("录音播放器")}
-            />
-            {playback.failed && (
-              <p className="text-sm text-destructive">
-                {tr("音频暂时无法加载，请刷新会话或稍后重试。")}
-              </p>
-            )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       ) : null}
       <div
         ref={searchToolbar}
@@ -787,20 +789,36 @@ export function DetailPage() {
             <span role="status">{tr("已选 {{count}} 段", { count: selection.size })}</span>
             <Button
               size="sm"
-              loading={copyPending === "selection-reference"}
-              disabled={!selection.size || !!copyPending || session.restore_mode}
+              aria-busy={copyPending === "selection-reference"}
+              disabled={
+                !selection.size ||
+                !!copyPending ||
+                session.restore_mode ||
+                copyPending === "selection-reference"
+              }
               onClick={() => void copy([...selection], "reference", "selection-reference")}
             >
+              {copyPending === "selection-reference" && (
+                <Spinner data-icon="inline-start" aria-hidden="true" />
+              )}
               <Copy data-icon="inline-start" />
               {tr("复制引用")}
             </Button>
             <Button
               variant="outline"
               size="sm"
-              loading={copyPending === "selection-text"}
-              disabled={!selection.size || !!copyPending || session.restore_mode}
+              aria-busy={copyPending === "selection-text"}
+              disabled={
+                !selection.size ||
+                !!copyPending ||
+                session.restore_mode ||
+                copyPending === "selection-text"
+              }
               onClick={() => void copy([...selection], "text", "selection-text")}
             >
+              {copyPending === "selection-text" && (
+                <Spinner data-icon="inline-start" aria-hidden="true" />
+              )}
               {tr("复制文字")}
             </Button>
           </div>
@@ -898,11 +916,19 @@ export function DetailPage() {
                       <Fragment key={segment.id}>
                         {instant &&
                           instant.toLocaleDateString(interfaceLocale()) !== previousDate && (
-                            <div className="chat-date">
-                              {instant.toLocaleDateString(interfaceLocale())}
-                            </div>
+                            <Marker variant="separator" className="my-4">
+                              <MarkerContent>
+                                {instant.toLocaleDateString(interfaceLocale())}
+                              </MarkerContent>
+                            </Marker>
                           )}
-                        <article
+                        <Message
+                          role="article"
+                          align={
+                            people.data?.items.some((p) => p.id === segment.person_id && p.is_self)
+                              ? "end"
+                              : "start"
+                          }
                           id={`segment-${segment.id}`}
                           key={segment.id}
                           className={cn(
@@ -1134,7 +1160,7 @@ export function DetailPage() {
                               />
                             )}
                           </MessageBubble>
-                        </article>
+                        </Message>
                       </Fragment>
                     );
                   })}
@@ -1222,53 +1248,57 @@ export function DetailPage() {
               />
             </TabsContent>
             <TabsContent value="info" keepMounted>
-              <details
+              <Collapsible
                 id="recording-metadata"
                 className="recording-tools"
                 open={metadataOpen}
-                onToggle={(event) => setMetadataOpen(event.currentTarget.open)}
+                onOpenChange={setMetadataOpen}
               >
-                <summary>{tr("录音信息")}</summary>
-                <dl className="recording-facts">
-                  <div>
-                    <dt>{tr("开始时间")}</dt>
-                    <dd>
-                      <RecordingField
-                        key={r.id}
-                        field="recorded_at"
-                        recording={r}
-                        onSaved={recording.refresh}
-                      />
-                    </dd>
-                  </div>
-                  {(r.recorded_at_source === "import" || r.recorded_at_source === "imported") && (
+                <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
+                  {tr("录音信息")}
+                </CollapsibleTrigger>
+                <CollapsibleContent keepMounted>
+                  <dl className="recording-facts">
                     <div>
-                      <dd>{tr("暂用导入时间，请校准")}</dd>
+                      <dt>{tr("开始时间")}</dt>
+                      <dd>
+                        <RecordingField
+                          key={r.id}
+                          field="recorded_at"
+                          recording={r}
+                          onSaved={recording.refresh}
+                        />
+                      </dd>
                     </div>
-                  )}
-                  <div>
-                    <dt>{tr("时长 / 大小")}</dt>
-                    <dd>
-                      {duration(r.duration_ms)} · {bytes(r.size_bytes)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>{tr("原文件")}</dt>
-                    <dd>{r.original_name}</dd>
-                  </div>
-                  <div>
-                    <dt>{tr("备注")}</dt>
-                    <dd>
-                      <RecordingField
-                        key={r.id}
-                        field="notes"
-                        recording={r}
-                        onSaved={recording.refresh}
-                      />
-                    </dd>
-                  </div>
-                </dl>
-              </details>
+                    {(r.recorded_at_source === "import" || r.recorded_at_source === "imported") && (
+                      <div>
+                        <dd>{tr("暂用导入时间，请校准")}</dd>
+                      </div>
+                    )}
+                    <div>
+                      <dt>{tr("时长 / 大小")}</dt>
+                      <dd>
+                        {duration(r.duration_ms)} · {bytes(r.size_bytes)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{tr("原文件")}</dt>
+                      <dd>{r.original_name}</dd>
+                    </div>
+                    <div>
+                      <dt>{tr("备注")}</dt>
+                      <dd>
+                        <RecordingField
+                          key={r.id}
+                          field="notes"
+                          recording={r}
+                          onSaved={recording.refresh}
+                        />
+                      </dd>
+                    </div>
+                  </dl>
+                </CollapsibleContent>
+              </Collapsible>
               <Button
                 variant="ghost"
                 size="sm"
@@ -1278,213 +1308,229 @@ export function DetailPage() {
                 <Trash2 data-icon="inline-start" />
                 {tr("删除录音")}
               </Button>
-              <details
+              <Collapsible
                 className="recording-tools"
                 id="recording-versions"
                 open={versionsOpen}
-                onToggle={(event) => setVersionsOpen(event.currentTarget.open)}
+                onOpenChange={setVersionsOpen}
               >
-                <summary>{tr("版本与导出")}</summary>
-                <Card>
-                  <CardContent className="flex flex-col gap-3">
-                    <FieldGroup>
-                      <Field>
-                        <FieldLabel htmlFor="version">{tr("转写版本")}</FieldLabel>
-                        <NativeSelect
-                          id="version"
-                          value={selected || ""}
-                          onChange={(e) => {
-                            if (e.target.value)
-                              navigate(`/recordings/${r.id}/transcriptions/${e.target.value}`);
-                          }}
-                        >
-                          <NativeSelectOption value="">{tr("尚无激活版本")}</NativeSelectOption>
-                          {selected && !versions.data?.items.some((t) => t.id === selected) && (
-                            <NativeSelectOption value={selected}>
-                              {tr("指定版本")} {selected}
-                            </NativeSelectOption>
-                          )}
-                          {versions.data?.items.map((t) => (
-                            <NativeSelectOption key={t.id} value={t.id}>
-                              {date(t.created_at)} · {t.provider}/{t.model} ·{" "}
-                              {t.id === r.active_transcription_id ? tr("当前激活") : t.state}
-                            </NativeSelectOption>
-                          ))}
-                        </NativeSelect>
-                      </Field>
-                    </FieldGroup>
-                    <Button
-                      size="sm"
-                      disabled={blocked || r.state !== "ready" || session.restore_mode}
-                      onClick={openNewTranscription}
-                    >
-                      <Plus data-icon="inline-start" />
-                      {tr("新建转写")}{" "}
-                    </Button>
-                    {version && (
-                      <div className="version-meta">
-                        <Status value={version.state} />
-                        <span>
-                          {version.provider} / {version.model}
-                        </span>
-                        {version.id !== r.active_transcription_id && (
-                          <Badge variant="outline">{tr("独立版本")}</Badge>
-                        )}
-                      </div>
-                    )}
-                    {version ? (
-                      <>
-                        <p className="truncate text-xs text-muted-foreground" title={version.id}>
-                          {tr("版本：")}
-                          {version.provider} / {version.model}
-                        </p>
-                        <p className="text-sm">{date(version.created_at)}</p>
-                        {version.id === r.active_transcription_id ? (
-                          <Badge variant="secondary" className="w-fit">
-                            {tr("当前激活版本")}
-                          </Badge>
-                        ) : (
-                          <Button
-                            loading={action.pendingKey === "activate"}
-                            variant="outline"
-                            size="sm"
-                            disabled={
-                              version.state !== "succeeded" ||
-                              version.id === r.active_transcription_id ||
-                              action.busy ||
-                              blocked
-                            }
-                            onClick={() =>
-                              void action.run(
-                                async () => {
-                                  await write(`/transcriptions/${version.id}/activate`, "POST", {
-                                    revision: version.revision,
-                                  });
-                                  recording.refresh();
-                                },
-                                tr("已设为激活版本"),
-                                "activate",
-                              )
-                            }
+                <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
+                  {tr("版本与导出")}
+                </CollapsibleTrigger>
+                <CollapsibleContent keepMounted>
+                  <Card>
+                    <CardContent className="flex flex-col gap-3">
+                      <FieldGroup>
+                        <Field>
+                          <FieldLabel htmlFor="version">{tr("转写版本")}</FieldLabel>
+                          <NativeSelect
+                            id="version"
+                            value={selected || ""}
+                            onChange={(e) => {
+                              if (e.target.value)
+                                navigate(`/recordings/${r.id}/transcriptions/${e.target.value}`);
+                            }}
                           >
-                            {tr("设为激活版本")}{" "}
-                          </Button>
-                        )}
-                        <Separator />
-                        <p className="text-sm font-medium">{tr("下载转写")}</p>
-                        <div className="flex flex-wrap gap-2">
-                          {["txt", "srt", "json"].map((format) => (
+                            <NativeSelectOption value="">{tr("尚无激活版本")}</NativeSelectOption>
+                            {selected && !versions.data?.items.some((t) => t.id === selected) && (
+                              <NativeSelectOption value={selected}>
+                                {tr("指定版本")} {selected}
+                              </NativeSelectOption>
+                            )}
+                            {versions.data?.items.map((t) => (
+                              <NativeSelectOption key={t.id} value={t.id}>
+                                {date(t.created_at)} · {t.provider}/{t.model} ·{" "}
+                                {t.id === r.active_transcription_id ? tr("当前激活") : t.state}
+                              </NativeSelectOption>
+                            ))}
+                          </NativeSelect>
+                        </Field>
+                      </FieldGroup>
+                      <Button
+                        size="sm"
+                        disabled={blocked || r.state !== "ready" || session.restore_mode}
+                        onClick={openNewTranscription}
+                      >
+                        <Plus data-icon="inline-start" />
+                        {tr("新建转写")}{" "}
+                      </Button>
+                      {version && (
+                        <div className="version-meta">
+                          <Status value={version.state} />
+                          <span>
+                            {version.provider} / {version.model}
+                          </span>
+                          {version.id !== r.active_transcription_id && (
+                            <Badge variant="outline">{tr("独立版本")}</Badge>
+                          )}
+                        </div>
+                      )}
+                      {version ? (
+                        <>
+                          <p className="truncate text-xs text-muted-foreground" title={version.id}>
+                            {tr("版本：")}
+                            {version.provider} / {version.model}
+                          </p>
+                          <p className="text-sm">{date(version.created_at)}</p>
+                          {version.id === r.active_transcription_id ? (
+                            <Badge variant="secondary" className="w-fit">
+                              {tr("当前激活版本")}
+                            </Badge>
+                          ) : (
                             <Button
-                              loading={action.pendingKey === `export-${format}`}
+                              aria-busy={action.pendingKey === "activate"}
                               variant="outline"
                               size="sm"
-                              key={format}
                               disabled={
                                 version.state !== "succeeded" ||
+                                version.id === r.active_transcription_id ||
                                 action.busy ||
                                 blocked ||
-                                (format === "srt" &&
-                                  !!segments?.items.some(
-                                    (s) => s.start_ms === null || s.end_ms === null,
-                                  ))
+                                action.pendingKey === "activate"
                               }
                               onClick={() =>
                                 void action.run(
-                                  () => downloadExport(version.id, format),
-                                  undefined,
-                                  `export-${format}`,
+                                  async () => {
+                                    await write(`/transcriptions/${version.id}/activate`, "POST", {
+                                      revision: version.revision,
+                                    });
+                                    recording.refresh();
+                                  },
+                                  tr("已设为激活版本"),
+                                  "activate",
                                 )
                               }
                             >
-                              {format.toUpperCase()}
+                              {action.pendingKey === "activate" && (
+                                <Spinner data-icon="inline-start" aria-hidden="true" />
+                              )}
+                              {tr("设为激活版本")}{" "}
                             </Button>
-                          ))}
-                        </div>
-                        {segments?.items.some(
-                          (segment) => segment.start_ms === null || segment.end_ms === null,
-                        ) && (
-                          <p className="text-xs text-muted-foreground">
-                            {tr("含无时间片段，暂不支持 SRT。")}
-                          </p>
-                        )}
-                        {!["succeeded", "cancelled", "failed"].includes(version.state) && (
-                          <Button
-                            variant="outline"
-                            disabled={action.busy || blocked}
-                            onClick={() => setCancelOpen(true)}
-                          >
-                            {tr("取消当前转写")}{" "}
-                          </Button>
-                        )}
-                      </>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        {tr("选择一个转写版本后，可激活或导出。")}
-                      </p>
-                    )}
-                  </CardContent>
-                  <CardFooter>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      nativeButton={false}
-                      render={<Link to={`/jobs?recording_id=${r.id}`} />}
-                    >
-                      {tr("查看处理任务")}{" "}
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </details>
-              {readingReady && (
-                <details className="recording-tools">
-                  <summary>{tr("说话人与人物")}</summary>
-                  <Card>
-                    <CardContent className="flex flex-col gap-3">
-                      {version?.speaker_labels.length ? (
-                        version.speaker_labels.map((label) => (
-                          <div className="flex items-center gap-2 text-sm" key={label.id}>
-                            <span>{label.display_name}</span>
-                            {label.identity_source === "automatic" && (
-                              <Badge variant="outline">{tr("自动关联")}</Badge>
-                            )}
-                            <span className="ml-auto text-muted-foreground">
-                              {label.person_id
-                                ? labelName(label, people.data?.items || [])
-                                : tr("未关联")}
-                            </span>
+                          )}
+                          <Separator />
+                          <p className="text-sm font-medium">{tr("下载转写")}</p>
+                          <div className="flex flex-wrap gap-2">
+                            {["txt", "srt", "json"].map((format) => (
+                              <Button
+                                aria-busy={action.pendingKey === `export-${format}`}
+                                variant="outline"
+                                size="sm"
+                                key={format}
+                                disabled={
+                                  version.state !== "succeeded" ||
+                                  action.busy ||
+                                  blocked ||
+                                  (format === "srt" &&
+                                    !!segments?.items.some(
+                                      (s) => s.start_ms === null || s.end_ms === null,
+                                    )) ||
+                                  action.pendingKey === `export-${format}`
+                                }
+                                onClick={() =>
+                                  void action.run(
+                                    () => downloadExport(version.id, format),
+                                    undefined,
+                                    `export-${format}`,
+                                  )
+                                }
+                              >
+                                {action.pendingKey === `export-${format}` && (
+                                  <Spinner data-icon="inline-start" aria-hidden="true" />
+                                )}
+                                {format.toUpperCase()}
+                              </Button>
+                            ))}
                           </div>
-                        ))
+                          {segments?.items.some(
+                            (segment) => segment.start_ms === null || segment.end_ms === null,
+                          ) && (
+                            <p className="text-xs text-muted-foreground">
+                              {tr("含无时间片段，暂不支持 SRT。")}
+                            </p>
+                          )}
+                          {!["succeeded", "cancelled", "failed"].includes(version.state) && (
+                            <Button
+                              variant="outline"
+                              disabled={action.busy || blocked}
+                              onClick={() => setCancelOpen(true)}
+                            >
+                              {tr("取消当前转写")}{" "}
+                            </Button>
+                          )}
+                        </>
                       ) : (
                         <p className="text-sm text-muted-foreground">
-                          {tr("尚无说话人标签。即使模型未区分说话人，也能创建人工标签。")}{" "}
+                          {tr("选择一个转写版本后，可激活或导出。")}
                         </p>
                       )}
-                      <Field orientation="horizontal" className="mt-3">
-                        <FieldLabel htmlFor="show-builtin">
-                          {tr("显示背景声等内置人物片段")}
-                        </FieldLabel>
-                        <Switch
-                          id="show-builtin"
-                          checked={showBuiltin || !!anchor}
-                          disabled={!!anchor}
-                          onCheckedChange={(checked) => {
-                            setShowBuiltin(checked);
-                          }}
-                        />
-                      </Field>
                     </CardContent>
                     <CardFooter>
                       <Button
-                        variant="outline"
-                        className="w-full"
-                        disabled={!version || blocked}
-                        onClick={() => setLabelsOpen(true)}
+                        variant="link"
+                        size="sm"
+                        nativeButton={false}
+                        render={<Link to={`/jobs?recording_id=${r.id}`} />}
                       >
-                        {tr("管理标签与关联")}{" "}
+                        {tr("查看处理任务")}{" "}
                       </Button>
                     </CardFooter>
                   </Card>
-                </details>
+                </CollapsibleContent>
+              </Collapsible>
+              {readingReady && (
+                <Collapsible className="recording-tools">
+                  <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
+                    {tr("说话人与人物")}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent keepMounted>
+                    <Card>
+                      <CardContent className="flex flex-col gap-3">
+                        {version?.speaker_labels.length ? (
+                          version.speaker_labels.map((label) => (
+                            <div className="flex items-center gap-2 text-sm" key={label.id}>
+                              <span>{label.display_name}</span>
+                              {label.identity_source === "automatic" && (
+                                <Badge variant="outline">{tr("自动关联")}</Badge>
+                              )}
+                              <span className="ml-auto text-muted-foreground">
+                                {label.person_id
+                                  ? labelName(label, people.data?.items || [])
+                                  : tr("未关联")}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            {tr("尚无说话人标签。即使模型未区分说话人，也能创建人工标签。")}{" "}
+                          </p>
+                        )}
+                        <Field orientation="horizontal" className="mt-3">
+                          <FieldLabel htmlFor="show-builtin">
+                            {tr("显示背景声等内置人物片段")}
+                          </FieldLabel>
+                          <Switch
+                            id="show-builtin"
+                            checked={showBuiltin || !!anchor}
+                            disabled={!!anchor}
+                            onCheckedChange={(checked) => {
+                              setShowBuiltin(checked);
+                            }}
+                          />
+                        </Field>
+                      </CardContent>
+                      <CardFooter>
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          disabled={!version || blocked}
+                          onClick={() => setLabelsOpen(true)}
+                        >
+                          {tr("管理标签与关联")}{" "}
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  </CollapsibleContent>
+                </Collapsible>
               )}
             </TabsContent>
           </Tabs>
@@ -1542,14 +1588,15 @@ export function DetailPage() {
             </Alert>
           )}
           <Button
-            loading={action.pendingKey === "transcribe"}
+            aria-busy={action.pendingKey === "transcribe"}
             disabled={
               action.busy ||
               session.restore_mode ||
               r.state !== "ready" ||
               !!createError ||
               jobs.loading ||
-              !!jobs.error
+              !!jobs.error ||
+              action.pendingKey === "transcribe"
             }
             onClick={() =>
               void action.run(
@@ -1577,6 +1624,9 @@ export function DetailPage() {
               )
             }
           >
+            {action.pendingKey === "transcribe" && (
+              <Spinner data-icon="inline-start" aria-hidden="true" />
+            )}
             {tr("开始转写")}{" "}
           </Button>
         </FieldGroup>
@@ -1595,9 +1645,9 @@ export function DetailPage() {
             {tr("保留录音")}{" "}
           </Button>
           <Button
-            loading={action.pendingKey === "delete"}
+            aria-busy={action.pendingKey === "delete"}
             variant="destructive"
-            disabled={action.busy}
+            disabled={action.busy || action.pendingKey === "delete"}
             onClick={() =>
               void action.run(
                 async () => {
@@ -1610,6 +1660,9 @@ export function DetailPage() {
               )
             }
           >
+            {action.pendingKey === "delete" && (
+              <Spinner data-icon="inline-start" aria-hidden="true" />
+            )}
             {tr("确认删除")}{" "}
           </Button>
         </div>
@@ -1628,8 +1681,8 @@ export function DetailPage() {
             {tr("返回")}{" "}
           </Button>
           <Button
-            loading={action.pendingKey === "cancel"}
-            disabled={action.busy}
+            aria-busy={action.pendingKey === "cancel"}
+            disabled={action.busy || action.pendingKey === "cancel"}
             onClick={() =>
               version &&
               void action.run(
@@ -1643,6 +1696,9 @@ export function DetailPage() {
               )
             }
           >
+            {action.pendingKey === "cancel" && (
+              <Spinner data-icon="inline-start" aria-hidden="true" />
+            )}
             {tr("确认取消")}{" "}
           </Button>
         </div>
@@ -1678,9 +1734,11 @@ export function DetailPage() {
           <FieldDescription>{tr("Windows / Linux 按 Ctrl+C，macOS 按 ⌘C。")}</FieldDescription>
           <Button
             variant="outline"
-            loading={copyPending === "manual"}
+            aria-busy={copyPending === "manual"}
+            disabled={copyPending === "manual"}
             onClick={() => void retryManualCopy()}
           >
+            {copyPending === "manual" && <Spinner data-icon="inline-start" aria-hidden="true" />}
             {tr("再次复制")}
           </Button>
         </FieldGroup>

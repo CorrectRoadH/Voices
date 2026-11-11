@@ -1,6 +1,8 @@
 // @concord-file
 // @concord-implements docs/feature/call-logs/README.md
 // @concord-implements docs/feature/call-logs/use-case/inspect-calls.md
+import { Card } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Copy, RefreshCw } from "lucide-react";
@@ -189,10 +191,11 @@ export function CallLogs({ admin = false }: { admin?: boolean }) {
       >
         <Button
           variant="outline"
-          loading={pending === "refresh"}
-          disabled={loading}
+          aria-busy={pending === "refresh"}
+          disabled={loading || pending === "refresh"}
           onClick={() => setRevision((n) => n + 1)}
         >
+          {pending === "refresh" && <Spinner data-icon="inline-start" aria-hidden="true" />}
           <RefreshCw data-icon="inline-start" />
           {tr("刷新")}
         </Button>
@@ -295,7 +298,7 @@ export function CallLogs({ admin = false }: { admin?: boolean }) {
               {tr("已加载")} {items.length} {tr("次")}
             </p>
           </div>
-          <div className="divide-y overflow-hidden rounded-xl border bg-card">
+          <Card>
             {items.map((call) => (
               <CallRow
                 key={call.id}
@@ -304,17 +307,18 @@ export function CallLogs({ admin = false }: { admin?: boolean }) {
                 name={names[call.recording_id || ""]}
               />
             ))}
-          </div>
+          </Card>
         </section>
       )}
       {cursor && (
         <Button
           className="mt-4"
           variant="outline"
-          loading={pending === "page"}
-          disabled={loading}
+          aria-busy={pending === "page"}
+          disabled={loading || pending === "page"}
           onClick={() => void load(true)}
         >
+          {pending === "page" && <Spinner data-icon="inline-start" aria-hidden="true" />}
           {tr(pending === "page" ? "加载中…" : "加载更多")}
         </Button>
       )}
@@ -368,12 +372,14 @@ function CallRow({ call, admin, name }: { call: Call; admin: boolean; name?: str
             </Badge>
           </div>
           {call.can_open_recording && call.recording_id && (
-            <Link
-              className="w-fit max-w-full break-words text-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-ring"
-              to={`/recordings/${call.recording_id}`}
+            <Button
+              variant="link"
+              nativeButton={false}
+              className="h-auto w-fit max-w-full whitespace-normal"
+              render={<Link to={`/recordings/${call.recording_id}`} />}
             >
               {name || tr("查看录音")}
-            </Link>
+            </Button>
           )}
         </div>
         <time
@@ -440,7 +446,8 @@ function CallRow({ call, admin, name }: { call: Call; admin: boolean; name?: str
                   size="icon-sm"
                   variant="ghost"
                   aria-label={`${tr("复制")} ${tr(label)}`}
-                  loading={action.pendingKey === key}
+                  aria-busy={action.pendingKey === key}
+                  disabled={action.pendingKey === key}
                   onClick={() =>
                     void action.run(
                       async () => {
@@ -452,6 +459,9 @@ function CallRow({ call, admin, name }: { call: Call; admin: boolean; name?: str
                     )
                   }
                 >
+                  {action.pendingKey === key && (
+                    <Spinner data-icon="inline-start" aria-hidden="true" />
+                  )}
                   <Copy />
                 </Button>
               </dd>

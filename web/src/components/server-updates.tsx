@@ -1,5 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/updates/use-case/check-updates.md
+import { Spinner } from "@/components/ui/spinner";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { tr, interfaceLocale } from "@/lib/i18n";
 import { RefreshCw, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -91,12 +93,16 @@ export function ServerUpdates() {
               </a>
             )}
             {data.release_notes && (
-              <details>
-                <summary className="cursor-pointer">{tr("版本更新日志")}</summary>
-                <p className="mt-3 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-                  {data.release_notes}
-                </p>
-              </details>
+              <Collapsible>
+                <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
+                  {tr("版本更新日志")}
+                </CollapsibleTrigger>
+                <CollapsibleContent keepMounted>
+                  <p className="mt-3 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                    {data.release_notes}
+                  </p>
+                </CollapsibleContent>
+              </Collapsible>
             )}
             {data.announcements.map((item) => (
               <article key={item.id} className="flex min-w-0 flex-col gap-2">
@@ -126,16 +132,23 @@ export function ServerUpdates() {
       </CardContent>
       <CardFooter className="flex flex-wrap gap-3">
         <Button
-          loading={action.busy}
+          aria-busy={action.busy}
           type="button"
           variant="outline"
-          disabled={!data || data.status === "disabled" || action.busy || session.restore_mode}
+          disabled={
+            !data ||
+            data.status === "disabled" ||
+            action.busy ||
+            session.restore_mode ||
+            action.busy
+          }
           onClick={() =>
             void action.run(async () => {
               resource.setData(await write<Status>("/admin/updates", "POST", {}));
             })
           }
         >
+          {action.busy && <Spinner data-icon="inline-start" aria-hidden="true" />}
           <RefreshCw data-icon="inline-start" />
           {action.busy ? tr("正在检查…") : tr("检查更新")}
         </Button>

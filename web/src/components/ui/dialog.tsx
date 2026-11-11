@@ -1,3 +1,5 @@
+"use client";
+
 import { tr } from "@/lib/i18n";
 import * as React from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
@@ -94,7 +96,9 @@ function DialogFooter({
     >
       {children}
       {showCloseButton && (
-        <DialogPrimitive.Close render={<Button variant="outline" />}>Close</DialogPrimitive.Close>
+        <DialogPrimitive.Close render={<Button variant="outline" />}>
+          {tr("关闭")}
+        </DialogPrimitive.Close>
       )}
     </div>
   );

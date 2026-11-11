@@ -163,9 +163,9 @@ test(
     await recordingInfo.click();
     await expect(recordingInfo).toHaveAttribute("aria-expanded", "true");
     await expect(browser.locator("#recording-info")).toBeVisible();
-    await expect(browser.locator("#recording-metadata summary")).toHaveText(
-      "Recording information",
-    );
+    await expect(
+      browser.locator('#recording-metadata [data-slot="collapsible-trigger"]'),
+    ).toHaveText("Recording information");
     await browser.setViewport({ width: 390, height: 844 });
     await app.screenshot("英文手机界面");
     expect(await browser.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(

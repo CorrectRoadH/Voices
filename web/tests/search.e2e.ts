@@ -14,14 +14,14 @@ test("跨页正文搜索与桌面手机句子定位", async ({ app, agent, brows
   await browser.goto(url);
   await expect(screen.getByRole("combobox", { name: "搜索转写正文" })).toBeVisible();
   await expect(browser.locator(`#segment-${targetId}`)).toHaveCount(0);
-  const initialCount = await browser.locator(".segments > article").count();
+  const initialCount = await browser.locator(".segments > .segment").count();
   await browser.evaluate(() => {
     const panel = document.querySelector(".transcript-card")!;
     panel.scrollTop = panel.scrollHeight;
     return true;
   });
   await expect
-    .poll(() => browser.locator(".segments > article").count())
+    .poll(() => browser.locator(".segments > .segment").count())
     .toBeGreaterThan(initialCount);
   await browser.evaluate(() => {
     const probe = { requests: [] as string[], audio: document.querySelector("audio") };
@@ -175,17 +175,17 @@ test("跨页正文搜索与桌面手机句子定位", async ({ app, agent, brows
   const checkPrepend = async () => {
     const before = await browser.evaluate(() => {
       const panel = document.querySelector(".transcript-card")!;
-      const first = panel.querySelector<HTMLElement>(".segments > article")!;
+      const first = panel.querySelector<HTMLElement>(".segments > .segment")!;
       if (getComputedStyle(panel).overflowY === "auto") panel.scrollTop = 0;
       else first.scrollIntoView();
       return {
         id: first.id,
         top: first.getBoundingClientRect().top,
-        count: panel.querySelectorAll(".segments > article").length,
+        count: panel.querySelectorAll(".segments > .segment").length,
       };
     });
     await expect
-      .poll(() => browser.locator(".segments > article").count())
+      .poll(() => browser.locator(".segments > .segment").count())
       .toBeGreaterThan(before.count);
     await expect
       .poll(() =>

@@ -1,6 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/stt-pricing/README.md
 // @concord-implements docs/feature/stt-pricing/use-case/manage-estimates.md
+import { Spinner } from "@/components/ui/spinner";
 import { useRef, useState, type FormEvent } from "react";
 import { tr, interfaceLocale } from "@/lib/i18n";
 import { query, write } from "@/lib/api";
@@ -194,12 +195,16 @@ export function AdminSTTCallsPage() {
           <Button
             type="button"
             variant="outline"
-            loading={calls.updating || summary.refreshing}
+            aria-busy={calls.updating || summary.refreshing}
+            disabled={calls.updating || summary.refreshing}
             onClick={() => {
               calls.refresh();
               summary.refresh();
             }}
           >
+            {(calls.updating || summary.refreshing) && (
+              <Spinner data-icon="inline-start" aria-hidden="true" />
+            )}
             {tr("刷新")}
           </Button>
         </div>
@@ -279,10 +284,13 @@ export function AdminSTTCallsPage() {
       {calls.nextCursor && (
         <Button
           variant="outline"
-          loading={calls.loading && !calls.updating}
-          disabled={calls.updating}
+          aria-busy={calls.loading && !calls.updating}
+          disabled={calls.updating || (calls.loading && !calls.updating)}
           onClick={calls.loadMore}
         >
+          {calls.loading && !calls.updating && (
+            <Spinner data-icon="inline-start" aria-hidden="true" />
+          )}
           {tr("加载更多")}
         </Button>
       )}
@@ -387,7 +395,8 @@ export function AdminSTTPricesPage() {
               />
             </FieldGroup>
             <ErrorBox message={action.error || providers.error} />
-            <Button type="submit" loading={action.busy} disabled={!models.length}>
+            <Button type="submit" aria-busy={action.busy} disabled={!models.length || action.busy}>
+              {action.busy && <Spinner data-icon="inline-start" aria-hidden="true" />}
               {tr("保存新价格版本")}
             </Button>
           </form>
@@ -409,7 +418,13 @@ export function AdminSTTPricesPage() {
         <Button variant="outline" onClick={() => setHistory((v) => !v)}>
           {tr(history ? "查看最新价格" : "查看历史版本")}
         </Button>
-        <Button variant="outline" loading={prices.updating} onClick={prices.refresh}>
+        <Button
+          variant="outline"
+          aria-busy={prices.updating}
+          disabled={prices.updating}
+          onClick={prices.refresh}
+        >
+          {prices.updating && <Spinner data-icon="inline-start" aria-hidden="true" />}
           {tr("刷新")}
         </Button>
       </div>
@@ -450,10 +465,13 @@ export function AdminSTTPricesPage() {
       {prices.nextCursor && (
         <Button
           variant="outline"
-          loading={prices.loading && !prices.updating}
-          disabled={prices.updating}
+          aria-busy={prices.loading && !prices.updating}
+          disabled={prices.updating || (prices.loading && !prices.updating)}
           onClick={prices.loadMore}
         >
+          {prices.loading && !prices.updating && (
+            <Spinner data-icon="inline-start" aria-hidden="true" />
+          )}
           {tr("加载更多")}
         </Button>
       )}

@@ -10,5 +10,5 @@
   document.documentElement.dataset.theme = theme;
   document.documentElement.classList.toggle("dark", dark);
   document.documentElement.style.colorScheme = dark ? "dark" : "light";
-  document.querySelector('meta[name="theme-color"]').content = dark ? "#161616" : "#fafafa";
+  document.querySelector('meta[name="theme-color"]').content = dark ? "#0a0a0a" : "#ffffff";
 })();

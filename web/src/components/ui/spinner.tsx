@@ -1,13 +1,17 @@
-import { LoaderCircle } from "lucide-react";
+import { tr } from "@/lib/i18n";
 import { cn } from "cn";
+import { Loader2Icon } from "lucide-react";
 
-export function Spinner({ className, ...props }: React.ComponentProps<typeof LoaderCircle>) {
+function Spinner({ className, ...props }: React.ComponentProps<"svg">) {
   return (
-    <LoaderCircle
+    <Loader2Icon
       data-slot="spinner"
-      aria-hidden="true"
-      className={cn("size-4 shrink-0 motion-safe:animate-spin", className)}
+      role="status"
+      aria-label={tr("正在加载")}
+      className={cn("size-4 animate-spin", className)}
       {...props}
     />
   );
 }
+
+export { Spinner };

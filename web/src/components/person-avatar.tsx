@@ -16,7 +16,6 @@ export function PersonAvatar({
   person?: Person;
   preview?: string | null;
 }) {
-  const tone = Array.from(id).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) >>> 0, 0) % 6;
   const src =
     preview === undefined
       ? person?.has_avatar
@@ -24,7 +23,7 @@ export function PersonAvatar({
         : undefined
       : preview || undefined;
   return (
-    <Avatar className={`person-photo person-photo-${tone}`}>
+    <Avatar className="person-photo">
       {src && <AvatarImage src={src} alt="" />}
       <AvatarFallback>
         {Array.from(builtinPersonName(person?.builtin_key, name).trim())[0] || "?"}

@@ -37,7 +37,7 @@ export function Status({ value }: { value: string }) {
         "submitting",
         "polling",
         "normalizing",
-      ].includes(value) && <Spinner data-icon="inline-start" />}
+      ].includes(value) && <Spinner data-icon="inline-start" aria-hidden="true" />}
       {value === "ready" || value === "succeeded" ? (
         <CheckCircle2 data-icon="inline-start" />
       ) : null}
@@ -75,7 +75,7 @@ export function Loading({
   return (
     <div className="flex flex-col gap-4" role="status" aria-live="polite" aria-label={title}>
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Spinner />
+        <Spinner aria-hidden="true" />
         <span>{title}</span>
       </div>
       {description && <p className="text-sm text-muted-foreground">{description}</p>}
@@ -121,9 +121,9 @@ export function PageHeading({
   children?: ReactNode;
 }) {
   return (
-    <header className="page-heading">
+    <header className="page-heading mb-6 flex flex-wrap items-center justify-between gap-4">
       <div>
-        <h1>{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         {description && <p className="text-muted-foreground">{description}</p>}
       </div>
       <div className="flex flex-wrap items-center gap-2">{children}</div>
@@ -166,7 +166,13 @@ export function More({
 }) {
   return cursor ? (
     <div className="flex justify-center py-4">
-      <Button variant="outline" loading={loading} onClick={() => onLoad(cursor)}>
+      <Button
+        variant="outline"
+        aria-busy={loading}
+        disabled={loading}
+        onClick={() => onLoad(cursor)}
+      >
+        {loading && <Spinner data-icon="inline-start" aria-hidden="true" />}
         {tr("加载更多")}{" "}
       </Button>
     </div>

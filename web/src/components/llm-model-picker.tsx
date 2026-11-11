@@ -1,11 +1,18 @@
 // @concord-file
 // @concord-implements docs/feature/accounts/use-case/manage-server.md
+import { Spinner } from "@/components/ui/spinner";
 import { tr } from "@/lib/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
-import { Autocomplete } from "@base-ui/react/autocomplete";
+import {
+  Combobox,
+  ComboboxInput,
+  ComboboxContent,
+  ComboboxList,
+  ComboboxItem,
+} from "@/components/ui/combobox";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { ErrorBox } from "@/components/shared";
 import { errorMessage, request } from "@/lib/api";
@@ -73,48 +80,47 @@ export function LLMModelPicker({
     <>
       <Field>
         <FieldLabel htmlFor="llm-model">{tr("模型名称")}</FieldLabel>
-        <Autocomplete.Root
+        <Combobox
           items={models}
-          value={value}
-          onValueChange={onChange}
-          mode="none"
+          inputValue={value}
+          onInputValueChange={(input, details) => {
+            if (details.reason === "input-change") onChange(input);
+          }}
+          value={null}
+          onValueChange={(model) => {
+            if (model) onChange(model);
+          }}
+          filter={null}
           openOnInputClick
           disabled={disabled}
         >
-          <Autocomplete.Input
+          <ComboboxInput
             id="llm-model"
             maxLength={200}
             placeholder={tr("选择或填写模型 ID")}
-            render={<Input />}
+            showTrigger={false}
           />
           {!!models.length && (
-            <Autocomplete.Portal>
-              <Autocomplete.Positioner sideOffset={4} className="outline-none">
-                <Autocomplete.Popup className="w-[var(--anchor-width)] max-w-[var(--available-width)] rounded-lg border bg-popover text-popover-foreground shadow-md">
-                  <Autocomplete.List className="max-h-[min(18rem,var(--available-height))] overflow-y-auto p-1">
-                    {(model: string) => (
-                      <Autocomplete.Item
-                        key={model}
-                        value={model}
-                        className="cursor-default rounded-md px-3 py-2 text-sm break-all outline-none select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground"
-                      >
-                        {model}
-                      </Autocomplete.Item>
-                    )}
-                  </Autocomplete.List>
-                </Autocomplete.Popup>
-              </Autocomplete.Positioner>
-            </Autocomplete.Portal>
+            <ComboboxContent>
+              <ComboboxList>
+                {(model: string) => (
+                  <ComboboxItem key={model} value={model} className="break-all">
+                    {model}
+                  </ComboboxItem>
+                )}
+              </ComboboxList>
+            </ComboboxContent>
           )}
-        </Autocomplete.Root>
+        </Combobox>
         <div className="flex flex-wrap items-center gap-2">
           <Button
-            loading={busy}
+            aria-busy={busy}
             type="button"
             variant="outline"
             disabled={disabled || fetchDisabled || busy || !baseURL.trim()}
             onClick={() => void fetchModels()}
           >
+            {busy && <Spinner data-icon="inline-start" aria-hidden="true" />}
             <RefreshCw data-icon="inline-start" />
             {busy ? tr("正在获取模型…") : tr("获取 LLM 模型")}
           </Button>

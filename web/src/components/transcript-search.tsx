@@ -1,7 +1,13 @@
 // @concord-file
 // @concord-implements docs/feature/transcription/use-case/search-transcript.md
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Autocomplete } from "@base-ui/react/autocomplete";
+import {
+  Combobox,
+  ComboboxInput,
+  ComboboxContent,
+  ComboboxList,
+  ComboboxItem,
+} from "@/components/ui/combobox";
 import { ArrowDown, ArrowUp, X } from "lucide-react";
 import { tr } from "@/lib/i18n";
 import { segmentSpeakerName } from "@/lib/person-name";
@@ -10,7 +16,7 @@ import type { Segment } from "@/lib/types";
 import type { TranscriptStore } from "@/lib/transcript-store";
 import { useTranscriptSearch } from "@/lib/use-transcript-search";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
+
 import { Field, FieldLabel } from "./ui/field";
 import { ErrorBox } from "./shared";
 import { HighlightedText } from "./highlighted-text";
@@ -79,12 +85,16 @@ export function TranscriptSearch({
           <FieldLabel className="sr-only" htmlFor="transcript-search">
             {tr("搜索转写正文")}
           </FieldLabel>
-          <Autocomplete.Root
+          <Combobox
             items={items}
-            mode="none"
-            value={draft}
-            onValueChange={(value, details) => {
-              if (details.reason === "item-press") return;
+            filter={null}
+            value={null}
+            onValueChange={(segment) => {
+              if (segment) choose(segment.id);
+            }}
+            inputValue={draft}
+            onInputValueChange={(value, details) => {
+              if (details.reason !== "input-change") return;
               setDraft(value);
               setLimit(30);
             }}
@@ -92,15 +102,15 @@ export function TranscriptSearch({
             onOpenChange={setOpen}
             openOnInputClick
             onItemHighlighted={setHighlighted}
-            itemToStringValue={(item: Segment) => item.text}
+            itemToStringLabel={(item: Segment) => item.text}
           >
-            <Autocomplete.Input
+            <ComboboxInput
               ref={inputRef}
               id="transcript-search"
               aria-label={tr("搜索转写正文")}
               type="search"
               placeholder={tr("搜索转写正文…")}
-              render={<Input />}
+              showTrigger={false}
               onCompositionStart={() => setComposing(true)}
               onCompositionEnd={() => setComposing(false)}
               onKeyDown={(event) => {
@@ -121,49 +131,44 @@ export function TranscriptSearch({
               }}
             />
             {!!draft.trim() && search.count > 0 && (
-              <Autocomplete.Portal>
-                <Autocomplete.Positioner sideOffset={4} className="outline-none">
-                  <Autocomplete.Popup className="w-[var(--anchor-width)] max-w-[var(--available-width)] rounded-lg border bg-popover text-popover-foreground shadow-md">
-                    {stale && (
-                      <span role="status" className="block px-3 py-2 text-xs text-muted-foreground">
-                        {tr("正在搜索…")}
+              <ComboboxContent>
+                {stale && (
+                  <span role="status" className="block px-3 py-2 text-xs text-muted-foreground">
+                    {tr("正在搜索…")}
+                  </span>
+                )}
+                <ComboboxList className="max-h-[min(20rem,var(--available-height))] overflow-y-auto p-1">
+                  {(segment: Segment) => (
+                    <ComboboxItem
+                      key={segment.id}
+                      value={segment}
+                      disabled={stale}
+                      className="flex-col items-start gap-1"
+                    >
+                      <span className="text-xs text-muted-foreground">
+                        {duration(segment.start_ms)} · {segmentSpeakerName(segment)}
                       </span>
-                    )}
-                    <Autocomplete.List className="max-h-[min(20rem,var(--available-height))] overflow-y-auto p-1">
-                      {(segment: Segment) => (
-                        <Autocomplete.Item
-                          key={segment.id}
-                          value={segment}
-                          disabled={stale}
-                          onClick={() => choose(segment.id)}
-                          className="flex cursor-default flex-col gap-1 rounded-md px-3 py-2 text-sm break-words outline-none select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground"
-                        >
-                          <span className="text-xs text-muted-foreground">
-                            {duration(segment.start_ms)} · {segmentSpeakerName(segment)}
-                          </span>
-                          <span>
-                            <HighlightedText text={excerpt(segment.text, query)} query={query} />
-                          </span>
-                        </Autocomplete.Item>
-                      )}
-                    </Autocomplete.List>
-                    {search.count > limit && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setLimit((value) => value + 30);
-                          inputRef.current?.focus();
-                        }}
-                      >
-                        {tr("显示更多结果")}
-                      </Button>
-                    )}
-                  </Autocomplete.Popup>
-                </Autocomplete.Positioner>
-              </Autocomplete.Portal>
+                      <span>
+                        <HighlightedText text={excerpt(segment.text, query)} query={query} />
+                      </span>
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+                {search.count > limit && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setLimit((value) => value + 30);
+                      inputRef.current?.focus();
+                    }}
+                  >
+                    {tr("显示更多结果")}
+                  </Button>
+                )}
+              </ComboboxContent>
             )}
-          </Autocomplete.Root>
+          </Combobox>
         </Field>
         {(draft || search.status !== "idle") && (
           <>

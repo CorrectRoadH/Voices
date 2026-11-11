@@ -74,12 +74,13 @@ export function InsightOutline({
     return <Loading title={insight.state === "queued" ? tr("等待生成…") : generatingTitle} />;
   const generate = (
     <Button
-      loading={busy || pending}
+      aria-busy={busy || pending}
       size="sm"
       variant={succeeded ? "outline" : "default"}
       disabled={disabled || busy || pending || !data?.configured || !!error}
       onClick={onGenerate}
     >
+      {(busy || pending) && <Spinner data-icon="inline-start" aria-hidden="true" />}
       {busy
         ? tr("提交中…")
         : pending

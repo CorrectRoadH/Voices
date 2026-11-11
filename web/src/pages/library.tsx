@@ -1,5 +1,24 @@
 // @concord-file
 // @concord-implements docs/feature/recording-library/README.md
+import {
+  Item,
+  ItemGroup,
+  ItemMedia,
+  ItemContent,
+  ItemTitle,
+  ItemDescription,
+  ItemActions,
+} from "@/components/ui/item";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyContent,
+} from "@/components/ui/empty";
+import { Spinner } from "@/components/ui/spinner";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { tr } from "@/lib/i18n";
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -18,44 +37,47 @@ import type { Recording, Person, Provider, Settings, Page } from "@/lib/types";
 import { usePagedResource } from "@/lib/use-paged-resource";
 export function RecordingRows({ items }: { items: Recording[] }) {
   return (
-    <div className="recording-list">
+    <ItemGroup className="recording-list">
       {items.map((recording) => (
-        <Link className="recording-row" key={recording.id} to={`/recordings/${recording.id}`}>
-          <div className="recording-icon">
+        <Item
+          className="recording-row"
+          variant="outline"
+          key={recording.id}
+          render={<Link to={`/recordings/${recording.id}`} />}
+        >
+          <ItemMedia variant="icon">
             <AudioLines />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="truncate">{recording.title || recording.original_name}</h3>
-            <p className="truncate text-sm text-muted-foreground">
-              {date(recording.recorded_at)}
-              <span className="row-detail">
-                {" "}
-                ·{" "}
-                {recording.recorded_at_source === "import" ||
-                recording.recorded_at_source === "imported"
-                  ? tr("导入时间")
-                  : tr("录制时间")}
-              </span>
-            </p>
+          </ItemMedia>
+          <ItemContent className="min-w-0">
+            <ItemTitle className="max-w-full">
+              <span className="truncate">{recording.title || recording.original_name}</span>
+            </ItemTitle>
+            <ItemDescription>
+              {date(recording.recorded_at)} ·{" "}
+              {recording.recorded_at_source === "import" ||
+              recording.recorded_at_source === "imported"
+                ? tr("导入时间")
+                : tr("录制时间")}
+            </ItemDescription>
             {!!recording.people?.length && (
-              <p
-                className="truncate text-sm text-muted-foreground"
-                title={recording.people.map((person) => person.display_name).join("、")}
-              >
+              <ItemDescription title={recording.people.map((p) => p.display_name).join("、")}>
                 {tr("人物：")}
-                {recording.people.map((person) => person.display_name).join("、")}
-              </p>
+                {recording.people.map((p) => p.display_name).join("、")}
+              </ItemDescription>
             )}
-          </div>
-          <div className="row-detail text-sm tabular-nums text-muted-foreground">
-            {duration(recording.duration_ms)}
-            <p className="text-xs">{bytes(recording.size_bytes)}</p>
-          </div>
-          <Status value={recording.state} />
-          <ArrowUpRight className="size-4 shrink-0 text-muted-foreground" />
-        </Link>
+          </ItemContent>
+          <ItemContent className="hidden flex-none sm:flex">
+            <ItemDescription>
+              {duration(recording.duration_ms)} · {bytes(recording.size_bytes)}
+            </ItemDescription>
+          </ItemContent>
+          <ItemActions>
+            <Status value={recording.state} />
+            <ArrowUpRight className="size-4" />
+          </ItemActions>
+        </Item>
       ))}
-    </div>
+    </ItemGroup>
   );
 }
 export function LibraryPage() {
@@ -95,13 +117,8 @@ export function LibraryPage() {
           {tr("导入录音")}{" "}
         </Button>
       </PageHeading>
-      <button
-        type="button"
-        className="library-drop"
-        onClick={() => {
-          setFiles(undefined);
-          setOpen(true);
-        }}
+      <Empty
+        className="mb-6 border border-dashed"
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault();
@@ -109,22 +126,40 @@ export function LibraryPage() {
           setOpen(true);
         }}
       >
-        <div className="drop-icon">
-          <UploadCloud />
-        </div>
-        <div>
-          <strong>{tr("拖入音频")}</strong>
-          <p>{tr("或点击选择文件 · 支持批量上传")}</p>
-        </div>
-        <Plus className="ml-auto size-5 text-muted-foreground" />
-      </button>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <UploadCloud />
+          </EmptyMedia>
+          <EmptyTitle>{tr("拖入音频")}</EmptyTitle>
+          <EmptyDescription>{tr("或点击选择文件 · 支持批量上传")}</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setFiles(undefined);
+              setOpen(true);
+            }}
+          >
+            <Plus data-icon="inline-start" />
+            {tr("选择文件")}
+          </Button>
+        </EmptyContent>
+      </Empty>
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <CardTitle>{tr("全部录音")}</CardTitle>
             </div>
-            <Button size="sm" variant="ghost" loading={recordings.updating} onClick={refresh}>
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-busy={recordings.updating}
+              disabled={recordings.updating}
+              onClick={refresh}
+            >
+              {recordings.updating && <Spinner data-icon="inline-start" aria-hidden="true" />}
               {tr("刷新")}{" "}
             </Button>
           </div>
@@ -181,42 +216,44 @@ export function LibraryPage() {
               </NativeSelect>
             </Field>
           </FieldGroup>
-          <details className="date-filters">
-            <summary>
+          <Collapsible className="date-filters">
+            <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
               <CalendarDays className="size-4" />
               {tr("日期范围")}{" "}
-            </summary>
-            <FieldGroup className="form-columns">
-              <Field>
-                <FieldLabel htmlFor="from">{tr("开始日期")}</FieldLabel>
-                <Input
-                  id="from"
-                  type="date"
-                  value={localDateValue(search.get("from"))}
-                  onChange={(e) =>
-                    filter(
-                      "from",
-                      e.target.value ? new Date(`${e.target.value}T00:00:00`).toISOString() : "",
-                    )
-                  }
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="to">{tr("结束日期")}</FieldLabel>
-                <Input
-                  id="to"
-                  type="date"
-                  value={localDateValue(search.get("to"))}
-                  onChange={(e) =>
-                    filter(
-                      "to",
-                      e.target.value ? new Date(`${e.target.value}T23:59:59`).toISOString() : "",
-                    )
-                  }
-                />
-              </Field>
-            </FieldGroup>
-          </details>
+            </CollapsibleTrigger>
+            <CollapsibleContent keepMounted>
+              <FieldGroup className="form-columns">
+                <Field>
+                  <FieldLabel htmlFor="from">{tr("开始日期")}</FieldLabel>
+                  <Input
+                    id="from"
+                    type="date"
+                    value={localDateValue(search.get("from"))}
+                    onChange={(e) =>
+                      filter(
+                        "from",
+                        e.target.value ? new Date(`${e.target.value}T00:00:00`).toISOString() : "",
+                      )
+                    }
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="to">{tr("结束日期")}</FieldLabel>
+                  <Input
+                    id="to"
+                    type="date"
+                    value={localDateValue(search.get("to"))}
+                    onChange={(e) =>
+                      filter(
+                        "to",
+                        e.target.value ? new Date(`${e.target.value}T23:59:59`).toISOString() : "",
+                      )
+                    }
+                  />
+                </Field>
+              </FieldGroup>
+            </CollapsibleContent>
+          </Collapsible>
           {updating && items.length > 0 && <p role="status">{tr("正在更新…")}</p>}
           {recordings.stale && recordings.error && (
             <p role="status">{tr("筛选未更新，显示上次结果。")}</p>

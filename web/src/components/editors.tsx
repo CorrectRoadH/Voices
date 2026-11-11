@@ -2,6 +2,8 @@
 // @concord-implements docs/feature/transcription/use-case/edit-transcript.md
 // @concord-implements docs/feature/recording-library/use-case/edit-recording.md
 // @concord-implements docs/feature/people/use-case/link-person.md
+import { Spinner } from "@/components/ui/spinner";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { personName, labelName } from "@/lib/person-name";
 import { tr, interfaceLocale } from "@/lib/i18n";
 import { InlineEdit } from "./inline-edit";
@@ -168,10 +170,14 @@ export function SegmentEditor({
               {invalid}
             </p>
           )}
-          <details>
-            <summary className="text-sm text-muted-foreground">{tr("查看原文")}</summary>
-            <p className="whitespace-pre-wrap py-2 text-sm">{segment.source_text}</p>
-          </details>
+          <Collapsible>
+            <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
+              {tr("查看原文")}
+            </CollapsibleTrigger>
+            <CollapsibleContent keepMounted>
+              <p className="whitespace-pre-wrap py-2 text-sm">{segment.source_text}</p>
+            </CollapsibleContent>
+          </Collapsible>
           <div className="flex flex-wrap justify-end gap-2">
             <Button
               type="button"
@@ -184,7 +190,8 @@ export function SegmentEditor({
             <Button variant="outline" type="button" disabled={action.busy} onClick={onClose}>
               {tr("取消")}{" "}
             </Button>
-            <Button loading={action.busy} type="submit" disabled={action.busy}>
+            <Button aria-busy={action.busy} type="submit" disabled={action.busy}>
+              {action.busy && <Spinner data-icon="inline-start" aria-hidden="true" />}
               {tr("保存修改")}{" "}
             </Button>
           </div>
@@ -259,7 +266,8 @@ function LabelForm({
             )}
           </NativeSelect>
         </Field>
-        <Button loading={action.busy} variant="outline" type="submit" disabled={action.busy}>
+        <Button aria-busy={action.busy} variant="outline" type="submit" disabled={action.busy}>
+          {action.busy && <Spinner data-icon="inline-start" aria-hidden="true" />}
           {tr("保存标签")}{" "}
         </Button>
       </FieldGroup>
@@ -348,7 +356,8 @@ export function LabelsEditor({
                 ))}
             </NativeSelect>
           </Field>
-          <Button loading={action.busy} disabled={action.busy} type="submit">
+          <Button aria-busy={action.busy} disabled={action.busy} type="submit">
+            {action.busy && <Spinner data-icon="inline-start" aria-hidden="true" />}
             {tr("添加标签")}{" "}
           </Button>
         </FieldGroup>

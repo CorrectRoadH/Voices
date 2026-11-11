@@ -1,5 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/transcription/use-case/transcribe.md
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { tr } from "@/lib/i18n";
 import { useId, useState, useEffect } from "react";
 import { Field, FieldGroup, FieldLabel, FieldDescription } from "./ui/field";
@@ -205,14 +207,16 @@ export function OptionsFields({
   );
   if (!compact) return fields;
   return (
-    <details className="rounded-lg border p-3">
-      <summary className="cursor-pointer text-sm">
+    <Collapsible className="py-3">
+      <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
         {tr("转写选项 ·")} {model?.name || tr("未配置服务商")} ·{" "}
         {value.language_mode === "auto"
           ? tr("自动检测语言")
           : value.languages.join(", ") || tr("指定语言")}
-      </summary>
-      <div className="pt-4">{fields}</div>
-    </details>
+      </CollapsibleTrigger>
+      <CollapsibleContent keepMounted>
+        <div className="pt-4">{fields}</div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }

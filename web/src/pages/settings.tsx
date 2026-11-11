@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/transcription/README.md
+import { Spinner } from "@/components/ui/spinner";
 import { tr } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -65,8 +66,10 @@ export function SettingsPage() {
             </CardContent>
             <CardFooter>
               <Button
-                loading={action.busy}
-                disabled={action.busy || !!invalid || !settings.data || !!providers.error}
+                aria-busy={action.busy}
+                disabled={
+                  action.busy || !!invalid || !settings.data || !!providers.error || action.busy
+                }
                 onClick={() =>
                   void action.run(async () => {
                     await write("/settings", "PATCH", {
@@ -77,6 +80,7 @@ export function SettingsPage() {
                   }, tr("偏好设置已保存"))
                 }
               >
+                {action.busy && <Spinner data-icon="inline-start" aria-hidden="true" />}
                 <Save data-icon="inline-start" />
                 {tr("保存设置")}{" "}
               </Button>

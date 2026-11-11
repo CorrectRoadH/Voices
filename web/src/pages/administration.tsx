@@ -101,14 +101,16 @@ export function AdminOverviewPage() {
               <CardContent>
                 <dl className="grid grid-cols-2 gap-3">
                   {Object.entries(jobNames).map(([key, label]) => (
-                    <div key={key} className="rounded-md bg-muted p-3">
-                      <dt className="text-sm text-muted-foreground">{tr(label)}</dt>
-                      <dd className="text-xl font-semibold">
-                        {key === "failed"
-                          ? d.jobs.failed + d.jobs.uncertain
-                          : d.jobs[key as keyof Overview["jobs"]]}
-                      </dd>
-                    </div>
+                    <Card key={key}>
+                      <CardContent>
+                        <dt className="text-sm text-muted-foreground">{tr(label)}</dt>
+                        <dd className="text-xl font-semibold">
+                          {key === "failed"
+                            ? d.jobs.failed + d.jobs.uncertain
+                            : d.jobs[key as keyof Overview["jobs"]]}
+                        </dd>
+                      </CardContent>
+                    </Card>
                   ))}
                 </dl>
                 <p className="mt-4">

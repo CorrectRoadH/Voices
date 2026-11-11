@@ -104,8 +104,13 @@ export function AccountPage() {
           </CardContent>
           <CardFooter>
             <Button
-              loading={action.pendingKey === "profile"}
-              disabled={action.busy || session.restore_mode || !name.trim()}
+              aria-busy={action.pendingKey === "profile"}
+              disabled={
+                action.busy ||
+                session.restore_mode ||
+                !name.trim() ||
+                action.pendingKey === "profile"
+              }
               onClick={() =>
                 void action.run(
                   async () => {
@@ -117,6 +122,9 @@ export function AccountPage() {
                 )
               }
             >
+              {action.pendingKey === "profile" && (
+                <Spinner data-icon="inline-start" aria-hidden="true" />
+              )}
               {tr("保存个人资料")}{" "}
             </Button>
           </CardFooter>
@@ -176,7 +184,7 @@ export function AccountPage() {
           </CardContent>
           <CardFooter>
             <Button
-              loading={action.pendingKey === "password"}
+              aria-busy={action.pendingKey === "password"}
               type="submit"
               form="change-password"
               disabled={
@@ -184,9 +192,13 @@ export function AccountPage() {
                 session.restore_mode ||
                 (session.user.has_password && !current) ||
                 !password ||
-                password !== confirm
+                password !== confirm ||
+                action.pendingKey === "password"
               }
             >
+              {action.pendingKey === "password" && (
+                <Spinner data-icon="inline-start" aria-hidden="true" />
+              )}
               {session.user.has_password ? tr("修改密码并退出") : tr("设置密码并退出")}{" "}
             </Button>
           </CardFooter>
@@ -301,21 +313,31 @@ export function AdminAccountsPage() {
               </CardContent>
               <CardFooter className="flex flex-wrap gap-2">
                 <Button
-                  loading={action.pendingKey === `${user.id}:role`}
+                  aria-busy={action.pendingKey === `${user.id}:role`}
                   variant="outline"
-                  disabled={action.busy || session.restore_mode}
+                  disabled={
+                    action.busy || session.restore_mode || action.pendingKey === `${user.id}:role`
+                  }
                   onClick={() => update(user, { role: user.role === "admin" ? "user" : "admin" })}
                 >
+                  {action.pendingKey === `${user.id}:role` && (
+                    <Spinner data-icon="inline-start" aria-hidden="true" />
+                  )}
                   {user.role === "admin" ? tr("设为普通用户") : tr("设为管理员")}
                 </Button>
                 <Button
-                  loading={action.pendingKey === `${user.id}:status`}
+                  aria-busy={action.pendingKey === `${user.id}:status`}
                   variant="outline"
-                  disabled={action.busy || session.restore_mode}
+                  disabled={
+                    action.busy || session.restore_mode || action.pendingKey === `${user.id}:status`
+                  }
                   onClick={() =>
                     update(user, { status: user.status === "active" ? "disabled" : "active" })
                   }
                 >
+                  {action.pendingKey === `${user.id}:status` && (
+                    <Spinner data-icon="inline-start" aria-hidden="true" />
+                  )}
                   {user.status === "active" ? tr("停用账号") : tr("启用账号")}
                 </Button>
               </CardFooter>

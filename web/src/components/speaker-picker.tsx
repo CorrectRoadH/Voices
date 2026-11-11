@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/people/use-case/link-person.md
+import { Spinner } from "@/components/ui/spinner";
 import { personName } from "@/lib/person-name";
 import { tr } from "@/lib/i18n";
 import { useId, useRef, useState, type ReactNode } from "react";
@@ -134,11 +135,14 @@ export function SpeakerPicker({
                 title={personName(p)}
                 aria-label={`${personName(p)}${p.builtin_key ? tr(" · 内置") : ""}`}
                 key={p.id}
-                loading={action.pendingKey === p.id}
+                aria-busy={action.pendingKey === p.id}
                 variant={label.person_id === p.id ? "secondary" : "ghost"}
-                disabled={action.busy}
+                disabled={action.busy || action.pendingKey === p.id}
                 onClick={() => void assign(p.id)}
               >
+                {action.pendingKey === p.id && (
+                  <Spinner data-icon="inline-start" aria-hidden="true" />
+                )}
                 <PersonAvatar id={p.id} name={personName(p)} person={p} />
                 <span className="truncate">
                   {personName(p)}
@@ -149,20 +153,24 @@ export function SpeakerPicker({
         </div>
         {query.trim() && (
           <Button
-            loading={action.pendingKey === "new"}
-            disabled={action.busy}
+            aria-busy={action.pendingKey === "new"}
+            disabled={action.busy || action.pendingKey === "new"}
             onClick={() => void assign(null, true)}
           >
+            {action.pendingKey === "new" && <Spinner data-icon="inline-start" aria-hidden="true" />}
             {tr("新建并关联“{{name}}”", { name: query.trim() })}
           </Button>
         )}
         {label.person_id && (
           <Button
-            loading={action.pendingKey === "unlink"}
+            aria-busy={action.pendingKey === "unlink"}
             variant="ghost"
-            disabled={action.busy}
+            disabled={action.busy || action.pendingKey === "unlink"}
             onClick={() => void assign(null)}
           >
+            {action.pendingKey === "unlink" && (
+              <Spinner data-icon="inline-start" aria-hidden="true" />
+            )}
             {tr("解除人物关联")}
           </Button>
         )}

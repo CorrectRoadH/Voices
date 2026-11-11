@@ -494,12 +494,13 @@ export function ServerSettingsForm({
         <p className="text-sm text-muted-foreground">{tr("测试会调用模型，可能产生费用。")}</p>
         <div className="flex flex-wrap items-center gap-3">
           <Button
-            loading={testing}
+            aria-busy={testing}
             type="button"
             variant="outline"
-            disabled={!ready || !data.saved.llm_base_url || !data.saved.llm_model}
+            disabled={!ready || !data.saved.llm_base_url || !data.saved.llm_model || testing}
             onClick={() => void testLLM()}
           >
+            {testing && <Spinner data-icon="inline-start" aria-hidden="true" />}
             {testing ? tr("正在测试…") : tr("测试 LLM 连接")}
           </Button>
           <p role="status">{tested ? tr("当前配置测试通过") : tr("当前配置尚未通过测试")}</p>
@@ -507,20 +508,22 @@ export function ServerSettingsForm({
         {onboarding && (
           <div className="flex flex-wrap gap-3">
             <Button
-              loading={finishing}
+              aria-busy={finishing}
               type="button"
-              disabled={!ready || !tested}
+              disabled={!ready || !tested || finishing}
               onClick={() => void complete(false)}
             >
+              {finishing && <Spinner data-icon="inline-start" aria-hidden="true" />}
               {finishing ? tr("正在完成…") : tr("完成站点初始化")}
             </Button>
             <Button
-              loading={finishing}
+              aria-busy={finishing}
               type="button"
               variant="outline"
-              disabled={!ready || !emptyLLM}
+              disabled={!ready || !emptyLLM || finishing}
               onClick={() => void complete(true)}
             >
+              {finishing && <Spinner data-icon="inline-start" aria-hidden="true" />}
               {tr("暂不启用 LLM")}
             </Button>
             {!emptyLLM && (

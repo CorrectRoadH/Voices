@@ -1,7 +1,8 @@
 // @concord-file
 // @concord-implements docs/feature/interface-interactions/ui.md
 // @concord-implements docs/feature/transcription/use-case/edit-transcript.md
-import { useId, useRef, useState, type ReactNode } from "react";
+import { Spinner } from "@/components/ui/spinner";
+import { useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Check, Pencil, X } from "lucide-react";
 import { cn } from "cn";
 import { tr } from "@/lib/i18n";
@@ -37,18 +38,19 @@ export function InlineEdit(props: InlineEditProps) {
   const trigger = useRef<HTMLButtonElement>(null);
   const display = useRef<HTMLSpanElement>(null);
   const [session, setSession] = useState<{ props: InlineEditProps; width: number } | null>(null);
+  const restoreFocus = useRef(false);
+  useLayoutEffect(() => {
+    if (session || props.open || !restoreFocus.current) return;
+    restoreFocus.current = false;
+    const target = props.onOpenChange
+      ? display.current?.closest(".segment")?.querySelector<HTMLButtonElement>(".message-more")
+      : trigger.current;
+    target?.focus();
+  }, [session, props.open, props.onOpenChange]);
   function close() {
+    restoreFocus.current = true;
     setSession(null);
     props.onOpenChange?.(false);
-    if (props.onOpenChange) {
-      requestAnimationFrame(() =>
-        display.current
-          ?.closest("article")
-          ?.querySelector<HTMLButtonElement>(".message-more")
-          ?.focus(),
-      );
-    }
-    requestAnimationFrame(() => trigger.current?.focus());
   }
   if (session || props.open)
     return (
@@ -66,10 +68,14 @@ export function InlineEdit(props: InlineEditProps) {
       </span>
     );
   const control = (
-    <button
+    <Button
+      variant="ghost"
       ref={trigger}
       type="button"
-      className={cn("inline-edit-trigger", props.className)}
+      className={cn(
+        "inline-edit-trigger h-auto max-w-full justify-start whitespace-pre-wrap text-left",
+        props.className,
+      )}
       aria-label={props.editLabel}
       disabled={props.disabled}
       onClick={(event) =>
@@ -77,8 +83,8 @@ export function InlineEdit(props: InlineEditProps) {
       }
     >
       {props.displayValue ?? props.value}
-      {!props.compact && <Pencil className="inline-edit-pencil" aria-hidden="true" />}
-    </button>
+      {!props.compact && <Pencil data-icon="inline-end" aria-hidden="true" />}
+    </Button>
   );
   return props.heading ? (
     <h1 aria-label={typeof props.displayValue === "string" ? props.displayValue : props.value}>
@@ -200,9 +206,10 @@ function InlineEditForm({
             variant="ghost"
             aria-label={saveLabel}
             title={multiline ? tr("保存（Ctrl/⌘+Enter）") : tr("保存")}
-            loading={action.busy}
-            disabled={disabled}
+            aria-busy={action.busy}
+            disabled={disabled || action.busy}
           >
+            {action.busy && <Spinner data-icon="inline-start" aria-hidden="true" />}
             {!action.busy && <Check />}
           </Button>
           <Button
