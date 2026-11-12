@@ -151,6 +151,11 @@ test("加载阶段、行内编辑快捷键、保存状态与真实并发冲突",
 
   await browser.locator('button[aria-controls="recording-info"]').click();
   await expect(screen.getByRole("button", { name: "删除录音", exact: true })).toBeVisible();
+  await screen.getByRole("button", { name: "删除录音", exact: true }).click();
+  await expect(screen.getByRole("alertdialog")).toBeVisible();
+  await screen.getByRole("button", { name: "保留录音", exact: true }).click();
+  await expect(screen.getByRole("alertdialog")).toHaveCount(0);
+  expect((await api(browser, `/recordings/${id}`)).status).toBe(200);
   await browser.locator('#recording-versions > [data-slot="collapsible-trigger"]').click();
   await expect(screen.getByLabel("转写版本")).toBeVisible();
   await screen.getByRole("button", { name: "编辑备注", exact: true }).click();
@@ -448,6 +453,12 @@ test("异步操作反馈、筛选空态与刷新保留内容", async ({ app, bro
   await expect(browser.locator('[data-slot="card"]')).toHaveCount(0);
   await noOverflow(browser);
   await app.screenshot("single-layer-task-list");
+  const taskDetails = screen.getByRole("button", { name: "任务详情", exact: true }).first();
+  await taskDetails.click();
+  await expect(screen.getByRole("dialog", { name: "任务详情", exact: true })).toBeVisible();
+  await noOverflow(browser);
+  await browser.keyboard.press("Escape");
+  await expect(taskDetails).toBeFocused();
   await browser.goto(`${base}/admin/server`);
   await screen.getByLabel("LLM Base URL", { exact: true }).fill("https://models.example.test/v1");
   await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
@@ -486,4 +497,77 @@ test("异步操作反馈、筛选空态与刷新保留内容", async ({ app, bro
   await noOverflow(browser);
   await app.screenshot("手机服务器设置与官方模型选择器");
   await browser.unroute("**/api/v1/admin/llm-models");
+});
+
+// @use-case docs/feature/updates/use-case/check-updates.md
+test("辅助信息弹窗、安全 Markdown 与焦点恢复", async ({ app, browser, screen }) => {
+  await app.open();
+  await screen.getByLabel("用户名或邮箱").fill("tester@example.test");
+  await screen.getByLabel("密码", { exact: true }).fill("acceptance-password");
+  await screen.getByRole("button", { name: "进入工作台" }).click();
+  await expect(screen.getByRole("button", { name: "导入录音" }).first()).toBeVisible();
+  await browser.route("**/api/v1/admin/updates", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "ok",
+        current_version: "1.0.0",
+        latest_version: "1.1.0",
+        update_available: true,
+        checked_at: "2026-11-11T12:00:00Z",
+        last_success_at: "2026-11-11T12:00:00Z",
+        release_url: "https://github.com/example/releases",
+        release_notes:
+          "# Release heading\n\n- **Strong item**\n\n```js\nconst safe = true;\n```\n\n[Allowed](https://example.com) [Blocked](javascript:alert(1))\n\n<img src=x onerror=alert(1)>\n\n![Remote image](https://example.com/image.png)\n\n" +
+          "Long paragraph.\n\n".repeat(80),
+        announcements: [
+          {
+            id: "notice",
+            title: "Test notice",
+            severity: "warning",
+            body: "Summary\n\n## Notice detail\n\nFull announcement",
+            link: null,
+          },
+        ],
+      }),
+    });
+  });
+  await browser.goto(`${fixture("VOICES_TEST_URL")}/admin/server`);
+  const trigger = screen.getByRole("button", { name: "版本更新日志", exact: true });
+  await expect(trigger).toBeVisible();
+  await expect(screen.getByText("最后成功：", { exact: false })).toHaveCount(0);
+  await expect(screen.getByRole("heading", { name: "Release heading" })).toHaveCount(0);
+  await trigger.click();
+  const dialog = screen.getByRole("dialog");
+  await expect(dialog.getByRole("heading", { name: "Release heading" })).toBeVisible();
+  await expect(dialog.getByRole("link", { name: "Allowed" })).toHaveAttribute(
+    "href",
+    "https://example.com",
+  );
+  await expect(dialog.getByRole("link", { name: "Blocked" })).toHaveCount(0);
+  await expect(browser.locator('[role="dialog"] img')).toHaveCount(0);
+  await expect(browser.locator('[role="dialog"] strong')).toHaveText("Strong item");
+  await expect(browser.locator('[role="dialog"] pre code')).toContainText("const safe = true;");
+  await browser.setViewport({ width: 375, height: 812 });
+  await noOverflow(browser);
+  expect(
+    await browser.evaluate(() => {
+      const box = document.querySelector('[role="dialog"]')!;
+      return (
+        box.getBoundingClientRect().height <= innerHeight &&
+        Array.from(box.querySelectorAll("div")).some(
+          (el) => el.scrollHeight > el.clientHeight && getComputedStyle(el).overflowY === "auto",
+        )
+      );
+    }),
+  ).toBe(true);
+  await app.screenshot("mobile-scrollable-release-dialog");
+  await browser.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await screen.getByRole("button", { name: "查看公告详情", exact: true }).click();
+  await expect(dialog.getByRole("heading", { name: "Notice detail" })).toBeVisible();
+  await browser.keyboard.press("Escape");
+  await expect(screen.getByRole("button", { name: "查看公告详情", exact: true })).toBeFocused();
 });

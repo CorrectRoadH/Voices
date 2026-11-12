@@ -72,7 +72,7 @@ import { DetailPage } from "@/pages/detail";
 import { ReferencePage } from "@/pages/reference";
 import { PeoplePage, PersonPage } from "@/pages/people";
 import { CallLogs } from "@/components/call-logs";
-import { AdminSTTCallsPage, AdminSTTPricesPage } from "@/pages/stt-pricing";
+import { AdminSTTCallsPage } from "@/pages/stt-pricing";
 import { JobsPage } from "@/pages/jobs";
 import { AccountPage, AdminAccountsPage } from "@/pages/accounts";
 import { AdminOverviewPage, AdminLogsPage } from "@/pages/administration";
@@ -332,10 +332,7 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
     },
     {
       title: tr("用量与费用"),
-      items: [
-        { to: "/admin/stt/calls", title: tr("STT 调用"), icon: ListTodo },
-        { to: "/admin/stt/prices", title: tr("模型价格"), icon: ListTodo },
-      ],
+      items: [{ to: "/admin/stt/calls", title: tr("STT 调用"), icon: ListTodo }],
     },
     {
       title: tr("运行诊断"),
@@ -521,7 +518,7 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
               path="/admin/stt/prices"
               element={
                 session.user.role === "admin" ? (
-                  <AdminSTTPricesPage />
+                  <Navigate to="/admin/stt/calls" replace />
                 ) : (
                   <Navigate to="/recordings" replace />
                 )

@@ -74,11 +74,7 @@ prepared 不计进行中费用，confirmed_absent 不计完成或进行中；失
 
 ## 事务与审计
 
-价格创建复用 owner+scope+key 幂等锁，scope 为 stt-price。
-规范化来源后计算请求 hash，同键异参 409，同参返回原版本。
-价格、幂等结果与 stt_price_created 审计同事务提交。
-审计仅含 price_version_id/provider/model，不回传自由来源文本或业务内容。
-事务内 lockAdmin 重新验证角色并与账号管理串行。
+用户价格写入接口已退役，不能创建价格、幂等结果或审计记录。既有 stt-price 幂等记录、stt_price_created 审计及历史价格版本保留，不进行破坏性迁移。费用快照的查找与不可变性保持既有规则。
 
 只通过 admin 前缀接口读取安全白名单字段，不返回标题、文件名、正文、音频、远端 ID 或原始错误。
 权限每请求查当前角色；业务 authorizeResource 保持原有隔离。

@@ -16,13 +16,29 @@ import (
 	"voices/internal/persistence"
 )
 
+// Historical price fixtures seed persisted data directly; production exposes no write API.
+type sttPriceInput struct {
+	Provider    string `json:"provider"`
+	Model       string `json:"model"`
+	Currency    string `json:"currency"`
+	Basis       string `json:"basis"`
+	Hourly      string `json:"hourly_rate_microusd"`
+	Diarization string `json:"diarization_hourly_rate_microusd"`
+	Source      string `json:"source"`
+	VerifiedOn  string `json:"verified_on"`
+}
+
 func priceInput() sttPriceInput {
 	return sttPriceInput{Provider: "soniox", Model: "stt-async-v5", Currency: "USD", Basis: "duration_estimate", Hourly: "100000", Diarization: "20000", Source: "https://soniox.com/pricing", VerifiedOn: "2026-11-09"}
 }
 func savePrice(t *testing.T, f *fixture, in sttPriceInput) string {
 	t.Helper()
-	_, v := f.json(t, "POST", "/api/v1/admin/stt/prices", in, 201, uuid.NewString())
-	return v["id"].(string)
+	id := uuid.NewString()
+	_, err := f.db.Exec(context.Background(), `INSERT INTO stt_price_versions(id,provider,model,currency,basis,hourly_rate_microusd,diarization_hourly_rate_microusd,source,verified_on,created_by) VALUES($1,$2,$3,$4,$5,$6::bigint,$7::bigint,$8,$9::date,$10)`, id, in.Provider, in.Model, in.Currency, in.Basis, in.Hourly, in.Diarization, in.Source, in.VerifiedOn, userID(t, f))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
 }
 func sttItems(t *testing.T, f *fixture, q string) []any {
 	t.Helper()
@@ -37,13 +53,6 @@ func sttTotals(t *testing.T, f *fixture, q string) map[string]any {
 
 // @use-case docs/feature/stt-pricing/use-case/manage-estimates.md
 func TestSTTPricingValidation(t *testing.T) {
-	for _, change := range []func(*sttPriceInput){func(p *sttPriceInput) { p.Hourly = "1.5" }, func(p *sttPriceInput) { p.Hourly = "-1" }, func(p *sttPriceInput) { p.Hourly = "01" }, func(p *sttPriceInput) { p.Hourly = "9223372036854775807" }, func(p *sttPriceInput) { p.Model = "unknown" }, func(p *sttPriceInput) { p.Source = " " }, func(p *sttPriceInput) { p.VerifiedOn = "2026-02-30" }, func(p *sttPriceInput) { p.VerifiedOn = "0000-01-01" }, func(p *sttPriceInput) { p.Currency = "EUR" }, func(p *sttPriceInput) { p.Basis = "actual" }} {
-		p := priceInput()
-		change(&p)
-		if p.validate() == nil {
-			t.Fatalf("accepted %+v", p)
-		}
-	}
 	for _, q := range []string{"provider=soniox%20assemblyai", "state=failed%20cancelled", "limit=101", "cursor=abc", "from=bad", "from=2026-11-02T00:00:00Z&to=2026-11-01T00:00:00Z", "owner_id=bad", "model=x&model=y", "expand=recording", "history=true"} {
 		if _, err := parseSTTQuery(httptest.NewRequest("GET", "/api?"+q, nil), false); err == nil {
 			t.Fatal(q)
@@ -115,7 +124,7 @@ func TestSTTPricingSubmitSnapshotRetranscribeAndDeletion(t *testing.T) {
 }
 
 // @use-case docs/feature/stt-pricing/use-case/manage-estimates.md
-func TestSTTPricingPermissionsPricesAuditAndPagination(t *testing.T) {
+func TestSTTPricingReadOnlyPricesAndPagination(t *testing.T) {
 	f := setup(t)
 	ctx := context.Background()
 	other := anotherAccount(t, f, "stt_other")
@@ -125,14 +134,13 @@ func TestSTTPricingPermissionsPricesAuditAndPagination(t *testing.T) {
 		other.json(t, "GET", "/api/v1/admin/stt/"+path, nil, 403, "")
 	}
 	other.json(t, "POST", "/api/v1/admin/stt/prices", p, 403, key)
-	f.json(t, "POST", "/api/v1/admin/stt/prices", p, 400, "")
-	_, first := f.json(t, "POST", "/api/v1/admin/stt/prices", p, 201, key)
-	_, again := f.json(t, "POST", "/api/v1/admin/stt/prices", p, 201, key)
-	if first["id"] != again["id"] {
-		t.Fatal(first, again)
+	_, denied := f.json(t, "POST", "/api/v1/admin/stt/prices", p, 403, key)
+	if denied["error"].(map[string]any)["code"] != "manual_pricing_disabled" {
+		t.Fatal(denied)
 	}
+	first := savePrice(t, f, p)
 	p.Hourly = "100001"
-	f.json(t, "POST", "/api/v1/admin/stt/prices", p, 409, key)
+	f.json(t, "POST", "/api/v1/admin/stt/prices", p, 403, key)
 	savePrice(t, f, p)
 	_, latest := f.json(t, "GET", "/api/v1/admin/stt/prices", nil, 200, "")
 	if len(latest["items"].([]any)) != 1 {
@@ -143,12 +151,8 @@ func TestSTTPricingPermissionsPricesAuditAndPagination(t *testing.T) {
 		t.Fatal(history)
 	}
 	_, second := f.json(t, "GET", "/api/v1/admin/stt/prices?history=true&limit=1&cursor="+url.QueryEscape(history["next_cursor"].(string)), nil, 200, "")
-	if second["items"].([]any)[0].(map[string]any)["id"] != first["id"] {
+	if second["items"].([]any)[0].(map[string]any)["id"] != first {
 		t.Fatal(second)
-	}
-	_, audit := f.json(t, "GET", "/api/v1/admin/audit-events?action=stt_price_created", nil, 200, "")
-	if len(audit["items"].([]any)) != 2 || audit["items"].([]any)[0].(map[string]any)["details"].(map[string]any)["price_version_id"] == nil {
-		t.Fatal(audit)
 	}
 	if _, err := f.db.Exec(ctx, `UPDATE stt_price_versions SET source='overwritten'`); err == nil {
 		t.Fatal("mutable price")
@@ -434,7 +438,7 @@ func TestSTTPricingHistoricalMigration(t *testing.T) {
 }
 
 // @use-case docs/feature/stt-pricing/use-case/manage-estimates.md
-func TestSTTPricingConcurrentIdempotencyAndCSRF(t *testing.T) {
+func TestSTTPricingRejectsConcurrentWritesAndLegacyReplay(t *testing.T) {
 	f := setup(t)
 	ctx := context.Background()
 	input := priceInput()
@@ -470,12 +474,24 @@ func TestSTTPricingConcurrentIdempotencyAndCSRF(t *testing.T) {
 		}()
 	}
 	first, second := <-results, <-results
-	if first.err != nil || second.err != nil || first.status != 201 || second.status != 201 || first.id == "" || first.id != second.id {
+	if first.err != nil || second.err != nil || first.status != 403 || second.status != 403 || first.id != "" || second.id != "" {
 		t.Fatal(first, second)
 	}
 	var versions, audits int
-	if err := f.db.QueryRow(ctx, `SELECT (SELECT count(*) FROM stt_price_versions),(SELECT count(*) FROM admin_audit_events WHERE action='stt_price_created')`).Scan(&versions, &audits); err != nil || versions != 1 || audits != 1 {
+	if err := f.db.QueryRow(ctx, `SELECT (SELECT count(*) FROM stt_price_versions),(SELECT count(*) FROM admin_audit_events WHERE action='stt_price_created')`).Scan(&versions, &audits); err != nil || versions != 0 || audits != 0 {
 		t.Fatal(versions, audits, err)
+	}
+	oldPrice := savePrice(t, f, input)
+	if _, err := f.db.Exec(ctx, `INSERT INTO idempotency_keys(scope,key,request_hash,resource_id,owner_id) VALUES('stt-price',$1,$2,$3,$4)`, key, digest(body), oldPrice, userID(t, f)); err != nil {
+		t.Fatal(err)
+	}
+	for _, body := range []any{input, map[string]any{"hourly_rate_microusd": "invalid"}, nil} {
+		f.json(t, "POST", "/api/v1/admin/stt/prices", body, 403, key)
+		f.json(t, "POST", "/api/v1/admin/stt/prices", body, 403, "")
+	}
+	var keys int
+	if err := f.db.QueryRow(ctx, `SELECT (SELECT count(*) FROM stt_price_versions),(SELECT count(*) FROM admin_audit_events WHERE action='stt_price_created'),(SELECT count(*) FROM idempotency_keys WHERE scope='stt-price')`).Scan(&versions, &audits, &keys); err != nil || versions != 1 || audits != 0 || keys != 1 {
+		t.Fatal(versions, audits, keys, err)
 	}
 	req, err := http.NewRequest("POST", f.server.URL+"/api/v1/admin/stt/prices", bytes.NewReader(body))
 	if err != nil {

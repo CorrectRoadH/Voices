@@ -1,5 +1,12 @@
 // @concord-file
 // @concord-implements docs/feature/interface-interactions/ui.md
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+} from "./ui/alert-dialog";
 import { tr } from "@/lib/i18n";
 import { Spinner } from "./ui/spinner";
 import { AudioLines, CheckCircle2, RefreshCw } from "lucide-react";
@@ -149,6 +156,32 @@ export function Modal({
     </Dialog>
   );
 }
+export function ConfirmationDialog({
+  title,
+  description,
+  open,
+  onOpenChange,
+  children,
+}: {
+  title: string;
+  description: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  children: ReactNode;
+}) {
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        {children}
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export function More({
   cursor,
   loading,

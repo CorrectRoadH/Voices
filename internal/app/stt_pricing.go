@@ -9,19 +9,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 	"unicode/utf8"
-
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"voices/internal/persistence"
-	"voices/internal/providers"
 )
 
 type sttQuery struct {
@@ -219,93 +212,7 @@ func (a *App) adminSTTPrices(w http.ResponseWriter, r *http.Request) error {
 	return a.sttPage(w, r, `SELECT `+sttPriceJSON+`,e.created_at,e.id FROM `+table+` e`+tail, args, f.limit)
 }
 
-type sttPriceInput struct {
-	Provider    string `json:"provider"`
-	Model       string `json:"model"`
-	Currency    string `json:"currency"`
-	Basis       string `json:"basis"`
-	Hourly      string `json:"hourly_rate_microusd"`
-	Diarization string `json:"diarization_hourly_rate_microusd"`
-	Source      string `json:"source"`
-	VerifiedOn  string `json:"verified_on"`
-}
-
-func (in *sttPriceInput) validate() error {
-	valid := false
-	for _, p := range []providers.Adapter{providers.NewSoniox(""), providers.NewAssemblyAI("")} {
-		if p.ID() == in.Provider {
-			for _, m := range p.Models() {
-				if m.ID == in.Model {
-					valid = true
-				}
-			}
-		}
-	}
-	if !valid {
-		return bad("invalid_price", "服务商或模型不在能力目录中")
-	}
-	if in.Currency != "USD" || in.Basis != "duration_estimate" {
-		return bad("invalid_price", "价格仅支持 USD 时长估算")
-	}
-	rates := []*string{&in.Hourly, &in.Diarization}
-	var total int64
-	for _, s := range rates {
-		n, err := strconv.ParseInt(*s, 10, 64)
-		if err != nil || n < 0 || strconv.FormatInt(n, 10) != *s || n > math.MaxInt64-total {
-			return bad("invalid_price", "参考价须为有效的非负整数微元")
-		}
-		total += n
-	}
-	in.Source = strings.TrimSpace(in.Source)
-	if !utf8.ValidString(in.Source) || utf8.RuneCountInString(in.Source) < 1 || utf8.RuneCountInString(in.Source) > 1000 || strings.IndexFunc(in.Source, unicode.IsControl) >= 0 {
-		return bad("invalid_price", "请填写有效的价格来源")
-	}
-	if date, err := time.Parse("2006-01-02", in.VerifiedOn); err != nil || date.Year() < 1 {
-		return bad("invalid_price", "核对日期格式须为 YYYY-MM-DD")
-	}
-	return nil
-}
-func (a *App) createSTTPrice(w http.ResponseWriter, r *http.Request) error {
-	key, err := requestKey(r)
-	if err != nil {
-		return err
-	}
-	var in sttPriceInput
-	if err := decode(r, &in); err != nil {
-		return err
-	}
-	if err := in.validate(); err != nil {
-		return err
-	}
-	hash := digest(jsonBytes(in))
-	var id string
-	var raw json.RawMessage
-	err = persistence.Transaction(r.Context(), a.DB, func(tx pgx.Tx) error {
-		if err := lockAdmin(r.Context(), tx); err != nil {
-			return err
-		}
-		old, err := claimKey(r.Context(), tx, "stt-price", key, hash)
-		if err != nil {
-			return err
-		}
-		id = old
-		if id == "" {
-			id = uuid.NewString()
-			if _, err := tx.Exec(r.Context(), `INSERT INTO stt_price_versions(id,provider,model,currency,basis,hourly_rate_microusd,diarization_hourly_rate_microusd,source,verified_on,created_by) VALUES($1,$2,$3,$4,$5,$6::bigint,$7::bigint,$8,$9::date,$10)`, id, in.Provider, in.Model, in.Currency, in.Basis, in.Hourly, in.Diarization, in.Source, in.VerifiedOn, persistence.UserID(r.Context())); err != nil {
-				return err
-			}
-			if err := saveKey(r.Context(), tx, "stt-price", key, hash, id); err != nil {
-				return err
-			}
-			if err := audit(r.Context(), tx, persistence.UserID(r.Context()), nil, "stt_price_created", map[string]any{"price_version_id": id, "provider": in.Provider, "model": in.Model}); err != nil {
-				return err
-			}
-		}
-		return tx.QueryRow(r.Context(), `SELECT `+sttPriceJSON+` FROM stt_price_versions e WHERE id=$1`, id).Scan(&raw)
-	})
-	if err != nil {
-		return err
-	}
-	writeJSON(w, 201, raw)
-	return nil
+// rejectManualSTTPrice retires the write API without replaying old successful requests.
+func (a *App) rejectManualSTTPrice(w http.ResponseWriter, r *http.Request) error {
+	return &apiError{http.StatusForbidden, "manual_pricing_disabled", "不允许手动管理模型价格"}
 }

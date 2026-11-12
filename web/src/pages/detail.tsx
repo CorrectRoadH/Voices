@@ -5,6 +5,7 @@
 // @concord-implements docs/feature/transcription/use-case/edit-transcript.md
 // @concord-implements docs/feature/transcription/use-case/search-transcript.md
 // @concord-implements docs/feature/recording-library/use-case/edit-recording.md
+import { AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Message } from "@/components/ui/message";
 import { Marker, MarkerContent } from "@/components/ui/marker";
 import { Spinner } from "@/components/ui/spinner";
@@ -45,7 +46,14 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { SpeakerPicker } from "@/components/speaker-picker";
-import { EmptyState, ErrorBox, Loading, Modal, Status } from "@/components/shared";
+import {
+  EmptyState,
+  ErrorBox,
+  Loading,
+  Modal,
+  ConfirmationDialog,
+  Status,
+} from "@/components/shared";
 import { RecordingProgress } from "@/components/recording-progress";
 import { InsightOutline, type InsightsResponse } from "@/components/transcription-insights";
 import { Popover, PopoverTrigger, PopoverContent, PopoverTitle } from "@/components/ui/popover";
@@ -1631,20 +1639,20 @@ export function DetailPage() {
           </Button>
         </FieldGroup>
       </Modal>
-      <Modal
+      <ConfirmationDialog
         title={tr("删除这条录音？")}
         description={tr(
           "录音将立即停止访问，音频与已知服务商资源在后台清理。结果待确认的远端操作会继续保留核对记录。",
         )}
         open={deleteOpen}
-        onOpenChange={setDeleteOpen}
+        onOpenChange={(open) => {
+          if (!action.busy) setDeleteOpen(open);
+        }}
       >
         <ErrorBox message={action.error} />
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-            {tr("保留录音")}{" "}
-          </Button>
-          <Button
+          <AlertDialogCancel disabled={action.busy}>{tr("保留录音")} </AlertDialogCancel>
+          <AlertDialogAction
             aria-busy={action.pendingKey === "delete"}
             variant="destructive"
             disabled={action.busy || action.pendingKey === "delete"}
@@ -1664,23 +1672,23 @@ export function DetailPage() {
               <Spinner data-icon="inline-start" aria-hidden="true" />
             )}
             {tr("确认删除")}{" "}
-          </Button>
+          </AlertDialogAction>
         </div>
-      </Modal>
-      <Modal
+      </ConfirmationDialog>
+      <ConfirmationDialog
         title={tr("取消当前转写？")}
         description={tr(
           "将停止在本地使用该结果。若服务商不支持中止，仍可能计费；后台会继续核对与清理资源。",
         )}
         open={cancelOpen}
-        onOpenChange={setCancelOpen}
+        onOpenChange={(open) => {
+          if (!action.busy) setCancelOpen(open);
+        }}
       >
         <ErrorBox message={action.error} />
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setCancelOpen(false)}>
-            {tr("返回")}{" "}
-          </Button>
-          <Button
+          <AlertDialogCancel disabled={action.busy}>{tr("返回")} </AlertDialogCancel>
+          <AlertDialogAction
             aria-busy={action.pendingKey === "cancel"}
             disabled={action.busy || action.pendingKey === "cancel"}
             onClick={() =>
@@ -1700,9 +1708,9 @@ export function DetailPage() {
               <Spinner data-icon="inline-start" aria-hidden="true" />
             )}
             {tr("确认取消")}{" "}
-          </Button>
+          </AlertDialogAction>
         </div>
-      </Modal>
+      </ConfirmationDialog>
       <Modal
         title={tr("手动复制")}
         description={tr("浏览器无法使用剪贴板，请选中下方内容后复制。")}

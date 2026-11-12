@@ -220,7 +220,7 @@ func (a *App) Handler() http.Handler {
 	protected("GET /api/v1/admin/stt/calls", a.adminSTTCalls)
 	protected("GET /api/v1/admin/stt/summary", a.adminSTTSummary)
 	protected("GET /api/v1/admin/stt/prices", a.adminSTTPrices)
-	protected("POST /api/v1/admin/stt/prices", a.createSTTPrice)
+	protected("POST /api/v1/admin/stt/prices", a.rejectManualSTTPrice)
 	protected("POST /api/v1/jobs/{id}/retry", a.retryJob)
 	protected("POST /api/v1/jobs/{id}/resolve", a.resolveJob)
 	mux.HandleFunc("/", a.static)

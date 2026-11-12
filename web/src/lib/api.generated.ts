@@ -6804,39 +6804,19 @@ export interface paths {
             };
         };
         put?: never;
+        /**
+         * 手动价格管理已禁用
+         * @description 所有用户包括管理员均禁止手动写入价格。通过现有认证、CSRF 与恢复模式校验后固定返回 403 manual_pricing_disabled，旧幂等键也不重放成功响应。
+         */
         post: {
             parameters: {
                 query?: never;
-                header: {
-                    "Idempotency-Key": string;
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["STTPriceInput"];
-                };
-            };
+            requestBody?: never;
             responses: {
-                /** @description Success */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["STTPrice"];
-                    };
-                };
-                /** @description Error */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
                 /** @description Error */
                 401: {
                     headers: {
@@ -6856,43 +6836,7 @@ export interface paths {
                     };
                 };
                 /** @description Error */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Error */
                 409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Error */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Error */
-                429: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Error */
-                500: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -7501,18 +7445,6 @@ export interface components {
             samples: number;
             sample_ms: number;
             pending: number;
-        };
-        STTPriceInput: {
-            provider: string;
-            model: string;
-            /** @constant */
-            currency: "USD";
-            /** @constant */
-            basis: "duration_estimate";
-            hourly_rate_microusd: string;
-            diarization_hourly_rate_microusd: string;
-            source: string;
-            verified_on: string;
         };
         STTPrice: {
             provider: string;

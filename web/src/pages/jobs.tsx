@@ -1,7 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/transcription/use-case/recover-task.md
 import { Spinner } from "@/components/ui/spinner";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { InformationDialog } from "@/components/information-dialog";
 import { usePagedResource } from "@/lib/use-paged-resource";
 import { CallLogs } from "@/components/call-logs";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -172,25 +172,27 @@ function TaskList() {
                   {job.error_code && (
                     <p className="mb-2 text-sm text-destructive">{jobError(job)}</p>
                   )}
-                  <Collapsible className="text-xs text-muted-foreground">
-                    <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
-                      {tr("任务详情")}
-                    </CollapsibleTrigger>
-                    <CollapsibleContent keepMounted>
-                      <div className="mt-2 flex flex-col gap-1 break-all">
-                        <p>
-                          {tr("任务 ID：")}
-                          {job.id}
-                        </p>
-                        {job.error_code && (
-                          <p>
-                            {tr("错误代码：")}
-                            {job.error_code}
-                          </p>
-                        )}
+                  <InformationDialog
+                    title={tr("任务详情")}
+                    description={job.recording_title || tr("录音不可用")}
+                  >
+                    <dl className="flex flex-col gap-3 text-sm">
+                      <div>
+                        <dt className="text-muted-foreground">{tr("任务 ID：")}</dt>
+                        <dd className="break-all">{job.id}</dd>
                       </div>
-                    </CollapsibleContent>
-                  </Collapsible>
+                      <div>
+                        <dt className="text-muted-foreground">{tr("任务状态")}</dt>
+                        <dd>{stateName(job.state)}</dd>
+                      </div>
+                      {job.error_code && (
+                        <div>
+                          <dt className="text-muted-foreground">{tr("错误代码：")}</dt>
+                          <dd className="break-all">{job.error_code}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  </InformationDialog>
                   {job.state === "restore_hold" && (
                     <p className="mt-2 text-sm text-muted-foreground">
                       {tr("此任务可能已在服务商受理，不能安全重试或宣称清理完成。")}{" "}

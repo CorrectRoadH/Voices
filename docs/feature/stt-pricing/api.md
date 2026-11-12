@@ -29,18 +29,6 @@ GET `/admin/stt/summary` 使用完全相同筛选，校验但忽略 cursor/limit
 GET `/admin/stt/prices` 默认读取每 provider/model 的最新版本，history=true 读取全部版本。
 支持 provider/model/limit/cursor，分页规则同调用接口；history 只接受 true/false。
 
-POST `/admin/stt/prices` 需 UUID Idempotency-Key，成功及同键重放返回 201 和原价格版本。
-同键不同请求返回 409，无幂等键或非法字段返回 400。
+POST `/admin/stt/prices` 为退役拒绝入口。保留认证、管理员、CSRF 与恢复模式校验；通过这些校验的请求固定返回 403，code 为 manual_pricing_disabled。不解析请求体、不读取或写入幂等记录、不写价格或审计。无键、非法输入、并发请求和旧成功幂等键重放均不能创建价格。恢复模式仍可先行返回 409。
 
-| 输入 | 约束 |
-| --- | --- |
-| provider/model | 已发布能力目录中的模型，不要求该服务商已配置凭据 |
-| currency | USD |
-| basis | duration_estimate |
-| hourly_rate_microusd | 非负 bigint 的规范十进制字符串 |
-| diarization_hourly_rate_microusd | 同上，两费率合计不超过 bigint |
-| source | 去首尾空白后 1..1000 字，不含控制字符 |
-| verified_on | YYYY-MM-DD 有效日期 |
-
-价格返回上述字段、id、created_by、created_at，金额保持字符串。
-未知字段和 null 必填字段被拒绝，不允许修改/删除旧版本。
+不提供 PATCH、PUT 或 DELETE 价格接口。只读价格返回 id、provider、model、currency、basis、两项小时费率、source、verified_on、created_by、created_at，金额为十进制字符串。历史版本不可修改或删除。

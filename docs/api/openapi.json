@@ -7797,16 +7797,6 @@
       },
       "post": {
         "responses": {
-          "400": {
-            "description": "Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Error",
             "content": {
@@ -7827,16 +7817,6 @@
               }
             }
           },
-          "404": {
-            "description": "Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "409": {
             "description": "Error",
             "content": {
@@ -7846,74 +7826,16 @@
                 }
               }
             }
-          },
-          "422": {
-            "description": "Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "201": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/STTPrice"
-                }
-              }
-            }
           }
         },
-        "parameters": [
-          {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
+        "parameters": [],
         "security": [
           {
             "sessionCookie": []
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/STTPriceInput"
-              }
-            }
-          }
-        }
+        "summary": "手动价格管理已禁用",
+        "description": "所有用户包括管理员均禁止手动写入价格。通过现有认证、CSRF 与恢复模式校验后固定返回 403 manual_pricing_disabled，旧幂等键也不重放成功响应。"
       }
     }
   },
@@ -10541,48 +10463,6 @@
           "sample_ms",
           "pending"
         ]
-      },
-      "STTPriceInput": {
-        "type": "object",
-        "properties": {
-          "provider": {
-            "type": "string"
-          },
-          "model": {
-            "type": "string"
-          },
-          "currency": {
-            "type": "string",
-            "const": "USD"
-          },
-          "basis": {
-            "type": "string",
-            "const": "duration_estimate"
-          },
-          "hourly_rate_microusd": {
-            "type": "string"
-          },
-          "diarization_hourly_rate_microusd": {
-            "type": "string"
-          },
-          "source": {
-            "type": "string"
-          },
-          "verified_on": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "provider",
-          "model",
-          "currency",
-          "basis",
-          "hourly_rate_microusd",
-          "diarization_hourly_rate_microusd",
-          "source",
-          "verified_on"
-        ],
-        "additionalProperties": false
       },
       "STTPrice": {
         "type": "object",

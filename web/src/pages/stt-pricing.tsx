@@ -3,12 +3,12 @@
 // @concord-implements docs/feature/stt-pricing/use-case/manage-estimates.md
 import { DatePicker } from "@/components/date-picker";
 import { Spinner } from "@/components/ui/spinner";
-import { useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { tr, interfaceLocale } from "@/lib/i18n";
-import { query, write } from "@/lib/api";
-import { useAction, useResource } from "@/lib/hooks";
+import { query } from "@/lib/api";
+import { useResource } from "@/lib/hooks";
 import { usePagedResource } from "@/lib/use-paged-resource";
-import type { Page, Provider, Schema } from "@/lib/types";
+import type { Schema } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Field, FieldLabel, FieldGroup } from "@/components/ui/field";
@@ -17,7 +17,6 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { ErrorBox, EmptyState, Loading, PageHeading } from "@/components/shared";
 
 type Call = Schema["STTCall"];
-type Price = Schema["STTPrice"];
 const notice = "按音频时长估算，实际账单以服务商为准";
 const labels: Record<string, string> = {
   prepared: "准备提交",
@@ -300,187 +299,6 @@ export function AdminSTTCallsPage() {
           onClick={calls.loadMore}
         >
           {calls.loading && !calls.updating && (
-            <Spinner data-icon="inline-start" aria-hidden="true" />
-          )}
-          {tr("加载更多")}
-        </Button>
-      )}
-    </div>
-  );
-}
-export function AdminSTTPricesPage() {
-  const [history, setHistory] = useState(false);
-  const [filter, setFilter] = useState({ provider: "", model: "" });
-  const prices = usePagedResource<Price>(
-    "/admin/stt/prices" + query({ ...filter, history }),
-    "admin-stt-prices",
-  );
-  const providers = useResource<Page<Provider>>("/providers");
-  const action = useAction();
-  const [draft, setDraft] = useState<Schema["STTPriceInput"]>({
-    provider: "soniox",
-    model: "",
-    currency: "USD",
-    basis: "duration_estimate",
-    hourly_rate_microusd: "",
-    diarization_hourly_rate_microusd: "0",
-    source: "",
-    verified_on: new Date().toISOString().slice(0, 10),
-  });
-  const attempt = useRef({ body: "", key: "" });
-  const models = providers.data?.items.find((p) => p.id === draft.provider)?.models ?? [];
-  const update = (key: keyof typeof draft) => (value: string) =>
-    setDraft((old) => ({ ...old, [key]: value }));
-  async function save(e: FormEvent) {
-    e.preventDefault();
-    const body = JSON.stringify(draft);
-    if (attempt.current.body !== body) attempt.current = { body, key: crypto.randomUUID() };
-    await action.run(async () => {
-      await write("/admin/stt/prices", "POST", draft, attempt.current.key);
-      prices.refresh();
-    }, tr("参考价已保存"));
-  }
-  return (
-    <div className="flex flex-col gap-5">
-      <PageHeading title={tr("模型价格")} />
-      <p className="text-sm text-muted-foreground">{tr(notice)}</p>
-      <Card>
-        <CardHeader>
-          <CardTitle>{tr("追加参考价")}</CardTitle>
-          <CardDescription>
-            {tr("金额使用 USD 微元，每小时 1 USD = 1000000 微元。已有调用不会重新计价。")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={save} className="flex flex-col gap-4">
-            <FieldGroup className="grid gap-4 sm:grid-cols-2">
-              <ProviderField
-                all={false}
-                value={draft.provider}
-                change={(value) => setDraft((old) => ({ ...old, provider: value, model: "" }))}
-              />
-              <Field>
-                <FieldLabel htmlFor="price-model">{tr("模型")}</FieldLabel>
-                <NativeSelect
-                  id="price-model"
-                  required
-                  value={draft.model}
-                  onChange={(e) => update("model")(e.target.value)}
-                >
-                  <NativeSelectOption value="">{tr("选择模型")}</NativeSelectOption>
-                  {models.map((m) => (
-                    <NativeSelectOption value={m.id} key={m.id}>
-                      {m.name}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-              </Field>
-              <TextField
-                name="price-hourly"
-                label="基础价（微元/小时）"
-                required
-                value={draft.hourly_rate_microusd}
-                change={update("hourly_rate_microusd")}
-              />
-              <TextField
-                name="price-diarization"
-                label="说话人区分附加价（微元/小时）"
-                required
-                value={draft.diarization_hourly_rate_microusd}
-                change={update("diarization_hourly_rate_microusd")}
-              />
-              <TextField
-                name="price-source"
-                label="价格来源"
-                required
-                value={draft.source}
-                change={update("source")}
-              />
-              <TextField
-                name="price-verified"
-                label="核对日期"
-                type="date"
-                required
-                value={draft.verified_on}
-                change={update("verified_on")}
-              />
-            </FieldGroup>
-            <ErrorBox message={action.error || providers.error} />
-            <Button type="submit" aria-busy={action.busy} disabled={!models.length || action.busy}>
-              {action.busy && <Spinner data-icon="inline-start" aria-hidden="true" />}
-              {tr("保存新价格版本")}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-      <FieldGroup className="grid gap-4 sm:grid-cols-2">
-        <ProviderField
-          value={filter.provider}
-          change={(provider) => setFilter((old) => ({ ...old, provider }))}
-        />
-        <TextField
-          name="price-filter-model"
-          label="模型 ID"
-          value={filter.model}
-          change={(model) => setFilter((old) => ({ ...old, model }))}
-        />
-      </FieldGroup>
-      <div className="flex flex-wrap gap-2">
-        <Button variant="outline" onClick={() => setHistory((v) => !v)}>
-          {tr(history ? "查看最新价格" : "查看历史版本")}
-        </Button>
-        <Button
-          variant="outline"
-          aria-busy={prices.updating}
-          disabled={prices.updating}
-          onClick={prices.refresh}
-        >
-          {prices.updating && <Spinner data-icon="inline-start" aria-hidden="true" />}
-          {tr("刷新")}
-        </Button>
-      </div>
-      <ErrorBox message={prices.error} retry={prices.refresh} />
-      {prices.updating && <p role="status">{tr("正在更新")}</p>}
-      {!prices.loading && !prices.error && prices.items.length === 0 && (
-        <EmptyState title={tr("没有匹配的价格版本")} />
-      )}
-      {prices.items.map((p) => (
-        <Card key={p.id}>
-          <CardHeader>
-            <CardTitle>
-              {p.provider} · {p.model}
-            </CardTitle>
-            <CardDescription>
-              {new Date(p.created_at).toLocaleString(interfaceLocale())}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <dl className="grid gap-3 text-sm sm:grid-cols-2">
-              {[
-                ["基础价（每小时）", sttMoney(p.hourly_rate_microusd)],
-                ["说话人区分附加价（每小时）", sttMoney(p.diarization_hourly_rate_microusd)],
-                ["价格来源", p.source],
-                ["核对日期", p.verified_on],
-                ["价格版本", p.id],
-                ["创建账号 ID", p.created_by],
-              ].map(([label, value]) => (
-                <div key={label}>
-                  <dt className="text-muted-foreground">{tr(label)}</dt>
-                  <dd className="break-all">{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </CardContent>
-        </Card>
-      ))}
-      {prices.nextCursor && (
-        <Button
-          variant="outline"
-          aria-busy={prices.loading && !prices.updating}
-          disabled={prices.updating || (prices.loading && !prices.updating)}
-          onClick={prices.loadMore}
-        >
-          {prices.loading && !prices.updating && (
             <Spinner data-icon="inline-start" aria-hidden="true" />
           )}
           {tr("加载更多")}

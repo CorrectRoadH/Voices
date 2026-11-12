@@ -8,4 +8,6 @@
 删除录音后保留不含内容的运维快照。普通用户不能读取这些管理数据。
 本功能遵守[用户控制](../../taste.md#t-1)与[应用无状态](../../taste.md#t-4)原则。
 
-[查看费用与追加参考价](use-case/manage-estimates.md) · [接口](api.md) · [数据模型](data-model.md)
+[查看费用](use-case/manage-estimates.md) · [接口](api.md) · [数据模型](data-model.md) · [价格管理边界](architecture.md)
+
+价格来自系统维护的供应商报价来源，不提供用户手工管理能力；现有历史价格版本只读保留。缺少适用报价时明确显示未定价，不据模型名称推算或视为免费。
