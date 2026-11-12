@@ -2,11 +2,11 @@
 // @concord-implements docs/feature/interface-interactions/ui.md
 import { tr } from "@/lib/i18n";
 import { Spinner } from "./ui/spinner";
-import { AlertCircle, AudioLines, CheckCircle2, RefreshCw } from "lucide-react";
-import type { ReactNode } from "react";
+import { AudioLines, CheckCircle2, RefreshCw } from "lucide-react";
+import { useEffect, type ReactNode } from "react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Alert, AlertTitle, AlertDescription } from "./ui/alert";
+import { notify } from "@/lib/notify";
 import {
   Empty,
   EmptyHeader,
@@ -46,23 +46,17 @@ export function Status({ value }: { value: string }) {
   );
 }
 export function ErrorBox({ message, retry }: { message: string; retry?: () => void }) {
-  if (!message) return null;
-  return (
-    <Alert variant="destructive">
-      <AlertCircle />
-      <AlertTitle>{tr("暂时无法完成")}</AlertTitle>
-      <AlertDescription>
-        <p>{message}</p>
-        {retry && (
-          <Button variant="outline" size="sm" onClick={retry}>
-            <RefreshCw data-icon="inline-start" />
-            {tr("重新加载")}{" "}
-          </Button>
-        )}
-      </AlertDescription>
-    </Alert>
-  );
+  useEffect(() => {
+    if (message) notify(message, true);
+  }, [message]);
+  return message && retry ? (
+    <Button variant="outline" size="sm" onClick={retry}>
+      <RefreshCw data-icon="inline-start" />
+      {tr("重新加载")}
+    </Button>
+  ) : null;
 }
+
 export function Loading({
   title = tr("正在加载"),
   description,

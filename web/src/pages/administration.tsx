@@ -1,6 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/administration/README.md
 // @concord-implements docs/feature/administration/use-case/inspect-instance.md
+import { DatePicker } from "@/components/date-picker";
 import { tr, interfaceLocale } from "@/lib/i18n";
 import { useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -281,21 +282,15 @@ function EventList({ runtime }: { runtime: boolean }) {
         </Field>
         <Field>
           <FieldLabel htmlFor={`${runtime}-from`}>{tr("起始时间")}</FieldLabel>
-          <Input
+          <DatePicker
             id={`${runtime}-from`}
-            type="datetime-local"
             value={from}
-            onChange={(e) => setFrom(e.target.value)}
+            onValueChange={(value) => setFrom(value)}
           />
         </Field>
         <Field>
           <FieldLabel htmlFor={`${runtime}-to`}>{tr("结束时间（不含）")}</FieldLabel>
-          <Input
-            id={`${runtime}-to`}
-            type="datetime-local"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-          />
+          <DatePicker id={`${runtime}-to`} value={to} onValueChange={(value) => setTo(value)} />
         </Field>
         {runtime && (
           <Field>

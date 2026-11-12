@@ -24,7 +24,9 @@ test("获取模型、手动输入、失败脱敏与过期请求隔离", async ({
     expect(discoveryRequests - before, "一次操作只允许发出一次模型目录请求").toBe(1);
   };
   await fetchModels();
-  await expect(screen.getByRole("status").filter({ hasText: "已获取 2 个模型" })).toBeVisible();
+  await screen.getByPlaceholder("选择或填写模型 ID", { exact: true }).click();
+  await expect(screen.getByRole("option")).toHaveCount(2);
+  await browser.keyboard.press("Escape");
   await expect(screen.getByLabel("搜索模型", { exact: true })).toHaveCount(0);
   await expect(screen.getByLabel("可用模型", { exact: true })).toHaveCount(0);
   await agent.act("展开模型名称的候选列表，暂不选择。");
@@ -37,7 +39,10 @@ test("获取模型、手动输入、失败脱敏与过期请求隔离", async ({
   await expect(screen.getByPlaceholder("选择或填写模型 ID", { exact: true })).toHaveValue(
     "manual-model",
   );
-  await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+  await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+    "data-save-state",
+    "saved",
+  );
   await expect(screen.getByText("数据库配置已在当前实例生效", { exact: true })).toBeVisible();
   await expect(screen.getByRole("button", { name: "清除 LLM 密钥" })).toBeVisible();
   await agent.act(
@@ -45,7 +50,9 @@ test("获取模型、手动输入、失败脱敏与过期请求隔离", async ({
     { params: { url: remote + "/v2" } },
   );
   await fetchModels();
-  await expect(screen.getByRole("status").filter({ hasText: "已获取 2 个模型" })).toBeVisible();
+  await screen.getByPlaceholder("选择或填写模型 ID", { exact: true }).click();
+  await expect(screen.getByRole("option")).toHaveCount(2);
+  await browser.keyboard.press("Escape");
   await agent.act(
     "把 LLM Base URL 改为 {url}、API Key 填为 browser-model-key，等待自动保存，不获取模型。",
     { params: { url: remote + "/empty" } },
@@ -65,11 +72,6 @@ test("获取模型、手动输入、失败脱敏与过期请求隔离", async ({
   await fetchModels();
   await expect(
     browser
-      .locator("[data-slot=alert]")
-      .filter({ hasText: "模型服务拒绝访问，请检查 API Key 和权限" }),
-  ).toBeVisible();
-  await expect(
-    browser
       .locator("[data-slot=toast-description]")
       .filter({ hasText: "模型服务拒绝访问，请检查 API Key 和权限" }),
   ).toBeVisible();
@@ -81,7 +83,9 @@ test("获取模型、手动输入、失败脱敏与过期请求隔离", async ({
   await screen.getByLabel("LLM Base URL", { exact: true }).fill(`${remote}/v2`);
   await screen.getByLabel("LLM API Key", { exact: true }).fill("browser-model-key");
   await screen.getByRole("button", { name: "获取 LLM 模型", exact: true }).click();
-  await expect(screen.getByRole("status").filter({ hasText: "已获取 2 个模型" })).toBeVisible();
+  await screen.getByPlaceholder("选择或填写模型 ID", { exact: true }).click();
+  await expect(screen.getByRole("option")).toHaveCount(2);
+  await browser.keyboard.press("Escape");
   await agent.act("展开模型名称的候选列表，暂不选择。");
   await expect(screen.getByRole("option")).toHaveCount(2);
   await expect(screen.getByRole("option", { name: "obsolete-model", exact: true })).toHaveCount(0);
@@ -93,7 +97,10 @@ test("获取模型、手动输入、失败脱敏与过期请求隔离", async ({
   expect(await browser.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
     true,
   );
-  await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+  await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+    "data-save-state",
+    "saved",
+  );
   await browser.reload();
   await expect(screen.getByPlaceholder("选择或填写模型 ID", { exact: true })).toHaveValue(
     "beta-model",

@@ -1,5 +1,14 @@
 // @concord-file
 // @concord-implements docs/feature/accounts/README.md
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { notify } from "@/lib/notify";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   SidebarProvider,
@@ -48,20 +57,14 @@ import {
   LockKeyhole,
   ArrowRight,
   LogOut,
+  ChevronsUpDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { toast, Toaster } from "@/components/ui/toast";
+import { Toaster } from "@/components/ui/toast";
 import { Separator } from "@/components/ui/separator";
 import { ErrorBox, Loading, EmptyState } from "@/components/shared";
 import { LibraryPage } from "@/pages/library";
@@ -169,7 +172,7 @@ function Login({
     }
   }
   return (
-    <main className="login-page">
+    <main className="flex min-h-svh flex-col items-center justify-center gap-6 p-6">
       <div className="flex items-center gap-2">
         <AudioLines />
         <span className="font-medium">Voices</span>
@@ -251,7 +254,7 @@ function Login({
               </FieldGroup>
             </form>
           </CardContent>
-          <CardFooter className="flex-col items-stretch gap-4">
+          <CardContent className="flex flex-col gap-4">
             <Button
               aria-busy={busy}
               type="submit"
@@ -263,8 +266,7 @@ function Login({
                 !email ||
                 status.loading ||
                 !status.data ||
-                (register && (!displayName || !status.data.registration_open)) ||
-                busy
+                (register && (!displayName || !status.data.registration_open))
               }
             >
               {busy && <Spinner data-icon="inline-start" aria-hidden="true" />}
@@ -275,7 +277,7 @@ function Login({
               <Button
                 variant="outline"
                 aria-busy={oidcBusy}
-                disabled={busy || oidcBusy || oidcBusy}
+                disabled={busy || oidcBusy}
                 onClick={() => void loginOIDC()}
               >
                 {oidcBusy && <Spinner data-icon="inline-start" aria-hidden="true" />}
@@ -306,7 +308,7 @@ function Login({
             <p className="text-center text-xs text-muted-foreground">
               {tr("录音与句子引用都需要登录后访问。")}{" "}
             </p>
-          </CardFooter>
+          </CardContent>
         </Card>
       </div>
     </main>
@@ -323,21 +325,39 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
     { to: "/jobs", title: tr("处理任务"), icon: ListTodo },
     { to: "/settings", title: tr("转写偏好"), icon: Settings },
   ];
-  const adminNav = [
-    { to: "/admin/overview", title: tr("站点概览"), icon: Server },
-    { to: "/admin/stt/calls", title: tr("STT 调用"), icon: ListTodo },
-    { to: "/admin/stt/prices", title: tr("模型价格"), icon: ListTodo },
-    { to: "/admin/calls", title: tr("调用日志"), icon: ListTodo },
-    { to: "/admin/logs", title: tr("系统日志"), icon: ListTodo },
-    { to: "/admin/accounts", title: tr("账号管理"), icon: Users },
-    { to: "/admin/server", title: tr("服务器设置"), icon: Server },
+  const adminGroups = [
+    {
+      title: tr("站点概览"),
+      items: [{ to: "/admin/overview", title: tr("站点概览"), icon: Server }],
+    },
+    {
+      title: tr("用量与费用"),
+      items: [
+        { to: "/admin/stt/calls", title: tr("STT 调用"), icon: ListTodo },
+        { to: "/admin/stt/prices", title: tr("模型价格"), icon: ListTodo },
+      ],
+    },
+    {
+      title: tr("运行诊断"),
+      items: [
+        { to: "/admin/calls", title: tr("调用日志"), icon: ListTodo },
+        { to: "/admin/logs", title: tr("系统日志"), icon: ListTodo },
+      ],
+    },
+    {
+      title: tr("管理"),
+      items: [
+        { to: "/admin/accounts", title: tr("账号管理"), icon: Users },
+        { to: "/admin/server", title: tr("服务器设置"), icon: Server },
+      ],
+    },
   ];
   const menu = (items: typeof nav) => (
     <SidebarMenu>
       {items.map(({ to, title, icon: Icon }) => (
         <SidebarMenuItem key={to}>
           <SidebarMenuButton
-            isActive={location.pathname.startsWith(to)}
+            isActive={location.pathname === to || location.pathname.startsWith(`${to}/`)}
             render={<NavLink to={to} onClick={() => setOpenMobile(false)} />}
           >
             <Icon />
@@ -375,61 +395,73 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
               <nav aria-label={tr("主导航")}>{menu(nav)}</nav>
             </SidebarGroupContent>
           </SidebarGroup>
-          {session.user.role === "admin" && (
-            <SidebarGroup>
-              <SidebarGroupLabel>{tr("服务器管理")}</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <nav aria-label={tr("服务器管理")}>{menu(adminNav)}</nav>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          )}
+          {session.user.role === "admin" &&
+            adminGroups.map((group, index) => (
+              <SidebarGroup key={group.title}>
+                {index > 0 && <SidebarGroupLabel>{group.title}</SidebarGroupLabel>}
+                <SidebarGroupContent>
+                  <nav aria-label={group.title}>{menu(group.items)}</nav>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            ))}
         </SidebarContent>
         <SidebarFooter>
-          <Separator />
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton
-                size="lg"
-                isActive={location.pathname === "/account"}
-                render={
-                  <NavLink
-                    to="/account"
-                    aria-label={tr("我的账号")}
-                    onClick={() => setOpenMobile(false)}
-                  />
-                }
-              >
-                <Avatar>
-                  <AvatarFallback>{Array.from(session.user.display_name)[0]}</AvatarFallback>
-                </Avatar>
-                <span className="grid min-w-0 gap-1">
-                  <span className="truncate">{session.user.display_name}</span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {session.user.email}
-                  </span>
-                </span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                disabled={logoutBusy}
-                aria-busy={logoutBusy}
-                onClick={async () => {
-                  setLogoutBusy(true);
-                  try {
-                    await write("/session", "DELETE");
-                    onLogout();
-                  } catch (e) {
-                    setLogoutError(errorMessage(e));
-                    notify(errorMessage(e), true);
-                  } finally {
-                    setLogoutBusy(false);
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <SidebarMenuButton
+                      size="lg"
+                      aria-label={tr("我的账号")}
+                      disabled={logoutBusy}
+                      aria-busy={logoutBusy}
+                    />
                   }
-                }}
-              >
-                {logoutBusy ? <Spinner aria-hidden="true" /> : <LogOut />}
-                <span>{tr("退出登录")}</span>
-              </SidebarMenuButton>
+                >
+                  <Avatar>
+                    <AvatarFallback>{Array.from(session.user.display_name)[0]}</AvatarFallback>
+                  </Avatar>
+                  <span className="grid min-w-0 flex-1 gap-1 text-left">
+                    <span className="truncate">{session.user.display_name}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {session.user.email}
+                    </span>
+                  </span>
+                  {logoutBusy ? <Spinner aria-hidden="true" /> : <ChevronsUpDown />}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="top" align="end" className="min-w-56">
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      render={<NavLink to="/account" onClick={() => setOpenMobile(false)} />}
+                    >
+                      <Users />
+                      {tr("我的账号")}
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      disabled={logoutBusy}
+                      onClick={async () => {
+                        setLogoutBusy(true);
+                        try {
+                          await write("/session", "DELETE");
+                          onLogout();
+                        } catch (e) {
+                          setLogoutError(errorMessage(e));
+                          notify(errorMessage(e), true);
+                        } finally {
+                          setLogoutBusy(false);
+                        }
+                      }}
+                    >
+                      <LogOut />
+                      {tr("退出登录")}
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarFooter>
@@ -618,16 +650,6 @@ function AppContent() {
     </SessionProvider>
   );
 }
-function notify(text: string, isError = false) {
-  toast.add({
-    title: isError ? tr("操作未完成") : tr("已完成"),
-    description: text,
-    type: isError ? "error" : "success",
-    priority: isError ? "high" : "low",
-    timeout: isError ? 0 : 4500,
-  });
-}
-
 export default function App() {
   useTranslation();
   return (

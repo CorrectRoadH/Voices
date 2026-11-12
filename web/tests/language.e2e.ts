@@ -104,8 +104,9 @@ test(
       else await route.continue();
     });
     await screen.getByLabel("Model name", { exact: true }).fill("local-model");
-    await expect(screen.getByTestId("settings-save-status")).toHaveText(
-      "Autosave failed; changes are not saved",
+    await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+      "data-save-state",
+      "error",
     );
     await expect(
       browser
@@ -115,11 +116,17 @@ test(
     await browser.locator("[data-slot=toast-close]").click();
     await browser.unroute("**/api/v1/admin/server-settings");
     await agent.act("重试自动保存当前服务器配置。");
-    await expect(screen.getByTestId("settings-save-status")).toHaveText("All changes saved");
+    await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+      "data-save-state",
+      "saved",
+    );
     await agent.act("将 LLM Base URL 改为 {url} 并等待自动保存，不获取模型。", {
       params: { url: fixture("VOICES_MODEL_TEST_URL") },
     });
-    await expect(screen.getByTestId("settings-save-status")).toHaveText("All changes saved");
+    await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+      "data-save-state",
+      "saved",
+    );
     await agent.act("获取 LLM 模型一次；出现服务拒绝访问提示后立即停止，不重试。");
     await expect(
       browser

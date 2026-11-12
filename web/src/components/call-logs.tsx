@@ -1,9 +1,10 @@
 // @concord-file
 // @concord-implements docs/feature/call-logs/README.md
 // @concord-implements docs/feature/call-logs/use-case/inspect-calls.md
-import { Card } from "@/components/ui/card";
+import { DatePicker } from "@/components/date-picker";
+import { Item, ItemGroup, ItemContent, ItemSeparator } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Copy, RefreshCw } from "lucide-react";
 import { tr } from "@/lib/i18n";
@@ -236,13 +237,10 @@ export function CallLogs({ admin = false }: { admin?: boolean }) {
               <FieldLabel htmlFor={`call-${key}`}>
                 {tr(key === "from" ? "开始时间" : "结束时间")}
               </FieldLabel>
-              <Input
+              <DatePicker
                 id={`call-${key}`}
-                type="datetime-local"
                 value={localDate(params.get(key))}
-                onChange={(e) =>
-                  change(key, e.target.value ? new Date(e.target.value).toISOString() : "")
-                }
+                onValueChange={(value) => change(key, value ? new Date(value).toISOString() : "")}
               />
             </Field>
           ))}
@@ -298,16 +296,14 @@ export function CallLogs({ admin = false }: { admin?: boolean }) {
               {tr("已加载")} {items.length} {tr("次")}
             </p>
           </div>
-          <Card>
-            {items.map((call) => (
-              <CallRow
-                key={call.id}
-                call={call}
-                admin={admin}
-                name={names[call.recording_id || ""]}
-              />
+          <ItemGroup>
+            {items.map((call, index) => (
+              <Fragment key={call.id}>
+                {index > 0 && <ItemSeparator />}
+                <CallRow call={call} admin={admin} name={names[call.recording_id || ""]} />
+              </Fragment>
             ))}
-          </Card>
+          </ItemGroup>
         </section>
       )}
       {cursor && (
@@ -354,122 +350,124 @@ function CallRow({ call, admin, name }: { call: Call; admin: boolean; name?: str
       openai: "OpenAI",
     }[call.provider] || call.provider;
   return (
-    <article className="flex min-w-0 flex-col gap-4 p-4 text-sm sm:p-5">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-medium">{tr(operations[call.operation] || call.operation)}</h3>
-            <Badge
-              variant={
-                call.state === "failed"
-                  ? "destructive"
-                  : call.state === "succeeded"
-                    ? "outline"
-                    : "secondary"
-              }
-            >
-              {tr(states[call.state] || call.state)}
-            </Badge>
-          </div>
-          {call.can_open_recording && call.recording_id && (
-            <Button
-              variant="link"
-              nativeButton={false}
-              className="h-auto w-fit max-w-full whitespace-normal"
-              render={<Link to={`/recordings/${call.recording_id}`} />}
-            >
-              {name || tr("查看录音")}
-            </Button>
-          )}
-        </div>
-        <time
-          dateTime={call.started_at}
-          className="shrink-0 text-xs tabular-nums text-muted-foreground"
-        >
-          {date(call.started_at)}
-        </time>
-      </header>
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 xl:grid-cols-4">
-        <div className="min-w-0">
-          <dt className="mb-1 text-xs text-muted-foreground">{tr("服务商 / 模型")}</dt>
-          <dd className="break-all">{provider}</dd>
-          <dd className="break-all text-xs text-muted-foreground">{call.model || tr("未知")}</dd>
-        </div>
-        <div className="min-w-0">
-          <dt className="mb-1 text-xs text-muted-foreground">{tr("请求状态")}</dt>
-          <dd className="tabular-nums">HTTP: {metric(call.http_status)}</dd>
-          <dd className="text-xs text-muted-foreground">
-            {tr("请求已发起")}:{" "}
-            {tr(call.request_started === null ? "未知" : call.request_started ? "是" : "否")}
-          </dd>
-        </div>
-        <div className="min-w-0">
-          <dt className="mb-1 text-xs text-muted-foreground">{tr("耗时")}</dt>
-          <dd className="tabular-nums">
-            {call.duration_ms === null ? tr("未知") : `${(call.duration_ms / 1000).toFixed(2)} s`}
-          </dd>
-        </div>
-        <div className="min-w-0">
-          <dt className="mb-1 text-xs text-muted-foreground">
-            {tr(call.category === "ai" ? "输入 / 输出 / 总 token" : "音频时长")}
-          </dt>
-          <dd className="break-words tabular-nums">
-            {call.category === "ai"
-              ? `${metric(call.input_tokens)} / ${metric(call.output_tokens)} / ${metric(call.total_tokens)}`
-              : call.audio_duration_ms === null
-                ? tr("未知")
-                : audioTime(call.audio_duration_ms)}
-          </dd>
-        </div>
-      </dl>
-      {admin && call.actor && (
-        <p className="break-all text-xs text-muted-foreground">
-          {call.actor.display_name} · {call.actor.email}
-        </p>
-      )}
-      {call.error_code && (
-        <p className="break-all text-destructive">
-          {tr("错误代码：")}
-          {call.error_code}
-          {call.error_reason ? ` · ${call.error_reason}` : ""}
-        </p>
-      )}
-      <dl className="grid gap-x-6 gap-y-2 border-t border-dashed pt-3 text-xs sm:grid-cols-2 xl:grid-cols-3">
-        {Object.entries(identifiers).map(([key, label]) => {
-          const value = call[key as keyof Call];
-          return typeof value === "string" ? (
-            <div key={key} className="min-w-0">
-              <dt className="text-muted-foreground">{tr(label)}</dt>
-              <dd className="flex items-center gap-1">
-                <span className="min-w-0 break-all tabular-nums">{value}</span>
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  aria-label={`${tr("复制")} ${tr(label)}`}
-                  aria-busy={action.pendingKey === key}
-                  disabled={action.pendingKey === key}
-                  onClick={() =>
-                    void action.run(
-                      async () => {
-                        if (!(await copyText(value)))
-                          throw new Error(tr("复制失败，请手动选择文字复制。"));
-                      },
-                      tr("已复制"),
-                      key,
-                    )
-                  }
-                >
-                  {action.pendingKey === key && (
-                    <Spinner data-icon="inline-start" aria-hidden="true" />
-                  )}
-                  <Copy />
-                </Button>
-              </dd>
+    <Item className="items-start" render={<article />}>
+      <ItemContent className="gap-3">
+        <header className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-medium">{tr(operations[call.operation] || call.operation)}</h3>
+              <Badge
+                variant={
+                  call.state === "failed"
+                    ? "destructive"
+                    : call.state === "succeeded"
+                      ? "outline"
+                      : "secondary"
+                }
+              >
+                {tr(states[call.state] || call.state)}
+              </Badge>
             </div>
-          ) : null;
-        })}
-      </dl>
-      <ErrorBox message={action.error} />
-    </article>
+            {call.can_open_recording && call.recording_id && (
+              <Button
+                variant="link"
+                nativeButton={false}
+                className="h-auto w-fit max-w-full whitespace-normal"
+                render={<Link to={`/recordings/${call.recording_id}`} />}
+              >
+                {name || tr("查看录音")}
+              </Button>
+            )}
+          </div>
+          <time
+            dateTime={call.started_at}
+            className="shrink-0 text-xs tabular-nums text-muted-foreground"
+          >
+            {date(call.started_at)}
+          </time>
+        </header>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 xl:grid-cols-4">
+          <div className="min-w-0">
+            <dt className="mb-1 text-xs text-muted-foreground">{tr("服务商 / 模型")}</dt>
+            <dd className="break-all">{provider}</dd>
+            <dd className="break-all text-xs text-muted-foreground">{call.model || tr("未知")}</dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="mb-1 text-xs text-muted-foreground">{tr("请求状态")}</dt>
+            <dd className="tabular-nums">HTTP: {metric(call.http_status)}</dd>
+            <dd className="text-xs text-muted-foreground">
+              {tr("请求已发起")}:{" "}
+              {tr(call.request_started === null ? "未知" : call.request_started ? "是" : "否")}
+            </dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="mb-1 text-xs text-muted-foreground">{tr("耗时")}</dt>
+            <dd className="tabular-nums">
+              {call.duration_ms === null ? tr("未知") : `${(call.duration_ms / 1000).toFixed(2)} s`}
+            </dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="mb-1 text-xs text-muted-foreground">
+              {tr(call.category === "ai" ? "输入 / 输出 / 总 token" : "音频时长")}
+            </dt>
+            <dd className="break-words tabular-nums">
+              {call.category === "ai"
+                ? `${metric(call.input_tokens)} / ${metric(call.output_tokens)} / ${metric(call.total_tokens)}`
+                : call.audio_duration_ms === null
+                  ? tr("未知")
+                  : audioTime(call.audio_duration_ms)}
+            </dd>
+          </div>
+        </dl>
+        {admin && call.actor && (
+          <p className="break-all text-xs text-muted-foreground">
+            {call.actor.display_name} · {call.actor.email}
+          </p>
+        )}
+        {call.error_code && (
+          <p className="break-all text-destructive">
+            {tr("错误代码：")}
+            {call.error_code}
+            {call.error_reason ? ` · ${call.error_reason}` : ""}
+          </p>
+        )}
+        <dl className="grid gap-x-4 gap-y-1 text-xs sm:grid-cols-2 2xl:grid-cols-4">
+          {Object.entries(identifiers).map(([key, label]) => {
+            const value = call[key as keyof Call];
+            return typeof value === "string" ? (
+              <div key={key} className="flex min-w-0 flex-wrap items-center gap-x-2">
+                <dt className="text-muted-foreground">{tr(label)}</dt>
+                <dd className="flex items-center gap-1">
+                  <span className="min-w-0 break-all tabular-nums">{value}</span>
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label={`${tr("复制")} ${tr(label)}`}
+                    aria-busy={action.pendingKey === key}
+                    disabled={action.pendingKey === key}
+                    onClick={() =>
+                      void action.run(
+                        async () => {
+                          if (!(await copyText(value)))
+                            throw new Error(tr("复制失败，请手动选择文字复制。"));
+                        },
+                        tr("已复制"),
+                        key,
+                      )
+                    }
+                  >
+                    {action.pendingKey === key && (
+                      <Spinner data-icon="inline-start" aria-hidden="true" />
+                    )}
+                    <Copy />
+                  </Button>
+                </dd>
+              </div>
+            ) : null;
+          })}
+        </dl>
+        <ErrorBox message={action.error} />
+      </ItemContent>
+    </Item>
   );
 }

@@ -1,6 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/interface-interactions/ui.md
 // @concord-implements docs/feature/transcription/use-case/edit-transcript.md
+import { DatePicker } from "@/components/date-picker";
 import { Spinner } from "@/components/ui/spinner";
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Check, Pencil, X } from "lucide-react";
@@ -184,13 +185,22 @@ function InlineEditForm({
               disabled={action.busy || disabled}
               onChange={(event) => setDraft(event.target.value)}
             />
+          ) : type === "datetime-local" ? (
+            <DatePicker
+              ref={inputRef}
+              id={id}
+              autoFocus
+              required={required}
+              value={draft}
+              disabled={action.busy || disabled}
+              onValueChange={setDraft}
+            />
           ) : (
             <Input
               ref={inputRef}
               id={id}
               autoFocus
               type={type}
-              step={type === "datetime-local" ? "1" : undefined}
               required={required}
               value={draft}
               disabled={action.busy || disabled}

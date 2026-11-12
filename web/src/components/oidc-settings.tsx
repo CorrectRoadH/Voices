@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/accounts/use-case/oidc-login.md#configure
+import { useSaveToast } from "@/lib/use-save-toast";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { tr } from "@/lib/i18n";
 import { request, HttpError, errorMessage } from "@/lib/api";
@@ -9,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Spinner } from "@/components/ui/spinner";
 import { Field, FieldGroup, FieldLabel, FieldDescription, FieldSet } from "@/components/ui/field";
 import {
   Card,
@@ -46,6 +46,7 @@ function OIDCSettingsForm({ initial }: { initial: Settings }) {
     secret: { value: "", clear: false },
   });
   const [saving, setSaving] = useState(false);
+  useSaveToast(saving);
   const [invalid, setInvalid] = useState(false);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
@@ -79,6 +80,7 @@ function OIDCSettingsForm({ initial }: { initial: Settings }) {
           (form.current && !form.current.checkValidity())
         ) {
           if (mounted.current) setInvalid(true);
+          notify(tr("部分字段格式不正确，尚未保存"), true);
           break;
         }
         if (mounted.current) {
@@ -99,6 +101,7 @@ function OIDCSettingsForm({ initial }: { initial: Settings }) {
         if (mounted.current) {
           setData(result);
           setDraft(next);
+          if (!patchFor(next, result)) notify(tr("所有修改已保存"));
         }
       }
     } catch (cause) {
@@ -142,6 +145,10 @@ function OIDCSettingsForm({ initial }: { initial: Settings }) {
   const dirty = patchFor(draft, data) !== null;
   return (
     <form
+      data-testid="oidc-save-status"
+      data-save-state={
+        error ? "error" : saving ? "saving" : invalid ? "invalid" : dirty ? "dirty" : "saved"
+      }
       ref={form}
       onSubmit={(event) => {
         event.preventDefault();
@@ -268,41 +275,24 @@ function OIDCSettingsForm({ initial }: { initial: Settings }) {
             </FieldGroup>
           </FieldSet>
         </CardContent>
-        <CardFooter className="flex-col items-stretch gap-3">
-          <ErrorBox message={error} />
-          {error && !conflict && (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={saving || session.restore_mode}
-              onClick={() => {
-                failed.current = false;
-                void save();
-              }}
-            >
-              {tr("重试自动保存")}
-            </Button>
-          )}
-          <p
-            role="status"
-            aria-live="polite"
-            data-testid="oidc-save-status"
-            className="flex items-center gap-2 text-sm text-muted-foreground"
-          >
-            {saving && <Spinner />}
-            {session.restore_mode
-              ? tr("恢复模式下仅可查看配置")
-              : error
-                ? tr("自动保存失败，修改尚未保存")
-                : saving
-                  ? tr("正在自动保存…")
-                  : invalid
-                    ? tr("请填写有效配置；启用时必须提供客户端密钥。")
-                    : dirty
-                      ? tr("修改待保存…")
-                      : tr("所有修改已保存")}
-          </p>
-        </CardFooter>
+        {error && (
+          <CardFooter className="flex-col items-stretch gap-3">
+            <ErrorBox message={error} />
+            {error && !conflict && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={saving || session.restore_mode}
+                onClick={() => {
+                  failed.current = false;
+                  void save();
+                }}
+              >
+                {tr("重试自动保存")}
+              </Button>
+            )}
+          </CardFooter>
+        )}
       </Card>
     </form>
   );

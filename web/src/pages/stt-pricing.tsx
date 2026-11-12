@@ -1,6 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/stt-pricing/README.md
 // @concord-implements docs/feature/stt-pricing/use-case/manage-estimates.md
+import { DatePicker } from "@/components/date-picker";
 import { Spinner } from "@/components/ui/spinner";
 import { useRef, useState, type FormEvent } from "react";
 import { tr, interfaceLocale } from "@/lib/i18n";
@@ -56,13 +57,23 @@ function TextField({
   return (
     <Field>
       <FieldLabel htmlFor={name}>{tr(label)}</FieldLabel>
-      <Input
-        id={name}
-        type={type}
-        value={value}
-        required={required}
-        onChange={(e) => change(e.target.value)}
-      />
+      {type === "date" || type === "datetime-local" ? (
+        <DatePicker
+          id={name}
+          dateOnly={type === "date"}
+          value={value}
+          required={required}
+          onValueChange={change}
+        />
+      ) : (
+        <Input
+          id={name}
+          type={type}
+          value={value}
+          required={required}
+          onChange={(e) => change(e.target.value)}
+        />
+      )}
     </Field>
   );
 }

@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/accounts/use-case/manage-server.md
+import { useSaveToast } from "@/lib/use-save-toast";
 import { tr } from "@/lib/i18n";
 import { OIDCSettings } from "@/components/oidc-settings";
 import { ServerUpdates } from "@/components/server-updates";
@@ -155,6 +156,7 @@ export function ServerSettingsForm({
   }));
   const { baseURL, origins, llmURL, model, soniox, assembly, llm, openaiURL, openai } = draft;
   const [saving, setSaving] = useState(false);
+  useSaveToast(saving);
   const [error, setError] = useState("");
   const [invalid, setInvalid] = useState(false);
   const [conflict, setConflict] = useState(false);
@@ -181,6 +183,7 @@ export function ServerSettingsForm({
     if (inFlight.current || failed.current || composing.current || restore.current) return;
     if (form.current && !form.current.checkValidity()) {
       setInvalid(true);
+      notify(tr("部分字段格式不正确，尚未保存"), true);
       return;
     }
     inFlight.current = true;
@@ -191,6 +194,7 @@ export function ServerSettingsForm({
         if (!patch || composing.current) break;
         if (mounted.current && form.current && !form.current.checkValidity()) {
           setInvalid(true);
+          notify(tr("部分字段格式不正确，尚未保存"), true);
           break;
         }
         if (mounted.current) {
@@ -213,6 +217,7 @@ export function ServerSettingsForm({
         if (mounted.current) {
           setData(result);
           setDraft(next);
+          if (!settingsPatch(next, result)) notify(tr("所有修改已保存"));
         }
       }
     } catch (cause) {
@@ -271,6 +276,7 @@ export function ServerSettingsForm({
         body: JSON.stringify({ revision: data.revision }),
       });
       setTestedRevision(result.revision);
+      notify(tr("当前配置测试通过"));
     } catch (cause) {
       const message = errorMessage(cause);
       setActionError(message);
@@ -299,6 +305,11 @@ export function ServerSettingsForm({
   }
   return (
     <form
+      data-testid="settings-save-status"
+      data-llm-tested={tested}
+      data-save-state={
+        error ? "error" : saving ? "saving" : invalid ? "invalid" : dirty ? "dirty" : "saved"
+      }
       ref={form}
       onSubmit={(event) => {
         event.preventDefault();
@@ -503,7 +514,6 @@ export function ServerSettingsForm({
             {testing && <Spinner data-icon="inline-start" aria-hidden="true" />}
             {testing ? tr("正在测试…") : tr("测试 LLM 连接")}
           </Button>
-          <p role="status">{tested ? tr("当前配置测试通过") : tr("当前配置尚未通过测试")}</p>
         </div>
         {onboarding && (
           <div className="flex flex-wrap gap-3">
@@ -549,27 +559,6 @@ export function ServerSettingsForm({
           {tr("重试自动保存")}
         </Button>
       )}
-      <div className="flex flex-wrap items-center gap-3">
-        <p
-          role="status"
-          aria-live="polite"
-          data-testid="settings-save-status"
-          className="flex items-center gap-2 text-sm text-muted-foreground"
-        >
-          {saving && <Spinner />}
-          {locked
-            ? tr("恢复模式下仅可查看配置")
-            : error
-              ? tr("自动保存失败，修改尚未保存")
-              : saving
-                ? tr("正在自动保存…")
-                : invalid
-                  ? tr("部分字段格式不正确，尚未保存")
-                  : dirty
-                    ? tr("修改待保存…")
-                    : tr("所有修改已保存")}
-        </p>
-      </div>
     </form>
   );
 }

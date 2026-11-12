@@ -7,13 +7,26 @@ import { api, fixture, noOverflow } from "./support/session";
 test("加载阶段、行内编辑快捷键、保存状态与真实并发冲突", async ({ app, browser, screen }) => {
   const id = fixture("VOICES_TEST_RECORDING");
   await app.open();
+  await expect(screen.getByRole("button", { name: "进入工作台" })).toBeVisible();
+  expect(
+    await browser.evaluate(() => {
+      const card = document.querySelector('[data-slot="card"]')!.getBoundingClientRect();
+      return Math.abs(card.left + card.width / 2 - innerWidth / 2) < 2;
+    }),
+  ).toBe(true);
+  await app.screenshot("centered-official-login");
   await screen.getByLabel("用户名或邮箱").fill("tester@example.test");
   await screen.getByLabel("密码", { exact: true }).fill("acceptance-password");
   await screen.getByRole("button", { name: "进入工作台" }).click();
   await expect(screen.getByRole("button", { name: "导入录音" }).first()).toBeVisible();
   await browser.emulateMedia({ reducedMotion: "reduce" });
   await noOverflow(browser);
+  await expect(browser.locator('[data-slot="card"] .recording-row')).toHaveCount(0);
   await app.screenshot("desktop-library-shadcn");
+  await screen.getByRole("button", { name: "我的账号", exact: true }).click();
+  await expect(screen.getByRole("menuitem", { name: "退出登录", exact: true })).toBeVisible();
+  await app.screenshot("official-account-menu");
+  await browser.keyboard.press("Escape");
   await browser.setViewport({ width: 375, height: 812 });
   await screen.getByRole("button", { name: "切换导航", exact: true }).click();
   await expect(screen.getByRole("dialog")).toBeVisible();
@@ -317,7 +330,9 @@ test("异步操作反馈、筛选空态与刷新保留内容", async ({ app, bro
   await expect(registration).toBeEnabled();
   await expect(registration).toHaveAttribute("aria-checked", "true");
   await expect(
-    browser.locator('[data-slot="alert"]').filter({ hasText: "网络连接中断或请求超时" }),
+    browser
+      .locator('[data-slot="toast-description"]')
+      .filter({ hasText: "网络连接中断或请求超时" }),
   ).toBeVisible();
   expect((await (await api(browser, "/admin/registration")).json()).registration_open).toBe(true);
   await browser.unroute("**/api/v1/admin/registration");
@@ -414,9 +429,31 @@ test("异步操作反馈、筛选空态与刷新保留内容", async ({ app, bro
     return null;
   });
   await app.screenshot("窄屏调用日志与直接可见的详情");
+  const from = screen.getByLabel("开始时间", { exact: true });
+  await from.fill("2020-01-02T12:30");
+  await expect(from).toHaveValue("2020-01-02T12:30");
+  await screen.getByRole("button", { name: "选择日期", exact: true }).first().click();
+  await expect(browser.locator('[data-slot="calendar"]')).toBeVisible();
+  await noOverflow(browser);
+  await app.screenshot("official-date-time-picker");
+  await browser.locator('[data-day="2020/1/3"]').click();
+  await expect(from).toHaveValue("2020-01-03T12:30");
+  await screen.getByLabel("时间", { exact: true }).fill("14:45");
+  await expect(from).toHaveValue("2020-01-03T14:45");
+  await screen.getByRole("button", { name: "清除", exact: true }).click();
+  await expect(from).toHaveValue("");
+  await expect(browser.locator('[data-slot="calendar"]')).toHaveCount(0);
+  await browser.goto(`${base}/jobs`);
+  await expect(screen.getByRole("heading", { name: "处理任务", exact: true })).toBeVisible();
+  await expect(browser.locator('[data-slot="card"]')).toHaveCount(0);
+  await noOverflow(browser);
+  await app.screenshot("single-layer-task-list");
   await browser.goto(`${base}/admin/server`);
   await screen.getByLabel("LLM Base URL", { exact: true }).fill("https://models.example.test/v1");
-  await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+  await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+    "data-save-state",
+    "saved",
+  );
   await browser.route("**/api/v1/admin/llm-models", async (route) => {
     await route.fulfill({
       status: 200,
@@ -430,11 +467,20 @@ test("异步操作反馈、筛选空态与刷新保留内容", async ({ app, bro
   await screen.getByRole("option", { name: "alpha-model", exact: true }).click();
   await browser.keyboard.press("Tab");
   await expect(model).toHaveValue("alpha-model");
-  await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+  await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+    "data-save-state",
+    "saved",
+  );
+  await expect(
+    browser.locator('[data-slot="toast-description"]').filter({ hasText: "所有修改已保存" }),
+  ).toBeVisible();
   await model.fill("custom-model");
   await browser.keyboard.press("Tab");
   await expect(model).toHaveValue("custom-model");
-  await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+  await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+    "data-save-state",
+    "saved",
+  );
   await browser.reload();
   await expect(model).toHaveValue("custom-model");
   await noOverflow(browser);

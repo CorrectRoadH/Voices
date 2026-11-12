@@ -1,5 +1,6 @@
 // @concord-file
 // @concord-implements docs/feature/recording-library/README.md
+import { DatePicker } from "@/components/date-picker";
 import {
   Item,
   ItemGroup,
@@ -28,7 +29,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+
 import { UploadDialog } from "@/components/upload";
 import { PageHeading, EmptyState, ErrorBox, Loading, More, Status } from "@/components/shared";
 import { useDebouncedValue, useResource } from "@/lib/hooks";
@@ -146,11 +147,11 @@ export function LibraryPage() {
           </Button>
         </EmptyContent>
       </Empty>
-      <Card>
-        <CardHeader>
+      <section className="flex flex-col gap-4" aria-label={tr("全部录音")}>
+        <header>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <CardTitle>{tr("全部录音")}</CardTitle>
+              <h2 className="text-base font-medium">{tr("全部录音")}</h2>
             </div>
             <Button
               size="sm"
@@ -163,8 +164,8 @@ export function LibraryPage() {
               {tr("刷新")}{" "}
             </Button>
           </div>
-        </CardHeader>
-        <CardContent>
+        </header>
+        <div>
           <FieldGroup className="filters">
             <Field>
               <FieldLabel htmlFor="recording-search" className="sr-only">
@@ -225,29 +226,23 @@ export function LibraryPage() {
               <FieldGroup className="form-columns">
                 <Field>
                   <FieldLabel htmlFor="from">{tr("开始日期")}</FieldLabel>
-                  <Input
+                  <DatePicker
                     id="from"
-                    type="date"
+                    dateOnly
                     value={localDateValue(search.get("from"))}
-                    onChange={(e) =>
-                      filter(
-                        "from",
-                        e.target.value ? new Date(`${e.target.value}T00:00:00`).toISOString() : "",
-                      )
+                    onValueChange={(value) =>
+                      filter("from", value ? new Date(`${value}T00:00:00`).toISOString() : "")
                     }
                   />
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="to">{tr("结束日期")}</FieldLabel>
-                  <Input
+                  <DatePicker
                     id="to"
-                    type="date"
+                    dateOnly
                     value={localDateValue(search.get("to"))}
-                    onChange={(e) =>
-                      filter(
-                        "to",
-                        e.target.value ? new Date(`${e.target.value}T23:59:59`).toISOString() : "",
-                      )
+                    onValueChange={(value) =>
+                      filter("to", value ? new Date(`${value}T23:59:59`).toISOString() : "")
                     }
                   />
                 </Field>
@@ -280,8 +275,8 @@ export function LibraryPage() {
               </EmptyState>
             )
           )}
-        </CardContent>
-        <CardFooter>
+        </div>
+        <footer className="flex items-center gap-3">
           <p className="text-xs text-muted-foreground">
             {tr("已显示 {{count}} 条录音", { count: items.length })}
           </p>
@@ -292,8 +287,8 @@ export function LibraryPage() {
               onLoad={recordings.loadMore}
             />
           </div>
-        </CardFooter>
-      </Card>
+        </footer>
+      </section>
       {open && (
         <UploadDialog
           open={open}

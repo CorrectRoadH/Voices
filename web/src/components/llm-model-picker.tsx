@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/combobox";
 import { Button } from "@/components/ui/button";
 
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { ErrorBox } from "@/components/shared";
 import { errorMessage, request } from "@/lib/api";
 import { useApp } from "@/lib/hooks";
@@ -65,7 +65,16 @@ export function LLMModelPicker({
         body: JSON.stringify({ ...connection, revision }),
         signal: AbortSignal.any([active.signal, AbortSignal.timeout(25000)]),
       });
-      if (!active.signal.aborted) setResult({ connection, items: response.items });
+      if (!active.signal.aborted) {
+        setResult({ connection, items: response.items });
+        notify(
+          response.items.length
+            ? tr("已获取 {{v0}} 个模型。列表不代表已验证 Chat Completions 或 JSON 输出能力。", {
+                v0: response.items.length,
+              })
+            : tr("服务返回空模型列表，请手动填写模型 ID。"),
+        );
+      }
     } catch (error) {
       if (!active.signal.aborted) {
         const message = errorMessage(error);
@@ -126,15 +135,6 @@ export function LLMModelPicker({
           </Button>
         </div>
         <ErrorBox message={current?.error || ""} />
-        {current?.items && (
-          <FieldDescription role="status">
-            {current.items.length
-              ? tr("已获取 {{v0}} 个模型。列表不代表已验证 Chat Completions 或 JSON 输出能力。", {
-                  v0: current.items.length,
-                })
-              : tr("服务返回空模型列表，请手动填写模型 ID。")}
-          </FieldDescription>
-        )}
       </Field>
     </>
   );

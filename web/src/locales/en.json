@@ -1092,5 +1092,12 @@
   "创建账号 ID": "Creator account ID",
   "创建 STT 参考价": "Create STT reference price",
   "筛选": "Filter",
-  "切换导航": "Toggle navigation"
+  "切换导航": "Toggle navigation",
+  "用量与费用": "Usage & costs",
+  "运行诊断": "Diagnostics",
+  "管理": "Management",
+  "选择日期": "Choose date",
+  "时间": "Time",
+  "清除": "Clear",
+  "完成": "Done"
 }

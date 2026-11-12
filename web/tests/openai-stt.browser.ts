@@ -15,7 +15,10 @@ test("OpenAI STT 配置、模型选择与直接失败后的收费确认", async 
   await expect(screen.getByText("OpenAI STT", { exact: true })).toBeVisible();
   const key = screen.getByLabel("OpenAI STT API Key", { exact: true });
   await key.fill("browser-openai-key");
-  await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+  await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+    "data-save-state",
+    "saved",
+  );
   const saved = await (await api(browser, "/admin/server-settings")).json();
   expect(saved.saved.openai_stt_configured).toBe(true);
   expect(JSON.stringify(saved)).not.toContain("browser-openai-key");

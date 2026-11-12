@@ -15,13 +15,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field";
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card";
+  Item,
+  ItemGroup,
+  ItemContent,
+  ItemTitle,
+  ItemDescription,
+  ItemActions,
+} from "@/components/ui/item";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import {
   PageHeading,
@@ -134,67 +134,71 @@ function TaskList() {
       {data.loading && !items.length ? (
         <Loading />
       ) : items.length ? (
-        <div className="mt-5 flex flex-col gap-4">
+        <ItemGroup className="mt-5">
           {items.map((job) => (
-            <Card key={job.id}>
-              <CardHeader>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <CardTitle>
-                    {job.kind === "transcribe" || job.kind === "transcription"
-                      ? tr("音频转写")
-                      : job.kind === "prepare"
-                        ? tr("音频预处理")
-                        : job.kind}
-                  </CardTitle>
-                  <Status value={job.state} />
-                </div>
-                {job.recording_title != null ? (
-                  <Link
-                    to={`/recordings/${job.recording_id}`}
-                    className="break-words underline-offset-4 hover:underline"
-                  >
-                    {job.recording_title}
-                  </Link>
-                ) : (
-                  <p className="text-sm text-muted-foreground">{tr("录音不可用")}</p>
-                )}
-                <CardDescription>
-                  {date(job.created_at)}
-                  {job.attempt > 0 && <> · {tr("失败 {{count}} 次", { count: job.attempt })}</>}
-                  {job.stage !== job.state &&
-                    !(job.kind === "prepare" && job.state === "succeeded") && (
-                      <> · {stateName(job.stage)}</>
-                    )}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {job.error_code && <p className="mb-2 text-sm text-destructive">{jobError(job)}</p>}
-                <Collapsible className="text-xs text-muted-foreground">
-                  <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
-                    {tr("任务详情")}
-                  </CollapsibleTrigger>
-                  <CollapsibleContent keepMounted>
-                    <div className="mt-2 flex flex-col gap-1 break-all">
-                      <p>
-                        {tr("任务 ID：")}
-                        {job.id}
-                      </p>
-                      {job.error_code && (
-                        <p>
-                          {tr("错误代码：")}
-                          {job.error_code}
-                        </p>
+            <Item variant="outline" key={job.id} className="items-start">
+              <ItemContent>
+                <div className="flex flex-col gap-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <ItemTitle>
+                      {job.kind === "transcribe" || job.kind === "transcription"
+                        ? tr("音频转写")
+                        : job.kind === "prepare"
+                          ? tr("音频预处理")
+                          : job.kind}
+                    </ItemTitle>
+                    <Status value={job.state} />
+                  </div>
+                  {job.recording_title != null ? (
+                    <Link
+                      to={`/recordings/${job.recording_id}`}
+                      className="break-words underline-offset-4 hover:underline"
+                    >
+                      {job.recording_title}
+                    </Link>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">{tr("录音不可用")}</p>
+                  )}
+                  <ItemDescription>
+                    {date(job.created_at)}
+                    {job.attempt > 0 && <> · {tr("失败 {{count}} 次", { count: job.attempt })}</>}
+                    {job.stage !== job.state &&
+                      !(job.kind === "prepare" && job.state === "succeeded") && (
+                        <> · {stateName(job.stage)}</>
                       )}
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-                {job.state === "restore_hold" && (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {tr("此任务可能已在服务商受理，不能安全重试或宣称清理完成。")}{" "}
-                  </p>
-                )}
-              </CardContent>
-              <CardFooter className="flex-wrap gap-2">
+                  </ItemDescription>
+                </div>
+                <div>
+                  {job.error_code && (
+                    <p className="mb-2 text-sm text-destructive">{jobError(job)}</p>
+                  )}
+                  <Collapsible className="text-xs text-muted-foreground">
+                    <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
+                      {tr("任务详情")}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent keepMounted>
+                      <div className="mt-2 flex flex-col gap-1 break-all">
+                        <p>
+                          {tr("任务 ID：")}
+                          {job.id}
+                        </p>
+                        {job.error_code && (
+                          <p>
+                            {tr("错误代码：")}
+                            {job.error_code}
+                          </p>
+                        )}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                  {job.state === "restore_hold" && (
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {tr("此任务可能已在服务商受理，不能安全重试或宣称清理完成。")}{" "}
+                    </p>
+                  )}
+                </div>
+              </ItemContent>
+              <ItemActions className="flex-wrap">
                 <Button
                   variant="outline"
                   size="sm"
@@ -254,10 +258,10 @@ function TaskList() {
                     {tr("登记核对结果")}{" "}
                   </Button>
                 )}
-              </CardFooter>
-            </Card>
+              </ItemActions>
+            </Item>
           ))}
-        </div>
+        </ItemGroup>
       ) : (
         !data.error && (
           <EmptyState

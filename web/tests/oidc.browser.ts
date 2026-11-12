@@ -14,7 +14,7 @@ test("管理员配置、跨站回调、账号绑定和本地密码恢复", async
     "配置统一登录：登录按钮名称 Test Identity，Issuer URL {issuer}，Client ID voices-test，Client Secret test-client-secret；启用统一登录并等待自动保存。",
     { params: { issuer: fixture("VOICES_TEST_ISSUER") } },
   );
-  await expect(screen.getByTestId("oidc-save-status")).toHaveText("所有修改已保存");
+  await expect(screen.getByTestId("oidc-save-status")).toHaveAttribute("data-save-state", "saved");
   await expect
     .poll(async () => (await (await api(browser, "/admin/oidc")).json()).enabled)
     .toBe(true);
@@ -58,7 +58,7 @@ test("管理员配置、跨站回调、账号绑定和本地密码恢复", async
   await agent.act("为当前账号设置本地密码 oidc-browser-password，确认后设置密码并退出。");
   await expect(screen.getByRole("button", { name: "进入工作台" })).toBeVisible();
   await agent.act("用账号 external@example.test、密码 oidc-browser-password 登录。");
-  await expect(screen.getByRole("link", { name: "我的账号", exact: true })).toBeVisible();
+  await expect(screen.getByRole("button", { name: "我的账号", exact: true })).toBeVisible();
   await browser.goto(base + "/account");
   await expect(screen.getByLabel("当前密码", { exact: true })).toBeVisible();
   await screen.getByRole("button", { name: "解绑并退出" }).click();

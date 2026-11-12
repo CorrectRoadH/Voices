@@ -25,7 +25,10 @@ test(
       "填写 LLM Base URL 为 {url}、LLM API Key 为 browser-private-key、模型名称为 invalid-model，等待自动保存，不测试连接。",
       { params: { url: fixture("VOICES_MODEL_TEST_URL") } },
     );
-    await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+    await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+      "data-save-state",
+      "saved",
+    );
     await browser.reload();
     await expect(screen.getByLabel("模型名称", { exact: true })).toHaveValue("invalid-model");
     await expect(screen.getByRole("button", { name: "清除 LLM 密钥", exact: true })).toBeVisible();
@@ -39,13 +42,24 @@ test(
     ).toBeDisabled();
     await browser.locator("[data-slot=toast-close]").click();
     await agent.act("获取 LLM 模型列表一次，暂不选择模型。");
-    await expect(screen.getByRole("status").filter({ hasText: "已获取 1 个模型" })).toBeVisible();
+    await screen.getByPlaceholder("选择或填写模型 ID", { exact: true }).click();
+    await expect(screen.getByRole("option")).toHaveCount(1);
+    await browser.keyboard.press("Escape");
     await agent.act("从模型候选列表选择 sample-model，等待自动保存。");
-    await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+    await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+      "data-save-state",
+      "saved",
+    );
     await agent.act("测试 LLM 连接一次；无论成功还是失败都停止，不重试、不修改配置。");
-    await expect(screen.getByText("当前配置测试通过", { exact: true })).toBeVisible();
+    await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+      "data-llm-tested",
+      "true",
+    );
     await browser.reload();
-    await expect(screen.getByText("当前配置测试通过", { exact: true })).toBeVisible();
+    await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+      "data-llm-tested",
+      "true",
+    );
     await app.screenshot("站点初始化桌面");
     await browser.setViewport({ width: 390, height: 844 });
     await noOverflow(browser);
@@ -76,15 +90,24 @@ test(
         params: { url: fixture("VOICES_MODEL_TEST_URL") },
       },
     );
-    await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+    await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+      "data-save-state",
+      "saved",
+    );
     await agent.act("测试当前 LLM 连接，停留在初始化页。");
-    await expect(screen.getByText("当前配置测试通过", { exact: true })).toBeVisible();
+    await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+      "data-llm-tested",
+      "true",
+    );
     const complete = screen.getByRole("button", { name: "完成站点初始化", exact: true });
     await expect(complete).toBeEnabled();
 
     await agent.act("将模型名称改成 delayed-model，等待自动保存，不测试连接。");
-    await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
-    await expect(screen.getByText("当前配置尚未通过测试", { exact: true })).toBeVisible();
+    await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+      "data-save-state",
+      "saved",
+    );
+    await expect(complete).toBeDisabled();
     await expect(complete).toBeDisabled();
     await browser.reload();
     await expect(complete).toBeDisabled();
@@ -109,14 +132,17 @@ test(
       await fetch(`${remote}/test/release`, { method: "POST" });
     }
     await expect(screen.getByRole("button", { name: "测试 LLM 连接", exact: true })).toBeEnabled();
-    await expect(screen.getByText("当前配置尚未通过测试", { exact: true })).toBeVisible();
+    await expect(complete).toBeDisabled();
     await expect(complete).toBeDisabled();
     expect((await (await api(browser, "/admin/onboarding")).json()).llm_tested).toBe(false);
     await browser.reload();
     await expect(screen.getByLabel("模型名称", { exact: true })).toHaveValue("replacement-model");
     await expect(complete).toBeDisabled();
     await agent.act("测试当前 LLM 连接，停留在初始化页。");
-    await expect(screen.getByText("当前配置测试通过", { exact: true })).toBeVisible();
+    await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+      "data-llm-tested",
+      "true",
+    );
     await expect(complete).toBeEnabled();
   },
 );
@@ -137,14 +163,20 @@ test(
         params: { url: fixture("VOICES_MODEL_TEST_URL") },
       },
     );
-    await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+    await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+      "data-save-state",
+      "saved",
+    );
     const skip = screen.getByRole("button", { name: "暂不启用 LLM", exact: true });
     await expect(skip).toBeDisabled();
     await expect(screen.getByRole("button", { name: "清除 LLM 密钥", exact: true })).toBeVisible();
     await agent.act(
       "清除已保存的 LLM 密钥，再清空 LLM Base URL 和模型名称，等待自动保存。不要完成初始化或点击暂不启用 LLM。",
     );
-    await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+    await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+      "data-save-state",
+      "saved",
+    );
     await expect(skip).toBeEnabled();
     const saved = await (await api(browser, "/admin/server-settings")).json();
     expect(saved.saved.llm_base_url).toBe("");

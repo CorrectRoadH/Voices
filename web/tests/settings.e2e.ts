@@ -25,7 +25,10 @@ test("服务器配置自动保存、密钥清除、失败重试与并发冲突",
   await agent.act(
     "配置 Soniox API Key 为 browser-soniox-key、AssemblyAI API Key 为 browser-assembly-key；LLM Base URL 为 https://llm.example/v1、模型名称为 browser-model、LLM API Key 为 browser-llm-key。等待自动保存，不测试连接。",
   );
-  await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+  await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+    "data-save-state",
+    "saved",
+  );
   await expect(screen.getByText("已保存，等待重启生效", { exact: true })).toBeVisible();
   await expect(screen.getByRole("button", { name: "清除 Soniox 密钥" })).toBeVisible();
   await expect(screen.getByRole("button", { name: "清除 LLM 密钥" })).toBeVisible();
@@ -33,17 +36,26 @@ test("服务器配置自动保存、密钥清除、失败重试与并发冲突",
   await expect(screen.getByLabel("模型名称")).toHaveValue("browser-model");
   // 修改普通字段时保留已保存的密钥。
   await agent.act("把模型名称改为 browser-model-updated，等待自动保存。");
-  await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+  await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+    "data-save-state",
+    "saved",
+  );
   await expect(screen.getByRole("button", { name: "清除 LLM 密钥", exact: true })).toBeVisible();
   await agent.act("把模型名称改回 browser-model，等待自动保存。");
-  await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+  await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+    "data-save-state",
+    "saved",
+  );
   // 清除密钥可在保存前取消。
   await screen.getByRole("button", { name: "清除 Soniox 密钥", exact: true }).click();
   await expect(screen.getByLabel("Soniox API Key", { exact: true })).toBeDisabled();
   await screen.getByRole("button", { name: "取消清除 Soniox 密钥", exact: true }).click();
   await expect(screen.getByLabel("Soniox API Key", { exact: true })).toBeEnabled();
   await screen.getByRole("button", { name: "清除 Soniox 密钥", exact: true }).click();
-  await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+  await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+    "data-save-state",
+    "saved",
+  );
   await expect(screen.getByRole("button", { name: "清除 Soniox 密钥", exact: true })).toHaveCount(
     0,
   );
@@ -75,11 +87,17 @@ test("服务器配置自动保存、密钥清除、失败重试与并发冲突",
   });
   await screen.getByLabel("模型名称", { exact: true }).fill("slow-model");
   await sent;
-  await expect(screen.getByTestId("settings-save-status")).toHaveText("正在自动保存…");
+  await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+    "data-save-state",
+    "saving",
+  );
   await screen.getByLabel("模型名称", { exact: true }).fill("browser-model");
   await screen.getByLabel("LLM API Key", { exact: true }).fill("browser-llm-key");
   release();
-  await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+  await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+    "data-save-state",
+    "saved",
+  );
   await expect(screen.getByLabel("模型名称", { exact: true })).toHaveValue("browser-model");
   await expect(screen.getByRole("button", { name: "清除 LLM 密钥" })).toBeVisible();
   await browser.unroute("**/api/v1/admin/server-settings");
@@ -92,7 +110,10 @@ test("服务器配置自动保存、密钥清除、失败重试与并发冲突",
     } else await route.continue();
   });
   await screen.getByLabel("模型名称", { exact: true }).fill("retry-model");
-  await expect(screen.getByTestId("settings-save-status")).toHaveText("自动保存失败，修改尚未保存");
+  await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+    "data-save-state",
+    "error",
+  );
   await expect(
     browser.locator("[data-slot=toast-description]").filter({ hasText: "网络连接中断或请求超时" }),
   ).toBeVisible();
@@ -102,7 +123,10 @@ test("服务器配置自动保存、密钥清除、失败重试与并发冲突",
   await expect(screen.getByLabel("模型名称", { exact: true })).toHaveValue("retry-model");
   await browser.unroute("**/api/v1/admin/server-settings");
   await agent.act("重试自动保存当前草稿。");
-  await expect(screen.getByTestId("settings-save-status")).toHaveText("所有修改已保存");
+  await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
+    "data-save-state",
+    "saved",
+  );
   // 并发更新产生冲突，保留本地草稿。
   const snapshot = await (await api(browser, "/admin/server-settings")).json();
   const external = await api(browser, "/admin/server-settings", "PATCH", {
@@ -112,7 +136,7 @@ test("服务器配置自动保存、密钥清除、失败重试与并发冲突",
   expect(external.status, "并发修改应落库").toBe(200);
   await screen.getByLabel("模型名称", { exact: true }).fill("conflicting-draft");
   await expect(
-    browser.locator("[data-slot=alert]").filter({ hasText: "配置已被其它页面修改" }),
+    browser.locator("[data-slot=toast-description]").filter({ hasText: "配置已被其它页面修改" }),
   ).toBeVisible();
   await expect(
     browser.locator("[data-slot=toast-description]").filter({ hasText: "配置已被其它页面修改" }),
