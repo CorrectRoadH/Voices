@@ -54,6 +54,20 @@ try {
   assert.equal(layout.selfLastAvatar, "visible");
   assert.ok(layout.selfAvatarWidth > 0 && layout.selfAvatarRight);
   assert.equal(layout.selfName, "none");
+  const footerLayout = await messages.evaluateAll((rows) =>
+    rows.map((row) => {
+      const box = (selector) => row.querySelector(selector).getBoundingClientRect();
+      const footer = box('[data-slot="message-footer"]');
+      const time = box(".message-time");
+      const more = box(".message-more");
+      return {
+        left: Math.abs(time.left - footer.left),
+        right: Math.abs(more.right - footer.right),
+        center: Math.abs(time.top + time.height / 2 - more.top - more.height / 2),
+      };
+    }),
+  );
+  assert.ok(footerLayout.every(({ left, right, center }) => left < 1 && right < 1 && center < 1));
   const first = messages.first();
   await page.mouse.move(0, 0);
   assert.equal(

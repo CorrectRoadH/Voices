@@ -49,8 +49,8 @@ export function MessageBubble({
         <ContextMenuTrigger data-slot="bubble-content" render={<BubbleContent />}>
           {children}
           {(metadata || actions) && (
-            <MessageFooter className="justify-end gap-1 px-0">
-              {metadata}
+            <MessageFooter className="w-full gap-1 px-0">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">{metadata}</div>
               {actions && (
                 <DropdownMenu>
                   <DropdownMenuTrigger
