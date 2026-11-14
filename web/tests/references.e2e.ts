@@ -30,9 +30,9 @@ test("Obsidian 多段短引用、登录返回、跨分页与复制取消", async
   await expect(screen.getByText("已选 2 段", { exact: true })).toBeVisible();
   await expect(browser.locator(".segment-editor")).toHaveCount(0);
   for (let page = 0; page < 4 && !(await browser.locator(`#segment-${ids[110]}`).count()); page++) {
-    const count = await browser.locator(".segments > article").count();
-    await browser.locator(".segments > article").last().scrollIntoView();
-    await expect.poll(() => browser.locator(".segments > article").count()).toBeGreaterThan(count);
+    const count = await browser.locator(".segments > .segment").count();
+    await browser.locator(".segments > .segment").last().scrollIntoView();
+    await expect.poll(() => browser.locator(".segments > .segment").count()).toBeGreaterThan(count);
   }
   await agent.act("在多选模式中勾选正文为句子110。的消息，保留其他已选段。");
   await expect(screen.getByText("已选 3 段", { exact: true })).toBeVisible();

@@ -13,7 +13,7 @@ test("管理员检查更新、公告与窄屏展示", async ({ app, agent, brows
   const card = screen.getByTestId("server-updates");
   await expect(card).toBeVisible();
   await expect(card.getByText("尚未检查", { exact: true })).toBeVisible();
-  await agent.act("检查服务器是否有新版本。");
+  await screen.getByRole("button", { name: "检查更新", exact: true }).click();
   await expect(card.getByText("有新版本 1.10.0", { exact: true })).toBeVisible();
   await expect(card.getByText("升级公告", { exact: true })).toBeVisible();
   await agent.act("展开版本更新日志。");

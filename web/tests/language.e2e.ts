@@ -58,7 +58,7 @@ test(
       );
       return null;
     });
-    await agent.act("把界面语言切换为 English。");
+    await screen.getByLabel("界面语言", { exact: true }).selectOption({ value: "en" });
     await expect(screen.getByRole("heading", { name: "My account", exact: true })).toBeVisible();
     await expect(screen.getByText("Interface language saved", { exact: true })).toBeVisible();
     expect(

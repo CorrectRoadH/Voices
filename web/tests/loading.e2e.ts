@@ -98,7 +98,7 @@ test("筛选保留内容、分页刷新全范围、搜索与名称复用、后�
   });
   await browser.locator("body").getByRole("button", { name: "刷新", exact: true }).click();
   await expect(
-    browser.locator('[data-slot="card"]').getByText("已取消", { exact: true }),
+    browser.locator('[data-slot="item"]').getByText("已取消", { exact: true }),
   ).toHaveCount(55);
   await expect
     .poll(() =>

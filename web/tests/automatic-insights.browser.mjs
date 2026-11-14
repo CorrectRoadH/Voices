@@ -1,6 +1,7 @@
 // @use-case docs/feature/insights/use-case/generate-insights.md
 // Real upload, PostgreSQL, worker and browser; only external STT/LLM are fake.
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { mkdir } from "node:fs/promises";
 const require = createRequire(import.meta.url);
@@ -9,7 +10,11 @@ const { chromium } = engineRequire("playwright-core");
 const output = ".e2e/automatic-insights";
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({
-  executablePath: process.env.E2E_CHROMIUM_EXECUTABLE_PATH || "/run/current-system/sw/bin/chromium",
+  executablePath:
+    process.env.E2E_CHROMIUM_EXECUTABLE_PATH ||
+    (existsSync("/run/current-system/sw/bin/chromium")
+      ? "/run/current-system/sw/bin/chromium"
+      : undefined),
   headless: true,
   args: ["--no-sandbox", "--disable-dev-shm-usage"],
 });

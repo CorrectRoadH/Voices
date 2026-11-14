@@ -551,17 +551,19 @@ test("辅助信息弹窗、安全 Markdown 与焦点恢复", async ({ app, brows
   await expect(browser.locator('[role="dialog"] pre code')).toContainText("const safe = true;");
   await browser.setViewport({ width: 375, height: 812 });
   await noOverflow(browser);
-  expect(
-    await browser.evaluate(() => {
-      const box = document.querySelector('[role="dialog"]')!;
-      return (
-        box.getBoundingClientRect().height <= innerHeight &&
-        Array.from(box.querySelectorAll("div")).some(
-          (el) => el.scrollHeight > el.clientHeight && getComputedStyle(el).overflowY === "auto",
-        )
-      );
-    }),
-  ).toBe(true);
+  await expect
+    .poll(() =>
+      browser.evaluate(() => {
+        const box = document.querySelector('[role="dialog"]')!;
+        return (
+          box.getBoundingClientRect().height <= innerHeight &&
+          Array.from(box.querySelectorAll("div")).some(
+            (el) => el.scrollHeight > el.clientHeight && getComputedStyle(el).overflowY === "auto",
+          )
+        );
+      }),
+    )
+    .toBe(true);
   await app.screenshot("mobile-scrollable-release-dialog");
   await browser.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);

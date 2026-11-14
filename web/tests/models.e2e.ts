@@ -18,9 +18,10 @@ test("获取模型、手动输入、失败脱敏与过期请求隔离", async ({
   });
   const fetchModels = async () => {
     const before = discoveryRequests;
-    await agent.act(
-      "点击获取 LLM 模型一次；空列表或拒绝访问也是预期结果，出现结果后停止，不重试、不测试连接。",
-    );
+    await screen.getByRole("button", { name: "获取 LLM 模型", exact: true }).click();
+    await expect(
+      screen.getByRole("button", { name: "获取 LLM 模型", exact: true }),
+    ).toHaveAttribute("aria-busy", "false");
     expect(discoveryRequests - before, "一次操作只允许发出一次模型目录请求").toBe(1);
   };
   await fetchModels();

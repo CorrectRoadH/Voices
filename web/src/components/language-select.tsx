@@ -45,10 +45,13 @@ export function AccountLanguageSelect() {
         onChange={(event) => {
           const language = normalizeLanguage(event.target.value);
           if (language === normalizeLanguage(session.user.ui_language)) return;
-          void action.run(async () => {
-            const user = await write<User>("/me", "PATCH", { ui_language: language });
-            updateUser(user);
-          }, tr("界面语言已保存"));
+          void action.run(
+            async () => {
+              const user = await write<User>("/me", "PATCH", { ui_language: language });
+              updateUser(user);
+            },
+            tr("界面语言已保存", { lng: language }),
+          );
         }}
       >
         <Languages />

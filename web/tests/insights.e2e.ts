@@ -43,8 +43,8 @@ test(
       .poll(() => browser.evaluate(() => document.querySelector("audio")!.currentTime))
       .toBeGreaterThan(69);
     expect(await browser.evaluate(() => document.querySelector("audio")!.paused)).toBe(true);
-    await browser.locator(".segments > article").first().scrollIntoView();
-    await expect(browser.locator(".segments > article")).toHaveCount(75);
+    await browser.locator(".segments > .segment").first().scrollIntoView();
+    await expect(browser.locator(".segments > .segment")).toHaveCount(75);
     await expect(screen.getByText("向上滚动加载更多", { exact: true })).toHaveCount(0);
     await browser.evaluate(() => {
       window.scrollTo(0, 0);
@@ -137,7 +137,9 @@ test("管理概览、审计筛选与日志分页", async ({ agent, browser, scre
   await agent.act(
     "切换运行日志，将请求 ID 填为 not-a-uuid 并筛选日志；预期格式错误，保留错误现场。",
   );
-  await expect(screen.getByText("ID 格式不正确", { exact: false })).toBeVisible();
+  await expect(
+    browser.locator("[data-slot=toast-description]").filter({ hasText: "ID 格式不正确" }),
+  ).toBeVisible();
   await agent.act("清空请求 ID，再筛选日志。");
   await expect(screen.getByText("没有匹配的日志", { exact: false })).toBeVisible();
 });

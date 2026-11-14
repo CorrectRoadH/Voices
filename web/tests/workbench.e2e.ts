@@ -160,8 +160,8 @@ test(workbenchTitle, { timeout: 12 * 60_000 }, async ({ app, agent, browser, scr
   const railTop = await browser.evaluate(
     () => document.querySelector(".sidebar-tabs")!.getBoundingClientRect().top,
   );
-  await browser.locator(".segments > article").last().scrollIntoView();
-  await expect.poll(() => browser.locator(".segments > article").count()).toBeGreaterThan(50);
+  await browser.locator(".segments > .segment").last().scrollIntoView();
+  await expect.poll(() => browser.locator(".segments > .segment").count()).toBeGreaterThan(50);
   await expect(target).toHaveCount(1);
   expect(
     await browser.evaluate(

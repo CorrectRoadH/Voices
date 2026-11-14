@@ -44,9 +44,9 @@ test("任务原因、安全重试与确认风险后重新转写", async ({ app, 
   await expect(screen.getByRole("heading", { name: "待确认恢复验收", exact: true })).toBeVisible();
   await browser.goto(`${base}/jobs?recording_id=${id}&state=failed`);
   await expect(screen.getByText(`任务 ID：${job}`, { exact: true })).not.toBeVisible();
-  await screen.getByText("任务详情", { exact: true }).click();
+  await screen.getByRole("button", { name: "任务详情", exact: true }).click();
   await expect(screen.getByText(`任务 ID：${job}`, { exact: true })).toBeVisible();
-  await screen.getByText("任务详情", { exact: true }).click();
+  await browser.keyboard.press("Escape");
   await expect(screen.getByRole("button", { name: "重试", exact: true })).toHaveCount(0);
   await app.screenshot("任务显示具体原因与重新转写入口");
   await screen.getByRole("button", { name: "重新转写", exact: true }).click();
@@ -56,7 +56,7 @@ test("任务原因、安全重试与确认风险后重新转写", async ({ app, 
   await expect(screen.getByRole("dialog")).toHaveCount(0);
   let versions = await (await api(browser, `/recordings/${id}/transcriptions`)).json();
   expect(versions.items.length, "取消不能创建新版本").toBe(1);
-  await expect(screen.getByRole("alert")).toContainText("服务商返回了异常 HTTP 状态。 (HTTP 503)");
+  await expect(screen.getByText("服务商返回了异常 HTTP 状态。 (HTTP 503)")).toBeVisible();
   await screen.getByRole("button", { name: "重新转写", exact: true }).click();
   await expect(screen.getByRole("switch", { name: "我接受可能重复收费，另建新版本" })).toHaveCount(
     0,
