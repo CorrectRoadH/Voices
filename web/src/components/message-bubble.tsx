@@ -26,14 +26,16 @@ export function MessageBubble({
   metadata,
   actions,
   busy = false,
+  self = false,
 }: {
   children: ReactNode;
   metadata: ReactNode;
   actions: ReactNode;
   busy?: boolean;
+  self?: boolean;
 }) {
   return (
-    <Bubble variant="secondary" className="segment-bubble">
+    <Bubble variant={self ? "tinted" : "secondary"} className="segment-bubble">
       <ContextMenu
         onOpenChange={(open, details) => {
           const target = details.event.target;
@@ -46,6 +48,32 @@ export function MessageBubble({
       >
         <ContextMenuTrigger data-slot="bubble-content" render={<BubbleContent />}>
           {children}
+          {(metadata || actions) && (
+            <MessageFooter className="justify-end gap-1 px-0">
+              {metadata}
+              {actions && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        className="message-more"
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={tr("更多操作")}
+                        disabled={busy}
+                        aria-busy={busy}
+                      />
+                    }
+                  >
+                    {busy ? <Spinner aria-hidden="true" /> : <MoreHorizontal />}
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuGroup>{actions}</DropdownMenuGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </MessageFooter>
+          )}
         </ContextMenuTrigger>
         {actions && (
           <ContextMenuContent>
@@ -53,30 +81,6 @@ export function MessageBubble({
           </ContextMenuContent>
         )}
       </ContextMenu>
-      <MessageFooter className="gap-1">
-        {metadata}
-        {actions && (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  className="message-more"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={tr("更多操作")}
-                  disabled={busy}
-                  aria-busy={busy}
-                />
-              }
-            >
-              {busy ? <Spinner aria-hidden="true" /> : <MoreHorizontal />}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuGroup>{actions}</DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </MessageFooter>
     </Bubble>
   );
 }

@@ -1013,6 +1013,9 @@ export function DetailPage() {
                           </div>
                           <MessageBubble
                             busy={copyPending === segment.id}
+                            self={people.data?.items.some(
+                              (p) => p.id === segment.person_id && p.is_self,
+                            )}
                             metadata={
                               selection ? null : (
                                 <>
@@ -1023,7 +1026,7 @@ export function DetailPage() {
                                   <Button
                                     className="message-time"
                                     variant="ghost"
-                                    size="sm"
+                                    size="xs"
                                     disabled={
                                       segment.start_ms === null || r.state !== "ready" || blocked
                                     }
@@ -1042,7 +1045,10 @@ export function DetailPage() {
                                         : tr("缺少时间")
                                     }
                                   >
-                                    <Play />
+                                    <Play data-icon="inline-start" />
+                                    <span className="tabular-nums">
+                                      {duration(segment.start_ms)}
+                                    </span>
                                   </Button>
                                 </>
                               )

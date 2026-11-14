@@ -224,19 +224,34 @@
 .segments {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  width: min(100%, 900px);
+  margin-inline: auto;
+  gap: 0;
 }
 .segment {
   scroll-margin-top: 40px;
+}
+.segment + .segment {
+  margin-top: 12px;
+}
+.segment + .segment-continuation {
+  margin-top: 4px;
+}
+.segment-bubble {
+  max-width: min(80%, 600px);
 }
 .segment-avatar {
   flex: 0 0 32px;
   align-self: flex-end;
 }
-.segment-continuation.segment-has-next > .segment-avatar:not(:has([aria-expanded="true"])) {
+.segment-has-next > .segment-avatar:not(:has([aria-expanded="true"])) {
   visibility: hidden;
 }
-.segment-continuation .segment-top {
+.segment-self > .segment-avatar:not(:has([aria-expanded="true"])) {
+  display: none;
+}
+.segment-continuation .segment-top,
+.segment-self .segment-top {
   display: none;
 }
 .segment-top {
@@ -251,6 +266,17 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .segment .message-more {
+    opacity: 0;
+  }
+  .segment:hover .message-more,
+  .segment:focus-within .message-more,
+  .segment .message-more[aria-expanded="true"],
+  .segment .message-more[aria-busy="true"] {
+    opacity: 1;
+  }
 }
 .segment-referenced {
   outline: 2px solid var(--ring);
