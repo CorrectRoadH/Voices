@@ -125,3 +125,7 @@ LLM Base URL 包含兼容服务所需路径（例如 /v1），服务须支持 Ch
 声纹模型与 CPU 引擎内置于 Go 程序，无独立服务和 URL。Docker 镜像自带原生库；Linux 发布包必须保留程序旁的 lib/，并安装 libstdc++6/libgcc-s1。升级前停止全部旧应用副本，不混跑旧 profile；019 迁移重建历史样本，人工关联不变。若旧 Compose 留有 voiceprints 容器，更新 Compose 后可用 `docker compose up -d --remove-orphans` 移除旧服务。声纹样本与任务仍使用 PostgreSQL 备份恢复；临时音频和模型文件不持有业务状态。详见[内置推理](feature/people/architecture/embedded-voiceprints.md)。
 
 021 迁移按整份录音优先选择较长发言的规则，重新排队 ready 录音中已成功且有标签的转写。已有 queued/running 任务保留，其他任务换代次；先处理人工参考，再处理未关联录音，不改人工或已有自动身份。取样预算和匹配规则见[声纹架构](feature/people/architecture/voiceprints.md#取样与匹配)。
+
+## 自动摘要升级与回退
+
+迁移 024 为任务保存恢复后的自动生成抑制资格。含恢复来源未完成自动导入任务的数据集，不得回滚运行不传递该字段的旧预处理 worker，应继续使用新程序。恢复须先迁移，再在停机恢复模式成功完成隔离；不能与正常 worker 并行。具体资格与代次规则见[自动入队与恢复资格](feature/insights/architecture.md#自动入队与恢复资格)。

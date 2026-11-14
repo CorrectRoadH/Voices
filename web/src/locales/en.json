@@ -1,4 +1,7 @@
 {
+  "转写超出摘要生成限制（5000 个片段或 200000 字节）": "The transcript exceeds the summary limit (5,000 segments or 200,000 bytes).",
+  "上传后自动转写；已配置 LLM 时继续发送转写文本生成摘要和目录，可能产生费用。重复文件返回已有录音。": "Uploads are transcribed automatically. If an LLM is configured, transcript text is then sent to generate a summary and outline, which may incur charges. Duplicate files return the existing recording.",
+  "每次转写创建独立版本。已配置 LLM 时，成功后自动发送转写文本生成摘要和目录，可能产生费用。": "Each transcription creates a separate version. If an LLM is configured, completed transcript text is automatically sent to generate a summary and outline, which may incur charges.",
   "请求记录": "Requests",
   "STT 费用": "STT costs",
   "已完成时长": "Completed duration",

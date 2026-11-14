@@ -103,7 +103,11 @@ func (a *App) prepare(ctx context.Context, j job) error {
 				if err != nil {
 					return err
 				}
-				if _, _, err := a.insertTranscription(ctx, tx, j.RecordingID, o, model, "auto:"+j.RecordingID); err != nil {
+				_, childJob, err := a.insertTranscription(ctx, tx, j.RecordingID, o, model, "auto:"+j.RecordingID)
+				if err != nil {
+					return err
+				}
+				if _, err := tx.Exec(ctx, "UPDATE jobs SET auto_insights_suppressed=(SELECT auto_insights_suppressed FROM jobs WHERE id=$2) WHERE id=$1", childJob, j.ID); err != nil {
 					return err
 				}
 			}
@@ -272,6 +276,11 @@ func (a *App) publishTranscription(ctx context.Context, j job, result providers.
 		}
 		if err := queueVoiceprints(ctx, tx, *j.TranscriptionID, false); err != nil {
 			return err
+		}
+		if !a.Config.RestoreMode {
+			if err := queueAutomaticInsights(ctx, tx, j.ID, *j.TranscriptionID); err != nil {
+				return err
+			}
 		}
 		if _, err := tx.Exec(ctx, "UPDATE recordings SET active_transcription_id=$2,revision=revision+1 WHERE id=$1 AND active_transcription_id IS NULL", j.RecordingID, *j.TranscriptionID); err != nil {
 			return err

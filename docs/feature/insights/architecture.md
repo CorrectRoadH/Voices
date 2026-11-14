@@ -6,7 +6,7 @@
 
 Eino 提供图编排，LangChainGo 提供链与检索；单次结构化生成不引入这些框架。地址和模型必填，本地服务可留空密钥。新任务在接受事务内读取数据库配置，执行只使用任务保存的不可变快照；不继承 SDK 环境，不回退地址或模型。
 
-用户手动为成功转写版本生成摘要与主题目录。界面说明发送转写文本及可能收费，重新生成替换旧结果。不自动生成、不上传音频、不引入聊天或 RAG。结果标为 AI 辅助内容，须核对原文。
+新完成的转写版本在站点已配置 LLM 时自动生成摘要与主题目录，无额外开关。上传和新建转写入口说明发送转写文本及可能收费；手动重新生成替换旧结果。不上传音频、不引入聊天或 RAG。结果标为 AI 辅助内容，须核对原文。
 
 章节必须引用真实 segment UUID。点击以现有 anchor_id 分页加载正文，不受已加载页限制；读取当前片段时间，只有有效时间才定位播放器，不自动播放。空时间或零时长仅定位正文并解释原因。过期结果不会使用旧时间定位音频。
 
@@ -17,7 +17,7 @@ Eino 提供图编排，LangChainGo 提供链与检索；单次结构化生成不
 | 字段 | 类型与含义 |
 | --- | --- |
 | transcription_id | UUID PK，FK transcriptions，ON DELETE CASCADE |
-| generation | UUID，每次显式生成更换 |
+| generation | UUID，首次自动入队创建，每次显式生成更换 |
 | state | text，CHECK queued/running/succeeded/failed |
 | source_hash | text，有序片段 id/start_ms/end_ms/text 的 JSON SHA256 |
 | input_json | nullable jsonb，生成期间的文本快照 |
@@ -31,6 +31,20 @@ Eino 提供图编排，LangChainGo 提供链与检索；单次结构化生成不
 索引 `(state,created_at)` 仅覆盖 queued/running。result 的章节保存 segment_id/title/start_ms；start_ms 可空，由服务端从快照推导，不接受模型时间。完成、失败、超时或恢复隔离时同时清空 `input_json` 与 `llm_config_json`，录音删除级联回收。
 
 hash 不含人物或说话人名称；改人物不使结果失效，改文本或时间则失效。旧结果仍可读并标过期。配置快照仅供服务端执行，不能通过 API、日志或审计返回；数据库和备份按包含凭据保护。
+
+## 自动入队与恢复资格
+
+`publishTranscription` 在已有录音锁与任务 lease fence 的事务内发布片段和成功状态，并调用 `queueAutomaticInsights(ctx,tx,jobID,tid)`。资格以当前任务 ID 读取最新数据库值：账号 active、任务未抑制、当前不在恢复模式、版本没有任意状态的 insight 行且站点地址和模型齐全才入队。未配置或不符合资格直接跳过，不扫描历史版本，不因读取页面、修改正文或保存配置补发。
+
+有效输入复用 `transcriptSnapshot`，以 queued、新 generation、输入 hash、正文和配置快照写入原表；`ON CONFLICT(transcription_id) DO NOTHING` 不覆盖已有代次。入队不发送网络请求，执行仍由原调度器拥有。自动入队不创建手动幂等键；queued/running 时手动请求被拒绝，终态上的新手动 key 是显式再生成，可再次收费。
+
+空正文或输入超限写 failed、对应受控错误码、空 source_hash 和当前 model，input_json 与 llm_config_json 均为空，转写仍成功。其余数据库或配置读取错误回滚整个发布事务。直接 STT 的已消耗发送许可不回滚，落库失败仍为 direct_result_persistence_failed，不能自动重发；异步 STT 沿用已知远端提交，不为入队失败重新提交。
+
+迁移 `024_automatic_insights.sql` 添加 `jobs.auto_insights_suppressed boolean NOT NULL DEFAULT false`。这是服务端任务资格，不是配置或 API 字段；沿任务主键读取，无额外索引，删除任务即回收。正常升级不回算历史数据，既有正常任务和新任务默认为 false。
+
+Restore 在现有停机恢复事务内，先执行直接转写补偿，再把所有恢复 jobs 标为 true；核对、重试、退出恢复模式均不得清除。prepare 创建自动 transcribe 子任务时，在同一录音锁和事务内复制父 job 的标记；已有 dedupe 子任务不重新赋值。显式新建版本的 job 使用默认 false，恢复来源录音上的新版本也可自动生成。已有 queued/running insight 继续隔离为 failed/interrupted；普通重启只续行正常 queued。
+
+恢复必须先停止全部正常实例，迁移完成后仅以恢复模式启动并成功完成 Restore，再启动正常 worker。禁止恢复与正常 worker 并行。含恢复来源未完成自动导入的数据集，不得回滚运行不传递该字段的旧 prepare worker；保留新增列不保证旧程序再升级时资格正确，应继续使用新程序。回滚无需删除列或重写已有摘要，但必须满足这一运行限制。
 
 ## HTTP 契约
 
@@ -78,7 +92,7 @@ Restore 正式入口在既有恢复事务中将全部 queued/running 变 failed/
 
 严格解码一个JSON对象，无额外字段。summary为1..4000字，chapters为1..30项，title为1..120字。锚点必须存在于输入，严格按输入位置递增；首章须引用首片段。拒绝截断、拒答、未知锚点、重复或逆序锚点。
 
-错误码只允许 llm_unavailable、llm_rejected、invalid_response、interrupted、configuration_changed、account_disabled。不保存、返回或记录远端错误正文、文本或密钥。
+执行错误码只允许 llm_unavailable、llm_rejected、invalid_response、interrupted、configuration_changed、account_disabled。自动入队的输入校验失败另用 empty_transcript、transcript_too_large。不保存、返回或记录远端错误正文、文本或密钥。
 
 生成失败日志使用 `insight generation failed`，字段为 generation、code、reason。reason 仅来自应用内固定分类：
 

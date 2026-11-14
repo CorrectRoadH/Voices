@@ -26,6 +26,8 @@ const failures: Record<string, string> = {
   interrupted: "生成已中断",
   configuration_changed: "生成期间模型配置已变更",
   account_disabled: "账号已停用",
+  empty_transcript: "转写正文为空，无法生成摘要",
+  transcript_too_large: "转写超出摘要生成限制（5000 个片段或 200000 字节）",
 };
 export function InsightOutline({
   view = "outline",

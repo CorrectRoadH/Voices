@@ -57,6 +57,37 @@ type insightView struct {
 	insights.Result
 }
 
+// @concord-code
+// @concord-implements docs/feature/insights/use-case/generate-insights.md
+// Called only within the fenced transcription publication transaction.
+func queueAutomaticInsights(ctx context.Context, tx pgx.Tx, jobID, tid string) error {
+	var eligible bool
+	if err := tx.QueryRow(ctx, `SELECT NOT j.auto_insights_suppressed AND u.status='active' AND NOT EXISTS(SELECT 1 FROM transcription_insights WHERE transcription_id=$2) FROM jobs j JOIN recordings r ON r.id=j.recording_id JOIN users u ON u.id=r.owner_id WHERE j.id=$1 AND j.transcription_id=$2`, jobID, tid).Scan(&eligible); err != nil {
+		return err
+	}
+	if !eligible {
+		return nil
+	}
+	config, err := readLLMConfig(ctx, tx)
+	if err != nil || !config.configured() {
+		return err
+	}
+	snapshot, hash, err := transcriptSnapshot(ctx, tx, tid)
+	state := "queued"
+	var code, input, configJSON any
+	if err != nil {
+		var ae *apiError
+		if !errors.As(err, &ae) || (ae.Code != "empty_transcript" && ae.Code != "transcript_too_large") {
+			return err
+		}
+		state, code = "failed", ae.Code
+	} else {
+		input, configJSON = jsonBytes(snapshot), jsonBytes(config)
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO transcription_insights(transcription_id,generation,state,source_hash,input_json,model,llm_config_json,error_code) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(transcription_id) DO NOTHING`, tid, uuid.NewString(), state, hash, input, config.Model, configJSON, code)
+	return err
+}
+
 func (a *App) insightResponse(ctx context.Context, tid string) (map[string]any, error) {
 	var exists bool
 	if err := a.DB.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM transcriptions t JOIN recordings r ON r.id=t.recording_id WHERE t.id=$1 AND r.state<>'deleting')`, tid).Scan(&exists); err != nil {

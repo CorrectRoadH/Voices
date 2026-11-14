@@ -8,7 +8,7 @@
 - [多服务商转写](transcription/README.md)：生成版本、阅读、校对、搜索和处理失败任务。
 - [说话人与人物](people/README.md)：人工关联、资料维护与内置声纹识别。
 - [逐句引用](sentence-links/README.md)：复制引用并返回原版本。
-- [摘要与主题目录](insights/README.md)：手动生成摘要并定位原文。
+- [摘要与主题目录](insights/README.md)：转写成功后自动生成摘要并定位原文，支持手动重新生成。
 
 ## 账号与界面偏好
 

@@ -150,7 +150,9 @@ export function UploadDialog({
   return (
     <Modal
       title={tr("导入录音")}
-      description={tr("支持批量导入；重复文件返回已有录音。")}
+      description={tr(
+        "上传后自动转写；已配置 LLM 时继续发送转写文本生成摘要和目录，可能产生费用。重复文件返回已有录音。",
+      )}
       open={open}
       onOpenChange={(value) => {
         if (!value && busy) {

@@ -156,7 +156,7 @@ export function DetailPage() {
   useEffect(() => setTextQuery(""), [recordingId, selected]);
   const [insightPoll, setInsightPoll] = useState(0);
   const insights = useResource<InsightsResponse>(
-    selected ? `/transcriptions/${selected}/insights` : null,
+    selected && selectedState === "succeeded" ? `/transcriptions/${selected}/insights` : null,
     reload,
     insightPoll,
   );
@@ -1564,7 +1564,9 @@ export function DetailPage() {
       )}
       <Modal
         title={tr("新建转写版本")}
-        description={tr("每次转写创建独立版本，不会覆盖已保存的文字或人物关联。")}
+        description={tr(
+          "每次转写创建独立版本。已配置 LLM 时，成功后自动发送转写文本生成摘要和目录，可能产生费用。",
+        )}
         open={newOpen}
         onOpenChange={setNewOpen}
       >

@@ -33,6 +33,7 @@ func (a *App) Restore(ctx context.Context) error {
 			return err
 		}
 		for _, sql := range []string{
+			"UPDATE jobs SET auto_insights_suppressed=true",
 			"UPDATE voiceprint_execution SET run_id=NULL,lease_until=NULL WHERE id",
 			"UPDATE voiceprint_tasks SET generation=gen_random_uuid(),state='queued',lease_until=NULL,error_code=NULL,updated_at=clock_timestamp() WHERE state='running'",
 			"DELETE FROM blob_read_leases",
