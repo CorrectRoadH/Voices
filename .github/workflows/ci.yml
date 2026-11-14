@@ -66,7 +66,7 @@ jobs:
             e2e_filter: ''
           - suite: browser
             shard: '-reading'
-            e2e_filter: '^(TestBrowserFullStack|TestTranscriptNavigationBrowser|TestLoadingBrowser)$'
+            e2e_filter: '^(TestTranscriptChatBrowser|TestBrowserFullStack|TestTranscriptNavigationBrowser|TestLoadingBrowser)$'
           - suite: browser
             shard: '-accounts'
             e2e_filter: '^(TestAccountsBrowserFullStack|TestLLMModelsBrowser|TestVoiceprintBrowser)$'
@@ -75,7 +75,7 @@ jobs:
             e2e_filter: '^(TestServerSettingsBrowser|TestOnboardingBrowser|TestOnboardingRevisionBrowser|TestInteractionBrowser|TestAccountFiltersBrowser)$'
           - suite: browser
             shard: '-insights'
-            e2e_filter: '^(TestAdministrationInsightsBrowser|TestJobRecoveryBrowser|TestOnboardingSkipBrowser|TestTranscriptSearchBrowser)$'
+            e2e_filter: '^(TestAutomaticInsightsBrowser|TestAdministrationInsightsBrowser|TestJobRecoveryBrowser|TestOnboardingSkipBrowser|TestTranscriptSearchBrowser)$'
           - suite: browser
             shard: '-language'
             e2e_filter: '^(TestInterfaceLanguageBrowser|TestAdministrationBrowser|TestUpdatesBrowser)$'
