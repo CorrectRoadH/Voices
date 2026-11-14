@@ -54,7 +54,7 @@ test(
     expect(
       await browser.evaluate(() =>
         Math.abs(
-          document.querySelector(".segments")!.getBoundingClientRect().top -
+          document.querySelector(".transcript-card")!.getBoundingClientRect().top -
             document.querySelector(".sidebar-tabs")!.getBoundingClientRect().top,
         ),
       ),
@@ -88,7 +88,11 @@ test(
     ).toBeVisible();
     // 提示会自动消失，在自然语言操作期间观察，避免等待模型收尾后才检查。
     await Promise.all([
-      expect(screen.getByText("该片段没有有效时间，仅定位正文。", { exact: false })).toBeVisible({
+      expect(
+        browser
+          .locator("[data-slot=toast-description]")
+          .filter({ hasText: "该片段没有有效时间，仅定位正文。" }),
+      ).toBeVisible({
         timeout: 30000,
       }),
       agent.act("点击主题目录中的开场章节。"),

@@ -156,7 +156,11 @@ test("Obsidian 多段短引用、登录返回、跨分页与复制取消", async
   await app.screenshot("手机多段引用定位");
   await browser.setViewport({ width: 1440, height: 1000 });
   await browser.goto(`${urls[0]}?at=0`);
-  await expect(screen.getByText("引用位置无效，无法定位。", { exact: true })).toBeVisible();
+  await expect(
+    browser
+      .locator("[data-slot=toast-description]")
+      .filter({ hasText: "引用位置无效，无法定位。" }),
+  ).toBeVisible();
   await browser.goto(base + path);
   await agent.act("打开第一段以原文开头的消息的更多操作菜单，选择多选。");
   // A failed create preserves the selection for retry.

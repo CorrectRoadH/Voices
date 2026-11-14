@@ -132,7 +132,7 @@ test("目录复用正文、慢请求保留阅读位置并且最后一次定位�
     return true;
   }, ids[55]);
   await expect(
-    browser.locator("[data-slot=toast-description]").filter({ hasText: "HTTP 503" }),
+    browser.locator("[data-slot=toast-description]").filter({ hasText: "服务器返回 503" }),
   ).toBeVisible();
   await expect(browser.locator(`#segment-${ids[110]}`)).toBeVisible();
 });

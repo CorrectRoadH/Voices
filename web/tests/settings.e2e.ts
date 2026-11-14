@@ -118,9 +118,8 @@ test("服务器配置自动保存、密钥清除、失败重试与并发冲突",
     browser.locator("[data-slot=toast-description]").filter({ hasText: "网络连接中断或请求超时" }),
   ).toBeVisible();
   await browser
-    .locator("[data-slot=toast]")
-    .filter({ hasText: "网络连接中断或请求超时" })
-    .getByRole("button", { name: "关闭提示", exact: true })
+    .locator("[data-slot=toast][data-type=error] [data-slot=toast-close]")
+    .first()
     .click();
   await new Promise<void>((resolve) => setTimeout(resolve, 1100));
   expect(failures).toBe(1);

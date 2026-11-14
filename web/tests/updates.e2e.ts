@@ -15,7 +15,11 @@ test("管理员检查更新、公告与窄屏展示", async ({ app, agent, brows
   await expect(card.getByText("尚未检查", { exact: true })).toBeVisible();
   await screen.getByRole("button", { name: "检查更新", exact: true }).click();
   await expect(card.getByText("有新版本 1.10.0", { exact: true })).toBeVisible();
-  await expect(card.getByText("升级公告", { exact: true })).toBeVisible();
+  await expect(
+    browser
+      .locator("[data-testid=server-updates] [data-slot=item-title]")
+      .filter({ hasText: "升级公告" }),
+  ).toBeVisible();
   await agent.act("展开版本更新日志。");
   await expect(
     screen

@@ -44,7 +44,10 @@ test(
     ).toBeVisible();
     await expect(browser.locator("html")).toHaveAttribute("lang", "zh-CN");
     await expect(screen.getByLabel("界面语言", { exact: true })).toHaveValue("zh-CN");
-    await browser.locator("[data-slot=toast-close]").click();
+    await browser
+      .locator("[data-slot=toast][data-type=error] [data-slot=toast-close]")
+      .first()
+      .click();
     await expect(
       browser
         .locator("[data-slot=toast-description]")
@@ -72,7 +75,10 @@ test(
     await expect(
       browser.locator("[data-slot=toast-description]").filter({ hasText: "Profile saved" }),
     ).toBeVisible();
-    await browser.locator("[data-slot=toast-close]").click();
+    await browser
+      .locator("[data-slot=toast][data-type=success] [data-slot=toast-close]")
+      .first()
+      .click();
     await browser.reload();
     await expect(screen.getByLabel("Interface language", { exact: true })).toHaveValue("en");
     await expect(screen.getByLabel("Display name", { exact: true })).toHaveValue("中文用户名");
@@ -113,7 +119,10 @@ test(
         .locator("[data-slot=toast-description]")
         .filter({ hasText: "The connection was interrupted" }),
     ).toBeVisible();
-    await browser.locator("[data-slot=toast-close]").click();
+    await browser
+      .locator("[data-slot=toast][data-type=error] [data-slot=toast-close]")
+      .first()
+      .click();
     await browser.unroute("**/api/v1/admin/server-settings");
     await agent.act("重试自动保存当前服务器配置。");
     await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
@@ -134,7 +143,10 @@ test(
         .filter({ hasText: "The model service denied access" }),
     ).toBeVisible();
     await expect(screen.getByText("private upstream response", { exact: true })).toHaveCount(0);
-    await browser.locator("[data-slot=toast-close]").click();
+    await browser
+      .locator("[data-slot=toast][data-type=error] [data-slot=toast-close]")
+      .first()
+      .click();
     // 真实上传验证英文详情页，不调用付费转写。
     const wav = Buffer.alloc(44 + 32000);
     wav.write("RIFF");
@@ -201,6 +213,7 @@ test(
     await expect(screen.getByLabel("界面语言")).toHaveValue("zh-CN");
     await login(agent, "language_admin", password);
     await expect(browser.locator("html")).toHaveAttribute("lang", "en");
+    await screen.getByRole("button", { name: "Toggle navigation", exact: true }).click();
     await expect(screen.getByRole("link", { name: "People" })).toBeVisible();
   },
 );
