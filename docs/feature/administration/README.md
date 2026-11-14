@@ -10,5 +10,5 @@
 
 [日志模型与生命周期](architecture.md) · [查看运行状态与日志](use-case/inspect-instance.md)
 
-管理员可通过 [STT 调用与模型价格](../stt-pricing/README.md)查看全站时长估算费用与追加参考价。
+管理员通过统一[调用日志](../call-logs/README.md)查看 STT 与 LLM 请求，并在“STT 费用”页签查看[全站时长估算费用](../stt-pricing/README.md)。价格不可手动管理。
 这些接口只返回无内容的元数据，不授予他人业务资源访问权。

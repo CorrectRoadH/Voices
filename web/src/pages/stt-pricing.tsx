@@ -3,14 +3,21 @@
 // @concord-implements docs/feature/stt-pricing/use-case/manage-estimates.md
 import { DatePicker } from "@/components/date-picker";
 import { Spinner } from "@/components/ui/spinner";
-import { useState, type FormEvent } from "react";
+import { Fragment, useState, type FormEvent } from "react";
 import { tr, interfaceLocale } from "@/lib/i18n";
 import { query } from "@/lib/api";
 import { useResource } from "@/lib/hooks";
 import { usePagedResource } from "@/lib/use-paged-resource";
 import type { Schema } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import {
+  Item,
+  ItemGroup,
+  ItemContent,
+  ItemTitle,
+  ItemDescription,
+  ItemSeparator,
+} from "@/components/ui/item";
 import { Field, FieldLabel, FieldGroup } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -37,6 +44,11 @@ export function sttMoney(value: string | null) {
   if (value === null) return tr("未定价");
   const amount = BigInt(value);
   return `USD ${amount / 1000000n}.${(amount % 1000000n).toString().padStart(6, "0")}`;
+}
+function sttDuration(value: string | null) {
+  if (value === null) return "—";
+  const seconds = BigInt(value) / 1000n;
+  return `${seconds / 3600n}:${((seconds / 60n) % 60n).toString().padStart(2, "0")}:${(seconds % 60n).toString().padStart(2, "0")}`;
 }
 function TextField({
   name,
@@ -135,7 +147,7 @@ export function AdminSTTCallsPage() {
   const totals = summary.data?.totals;
   return (
     <div className="flex flex-col gap-5">
-      <PageHeading title={tr("STT 调用")} />
+      <PageHeading title={tr("调用日志")} description={tr("STT 费用")} />
       <p className="text-sm text-muted-foreground">{tr(notice)}</p>
       <form onSubmit={apply} className="flex flex-col gap-4">
         <FieldGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -222,75 +234,74 @@ export function AdminSTTCallsPage() {
       <ErrorBox message={error || summary.error} retry={summary.refresh} />
       {summary.loading && <Loading />}
       {totals && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{tr("筛选范围汇总")}</CardTitle>
-            <CardDescription>
-              {tr("未定价独立计数，不代表零费用。恢复观察不计新提交。")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {[
-                ["提交意图数", totals.submitted_count],
-                ["已完成时长（秒）", (BigInt(totals.completed_duration_ms) / 1000n).toString()],
-                ["已完成估算费用", sttMoney(totals.completed_estimated_cost_microusd)],
-                ["进行中估算费用", sttMoney(totals.pending_estimated_cost_microusd)],
-                ["结果待确认", totals.uncertain_count],
-                ["未定价", totals.unpriced_count],
-                ["恢复观察", totals.restored_count],
-              ].map(([label, value]) => (
-                <div key={label}>
-                  <dt className="text-sm text-muted-foreground">{tr(label)}</dt>
-                  <dd className="break-all tabular-nums">{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </CardContent>
-        </Card>
+        <section className="flex flex-col gap-3" aria-label={tr("筛选范围汇总")}>
+          <h2>{tr("筛选范围汇总")}</h2>
+          <p className="text-sm text-muted-foreground">
+            {tr("未定价独立计数，不代表零费用。恢复观察不计新提交。")}
+          </p>
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["提交意图数", totals.submitted_count],
+              ["已完成时长", sttDuration(totals.completed_duration_ms)],
+              ["已完成估算费用（已定价）", sttMoney(totals.completed_estimated_cost_microusd)],
+              ["进行中估算费用（已定价）", sttMoney(totals.pending_estimated_cost_microusd)],
+              ["结果待确认", totals.uncertain_count],
+              ["未定价", totals.unpriced_count],
+              ["恢复观察", totals.restored_count],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-sm text-muted-foreground">{tr(label)}</dt>
+                <dd className="break-all tabular-nums">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
       )}
       <ErrorBox message={calls.error} retry={calls.refresh} />
       {calls.updating && <p role="status">{tr("正在更新")}</p>}
       {!calls.loading && !calls.error && calls.items.length === 0 && (
         <EmptyState title={tr("没有匹配的 STT 调用")} />
       )}
-      {calls.items.map((c) => (
-        <Card key={c.id}>
-          <CardHeader>
-            <CardTitle>
-              {c.provider} · {c.model}
-            </CardTitle>
-            <CardDescription>
-              {new Date(c.created_at).toLocaleString(interfaceLocale())} · {c.email}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-              {[
-                ["结果状态", tr(labels[c.result_state])],
-                ["提交确认状态", tr(labels[c.submission_state])],
-                ["记录来源", tr(labels[c.origin])],
-                ["音频时长（毫秒）", c.duration_ms],
-                ["预计费用", sttMoney(c.estimated_cost_microusd)],
-                ["任务重试计数", String(c.job_attempt)],
-                ["说话人区分", c.diarization ? tr("是") : tr("否")],
-                ["参考小时价", sttMoney(c.rate_microusd_per_hour)],
-                ["调用 ID", c.id],
-                ["账号 ID", c.owner_id],
-                ["任务 ID", c.job_id],
-                ["操作 ID", c.operation_id],
-                ["转写 ID", c.transcription_id],
-                ["价格版本", c.price_version_id],
-              ].map(([label, value]) => (
-                <div key={label}>
-                  <dt className="text-muted-foreground">{tr(label ?? "")}</dt>
-                  <dd className="break-all">{value ?? "—"}</dd>
-                </div>
-              ))}
-            </dl>
-          </CardContent>
-        </Card>
-      ))}
+      <ItemGroup>
+        {calls.items.map((c, index) => (
+          <Fragment key={c.id}>
+            {index > 0 && <ItemSeparator />}
+            <Item>
+              <ItemContent>
+                <ItemTitle>
+                  {c.provider} · {c.model}
+                </ItemTitle>
+                <ItemDescription>
+                  {new Date(c.created_at).toLocaleString(interfaceLocale())} · {c.email}
+                </ItemDescription>
+                <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                  {[
+                    ["结果状态", tr(labels[c.result_state])],
+                    ["提交确认状态", tr(labels[c.submission_state])],
+                    ["记录来源", tr(labels[c.origin])],
+                    ["音频时长", sttDuration(c.duration_ms)],
+                    ["预计费用", sttMoney(c.estimated_cost_microusd)],
+                    ["任务重试计数", String(c.job_attempt)],
+                    ["说话人区分", c.diarization ? tr("是") : tr("否")],
+                    ["参考小时价", sttMoney(c.rate_microusd_per_hour)],
+                    ["调用 ID", c.id],
+                    ["账号 ID", c.owner_id],
+                    ["任务 ID", c.job_id],
+                    ["操作 ID", c.operation_id],
+                    ["转写 ID", c.transcription_id],
+                    ["价格版本", c.price_version_id],
+                  ].map(([label, value]) => (
+                    <div key={label}>
+                      <dt className="text-muted-foreground">{tr(label ?? "")}</dt>
+                      <dd className="break-all">{value ?? "—"}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </ItemContent>
+            </Item>
+          </Fragment>
+        ))}
+      </ItemGroup>
       {calls.nextCursor && (
         <Button
           variant="outline"

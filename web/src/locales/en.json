@@ -1,4 +1,9 @@
 {
+  "请求记录": "Requests",
+  "STT 费用": "STT costs",
+  "已完成时长": "Completed duration",
+  "已完成估算费用（已定价）": "Completed estimated cost (priced calls)",
+  "进行中估算费用（已定价）": "Pending estimated cost (priced calls)",
   "筛选未更新，显示上次结果。": "Filter update failed. Showing previous results.",
   "正在更新…": "Updating…",
   "查看原录音": "View original recording",

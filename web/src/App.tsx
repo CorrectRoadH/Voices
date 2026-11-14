@@ -71,8 +71,7 @@ import { LibraryPage } from "@/pages/library";
 import { DetailPage } from "@/pages/detail";
 import { ReferencePage } from "@/pages/reference";
 import { PeoplePage, PersonPage } from "@/pages/people";
-import { CallLogs } from "@/components/call-logs";
-import { AdminSTTCallsPage } from "@/pages/stt-pricing";
+import { AdminCallsPage } from "@/pages/calls";
 import { JobsPage } from "@/pages/jobs";
 import { AccountPage, AdminAccountsPage } from "@/pages/accounts";
 import { AdminOverviewPage, AdminLogsPage } from "@/pages/administration";
@@ -331,10 +330,6 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
       items: [{ to: "/admin/overview", title: tr("站点概览"), icon: Server }],
     },
     {
-      title: tr("用量与费用"),
-      items: [{ to: "/admin/stt/calls", title: tr("STT 调用"), icon: ListTodo }],
-    },
-    {
       title: tr("运行诊断"),
       items: [
         { to: "/admin/calls", title: tr("调用日志"), icon: ListTodo },
@@ -508,7 +503,7 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
               path="/admin/stt/calls"
               element={
                 session.user.role === "admin" ? (
-                  <AdminSTTCallsPage />
+                  <Navigate to="/admin/calls?view=stt-costs" replace />
                 ) : (
                   <Navigate to="/recordings" replace />
                 )
@@ -518,7 +513,7 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
               path="/admin/stt/prices"
               element={
                 session.user.role === "admin" ? (
-                  <Navigate to="/admin/stt/calls" replace />
+                  <Navigate to="/admin/calls?view=stt-costs" replace />
                 ) : (
                   <Navigate to="/recordings" replace />
                 )
@@ -528,7 +523,7 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
               path="/admin/calls"
               element={
                 session.user.role === "admin" ? (
-                  <CallLogs admin />
+                  <AdminCallsPage />
                 ) : (
                   <Navigate to="/recordings" replace />
                 )
