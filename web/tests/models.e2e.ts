@@ -30,7 +30,9 @@ test("获取模型、手动输入、失败脱敏与过期请求隔离", async ({
   await browser.keyboard.press("Escape");
   await expect(screen.getByLabel("搜索模型", { exact: true })).toHaveCount(0);
   await expect(screen.getByLabel("可用模型", { exact: true })).toHaveCount(0);
-  await agent.act("展开模型名称的候选列表，暂不选择。");
+  // Escape keeps focus in the combobox; ArrowDown explicitly reopens it.
+  await screen.getByPlaceholder("选择或填写模型 ID", { exact: true }).click();
+  await browser.keyboard.press("ArrowDown");
   await expect(screen.getByRole("option")).toHaveCount(2);
   await agent.act("从候选列表选择 alpha-model。");
   await expect(screen.getByPlaceholder("选择或填写模型 ID", { exact: true })).toHaveValue(
@@ -87,7 +89,9 @@ test("获取模型、手动输入、失败脱敏与过期请求隔离", async ({
   await screen.getByPlaceholder("选择或填写模型 ID", { exact: true }).click();
   await expect(screen.getByRole("option")).toHaveCount(2);
   await browser.keyboard.press("Escape");
-  await agent.act("展开模型名称的候选列表，暂不选择。");
+  // Escape keeps focus in the combobox; ArrowDown explicitly reopens it.
+  await screen.getByPlaceholder("选择或填写模型 ID", { exact: true }).click();
+  await browser.keyboard.press("ArrowDown");
   await expect(screen.getByRole("option")).toHaveCount(2);
   await expect(screen.getByRole("option", { name: "obsolete-model", exact: true })).toHaveCount(0);
   await browser.setViewport({ width: 390, height: 844 });
