@@ -36,7 +36,12 @@ try {
       between: box(rows[4]).top - box(rows[3]).bottom,
       firstAvatar: getComputedStyle(rows[0].querySelector(".segment-avatar")).visibility,
       lastAvatar: getComputedStyle(rows[3].querySelector(".segment-avatar")).visibility,
-      selfAvatar: getComputedStyle(rows[4].querySelector(".segment-avatar")).display,
+      selfFirstAvatar: getComputedStyle(rows[4].querySelector(".segment-avatar")).visibility,
+      selfLastAvatar: getComputedStyle(rows[7].querySelector(".segment-avatar")).visibility,
+      selfAvatarWidth: box(rows[7].querySelector(".segment-avatar")).width,
+      selfAvatarRight:
+        box(rows[7].querySelector(".segment-avatar")).left >=
+        box(rows[7].querySelector(".segment-bubble")).right,
       selfName: getComputedStyle(rows[4].querySelector(".segment-top")).display,
     };
   });
@@ -45,7 +50,9 @@ try {
   assert.equal(layout.between, 12);
   assert.equal(layout.firstAvatar, "hidden");
   assert.equal(layout.lastAvatar, "visible");
-  assert.equal(layout.selfAvatar, "none");
+  assert.equal(layout.selfFirstAvatar, "hidden");
+  assert.equal(layout.selfLastAvatar, "visible");
+  assert.ok(layout.selfAvatarWidth > 0 && layout.selfAvatarRight);
   assert.equal(layout.selfName, "none");
   const first = messages.first();
   await page.mouse.move(0, 0);

@@ -247,9 +247,6 @@
 .segment-has-next > .segment-avatar:not(:has([aria-expanded="true"])) {
   visibility: hidden;
 }
-.segment-self > .segment-avatar:not(:has([aria-expanded="true"])) {
-  display: none;
-}
 .segment-continuation .segment-top,
 .segment-self .segment-top {
   display: none;
