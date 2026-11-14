@@ -346,8 +346,11 @@
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }
-.recording-tools {
-  padding-block: 12px;
+.recording-info-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 12px 4px 4px;
 }
 .recording-tools > [data-slot="collapsible-content"] {
   padding-top: 12px;
@@ -356,7 +359,11 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 16px;
+}
+.recording-facts dt,
+.recording-fact-value,
+.recording-time-hint {
+  padding-inline: 10px;
 }
 .recording-facts dt {
   color: var(--muted-foreground);
@@ -419,6 +426,9 @@
   width: min(100%, 40rem);
 }
 @media (min-width: 1101px) {
+  .recording-info-shortcut {
+    display: none;
+  }
   .detail-grid > .transcript-card {
     max-height: var(--reading-height);
     overflow-y: auto;
@@ -433,6 +443,9 @@
   }
 }
 @media (max-width: 1100px) {
+  .detail-grid[data-info-open="true"] > .detail-aside {
+    grid-row: 1;
+  }
   .detail-grid,
   .settings-grid {
     grid-template-columns: minmax(0, 1fr);

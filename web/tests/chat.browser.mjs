@@ -107,6 +107,45 @@ try {
   await page.screenshot({ path: `${output}/desktop.png`, fullPage: true });
   await page.emulateMedia({ colorScheme: "dark" });
   await page.screenshot({ path: `${output}/desktop-dark.png`, fullPage: true });
+  await page.getByRole("tab", { name: "录音信息", exact: true }).click();
+  assert.equal(
+    await page.getByRole("button", { name: "录音信息", exact: true }).isVisible(),
+    false,
+  );
+  const facts = page.locator("#recording-metadata");
+  assert.equal(await facts.locator('[data-slot="collapsible-trigger"]').count(), 0);
+  const edges = await facts.evaluate((el) => {
+    const textLeft = (node) => {
+      const range = document.createRange();
+      range.selectNodeContents(node.firstChild);
+      return range.getBoundingClientRect().left;
+    };
+    return [...el.querySelectorAll("dt, .recording-fact-value, .inline-edit-trigger")].map(
+      textLeft,
+    );
+  });
+  assert.ok(Math.max(...edges) - Math.min(...edges) <= 2, "metadata text aligns");
+  await page.getByRole("button", { name: "编辑备注", exact: true }).click();
+  await page.getByRole("textbox", { name: "备注", exact: true }).fill("切换页签保留草稿");
+  await page.getByRole("tab", { name: "摘要", exact: true }).click();
+  await page.getByRole("tab", { name: "录音信息", exact: true }).click();
+  assert.equal(
+    await page.getByRole("textbox", { name: "备注", exact: true }).inputValue(),
+    "切换页签保留草稿",
+  );
+  await page.getByRole("button", { name: "取消编辑", exact: true }).click();
+  const versions = page.getByRole("button", { name: "版本与导出", exact: true });
+  await versions.click();
+  assert.equal(await versions.getAttribute("aria-expanded"), "true");
+  assert.equal(
+    await versions.locator("svg").evaluate((el) => getComputedStyle(el).rotate),
+    "180deg",
+  );
+  await versions.click();
+  await page.getByRole("button", { name: "删除录音", exact: true }).click();
+  await page.getByRole("alertdialog").waitFor();
+  await page.keyboard.press("Escape");
+  await page.screenshot({ path: `${output}/info-desktop.png`, fullPage: true });
   const mobileContext = await browser.newContext({
     viewport: { width: 375, height: 844 },
     isMobile: true,
@@ -128,6 +167,13 @@ try {
   await mobile.getByRole("menuitem", { name: "多选", exact: true }).click();
   await mobile.getByRole("button", { name: "取消多选", exact: true }).click();
   await mobile.screenshot({ path: `${output}/mobile.png`, fullPage: true });
+  await mobile.getByRole("button", { name: "录音信息", exact: true }).click();
+  await mobile.getByRole("button", { name: "编辑备注", exact: true }).waitFor();
+  assert.ok(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await mobile.waitForFunction(
+    () => document.querySelector("#recording-metadata").getBoundingClientRect().top < 300,
+  );
+  await mobile.screenshot({ path: `${output}/info-mobile.png`, fullPage: false });
   assert.deepEqual(errors, []);
   console.log(
     "聊天浏览器验收通过：连续分组、限宽、姓名头像、键盘菜单、触屏菜单、多选、引用、单句播放和本人关联入口。",
