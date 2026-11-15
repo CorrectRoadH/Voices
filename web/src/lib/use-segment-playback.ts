@@ -30,6 +30,8 @@ export function useSegmentPlayback(sourceKey: string, onError: (message: string)
       return () => {
         stop();
         audio.pause();
+        audio.removeAttribute("src");
+        audio.load();
         audioRef.current = null;
       };
     },
@@ -88,8 +90,21 @@ export function useSegmentPlayback(sourceKey: string, onError: (message: string)
       }
     }
   }
+  async function playAll() {
+    pause();
+    const requestId = playRequest.current;
+    try {
+      await audioRef.current?.play();
+    } catch (error) {
+      if (requestId === playRequest.current) onError(errorMessage(error));
+    }
+  }
+  const resetFailure = useCallback(() => setFailed(false), []);
   return {
+    audioRef,
+    resetFailure,
     play,
+    playAll,
     pause,
     seek,
     queueSeek,

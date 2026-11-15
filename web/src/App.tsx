@@ -85,6 +85,7 @@ import { useResource } from "@/lib/hooks";
 import type { Session, Schema } from "@/lib/types";
 import { oidcError, oidcLabel } from "@/lib/oidc";
 import { ThemeProvider } from "@/components/theme";
+import { GlobalPlaybackProvider, GlobalPlayer } from "@/components/global-player";
 function Login({
   onLogin,
   error: initialError,
@@ -566,6 +567,7 @@ function Shell({ session, onLogout }: { session: Session; onLogout: () => void }
               }
             />
           </Routes>
+          <GlobalPlayer />
         </div>
       </SidebarInset>
     </>
@@ -636,7 +638,9 @@ function AppContent() {
     >
       <SiteSetupGate onLogout={() => setSession(null)}>
         <SidebarProvider>
-          <Shell session={session} onLogout={() => setSession(null)} />
+          <GlobalPlaybackProvider key={session.user.id}>
+            <Shell session={session} onLogout={() => setSession(null)} />
+          </GlobalPlaybackProvider>
         </SidebarProvider>
       </SiteSetupGate>
     </SessionProvider>
