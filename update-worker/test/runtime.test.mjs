@@ -76,6 +76,79 @@ const telemetry = {
 };
 const sentinel = "PRIVATE_SENTINEL_voices_913";
 
+function spanItems(envelopes) {
+  return envelopes.flatMap((envelope) => {
+    const lines = envelope.trim().split("\n");
+    const envelopeHeader = JSON.parse(lines[0]);
+    const items = [];
+    for (let index = 1; index < lines.length; index += 2) {
+      const header = JSON.parse(lines[index]);
+      if (header.type !== "span") continue;
+      const body = JSON.parse(lines[index + 1]);
+      // Relay uses content_type to distinguish v2 containers from legacy v1 spans.
+      // Inspect the serialized request, after every SDK and privacy hook has run.
+      assert.deepEqual(
+        header,
+        {
+          type: "span",
+          item_count: body.items.length,
+          content_type: "application/vnd.sentry.items.span.v2+json",
+        },
+        envelope,
+      );
+      assert.equal(body.version, 2);
+      assert.match(envelopeHeader.trace?.public_key ?? "", /^[a-f0-9]+$/);
+      for (const span of body.items)
+        assert.equal(envelopeHeader.trace?.trace_id, span.trace_id, envelope);
+      items.push(...body.items);
+    }
+    return items;
+  });
+}
+
+// @use-case docs/feature/updates/use-case/check-updates.md
+void test("successful sampled request sends a v2 span container through real SDK and workerd", async () => {
+  const envelopes = [];
+  let delivered;
+  const delivery = new Promise((resolve) => {
+    delivered = resolve;
+  });
+  const mf = runtime(async (request) => {
+    if (new URL(request.url).hostname === "api.github.com") {
+      assert.equal(request.headers.get("sentry-trace"), null);
+      assert.equal(request.headers.get("baggage"), null);
+      return Response.json([release]);
+    }
+    envelopes.push(await request.text());
+    delivered();
+    return Response.json({});
+  }, telemetry);
+  let timeout;
+  try {
+    const response = await mf.dispatchFetch("https://voices.niceeval.com/", {
+      headers: { "sentry-trace": "12345678901234567890123456789012-1234567890123456-1" },
+    });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).latestVersion, "0.0.1");
+    await Promise.race([
+      delivery,
+      new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error("span was not delivered")), 6000);
+      }),
+    ]);
+    const spans = spanItems(envelopes);
+    assert.equal(spans.length, 1);
+    assert.equal(spans[0].trace_id, "12345678901234567890123456789012");
+    assert.equal(spans[0].parent_span_id, "1234567890123456");
+    assert.equal(spans[0].name, "update.request");
+    assert.equal(spans[0].attributes.component.value, "update");
+    assert.ok(!envelopes.some((envelope) => envelope.includes('"type":"event"')));
+  } finally {
+    clearTimeout(timeout);
+    await mf.dispose();
+  }
+});
+
 // @concord-implements docs/feature/updates/use-case/check-updates.md
 void test("real SDK sends sanitized errors and sampled spans through workerd waitUntil", async () => {
   const envelopes = [];
@@ -224,7 +297,7 @@ void test("real SDK removes sensitive root, child and injected DSC fields from e
     const items = envelopes.flatMap((envelope) => {
       const lines = envelope.trim().split("\n");
       const header = JSON.parse(lines.shift());
-      assert.equal(header.trace?.transaction, "update.request");
+      if (header.trace) assert.equal(header.trace.transaction, "update.request");
       assert.equal(header.private, undefined);
       const result = [];
       for (let i = 0; i < lines.length; i += 2)
@@ -237,9 +310,7 @@ void test("real SDK removes sensitive root, child and injected DSC fields from e
       handled: false,
       is_exception_group: true,
     });
-    const spans = items
-      .filter(([header]) => header.type === "span")
-      .flatMap(([, body]) => body.items);
+    const spans = spanItems(envelopes);
     assert.equal(spans.length, 3);
     assert.ok(spans.some((span) => span.is_segment));
     for (const span of spans) {

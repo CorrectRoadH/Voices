@@ -179,15 +179,27 @@ export function telemetryOptions(env: TelemetryEnv): CloudflareOptions {
             const header = envelope[0];
             // DSC is assembled after beforeSend, so item hooks alone cannot protect it.
             const rawTrace = header.trace;
+            const spanPayload = envelope[1].find(([item]) => item.type === "span")?.[1];
+            const firstSpan: unknown =
+              spanPayload &&
+              typeof spanPayload === "object" &&
+              "items" in spanPayload &&
+              Array.isArray(spanPayload.items)
+                ? spanPayload.items[0]
+                : undefined;
+            // SDK 11.12 can omit DSC for incoming sentry-trace without baggage.
+            // Span v2 requires it; derive only the already-filtered SDK trace ID.
+            const traceId =
+              firstSpan && typeof firstSpan === "object" && "trace_id" in firstSpan
+                ? firstSpan.trace_id
+                : rawTrace && typeof rawTrace === "object" && "trace_id" in rawTrace
+                  ? rawTrace.trace_id
+                  : undefined;
             const trace =
-              rawTrace &&
-              typeof rawTrace === "object" &&
-              "trace_id" in rawTrace &&
-              typeof rawTrace.trace_id === "string" &&
-              /^[a-f0-9]{32}$/.test(rawTrace.trace_id)
+              typeof traceId === "string" && /^[a-f0-9]{32}$/.test(traceId)
                 ? {
-                    trace_id: rawTrace.trace_id,
-                    public_key: new URL(telemetryDsn(env)!).username,
+                    trace_id: traceId,
+                    public_key: client.getDsn()?.publicKey,
                     environment: identity(env.SENTRY_ENVIRONMENT) ?? "production",
                     release: identity(env.SENTRY_RELEASE),
                     transaction: "update.request",
@@ -207,7 +219,24 @@ export function telemetryOptions(env: TelemetryEnv): CloudflareOptions {
             for (let index = envelope[1].length - 1; index >= 0; index--) {
               const item = envelope[1][index];
               if (item[0].type !== "event" && item[0].type !== "span") envelope[1].splice(index, 1);
-              else for (const key of Object.keys(item[0])) if (key !== "type") delete item[0][key];
+              else {
+                // The v2 media type selects Relay's span-container decoder. Without it,
+                // the SDK's { version: 2, items: [...] } is read as one invalid v1 span.
+                item[0] =
+                  item[0].type === "span"
+                    ? {
+                        type: "span",
+                        item_count:
+                          item[1] &&
+                          typeof item[1] === "object" &&
+                          "items" in item[1] &&
+                          Array.isArray(item[1].items)
+                            ? item[1].items.length
+                            : 0,
+                        content_type: "application/vnd.sentry.items.span.v2+json",
+                      }
+                    : { type: "event" };
+              }
             }
           });
         },

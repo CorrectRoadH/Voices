@@ -14,12 +14,16 @@ export default withSentry(
           setup(client) {
             client.on("beforeEnvelope", (envelope) => {
               envelope[0].private = { nested: sentinel };
+              const trace = envelope[0].trace;
               envelope[0].trace = {
-                trace_id: "12345678901234567890123456789012",
-                public_key: "public",
+                ...(trace && typeof trace === "object" ? trace : {}),
                 transaction: sentinel,
                 nested: { secret: sentinel },
               };
+              for (const [header] of envelope[1]) {
+                header.private = { nested: sentinel };
+                if (header.type === "span") header.item_count = 999;
+              }
             });
           },
         },
