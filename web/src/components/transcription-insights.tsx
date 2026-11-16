@@ -166,10 +166,6 @@ export function InsightOutline({
       className="flex flex-col gap-1"
       title={tr("点击定位当前正文与有效音频时间，不自动播放。")}
     >
-      <p className="text-xs font-medium">
-        {tr("主题目录")}
-        {insight.stale ? tr(" · 已过期") : ""}
-      </p>
       {insight.chapters.map((chapter) => (
         <Button
           key={chapter.segment_id}

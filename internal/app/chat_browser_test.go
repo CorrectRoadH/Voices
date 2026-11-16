@@ -30,7 +30,14 @@ func TestTranscriptChatBrowser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	other := f.upload(t, wav(21), map[string]any{"title": "第二份录音", "auto_transcribe": false}, uuid.NewString(), 201)
+	otherID := other["recording"].(map[string]any)["id"].(string)
+	f.run(t, "prepare")
 	_, err = f.db.Exec(ctx, `UPDATE segments s SET source_speaker_label_id=l.id,source_text=CASE WHEN s.ordinal=4 THEN '这是一段较长的连续发言，用来检查聊天气泡在桌面与手机上的换行效果。阅读时应该能自然地接着上一句话，不需要在屏幕两端反复寻找下一段。' ELSE '第 '||s.ordinal::text||' 句：保持每句话独立播放和引用。' END FROM speaker_labels l WHERE s.transcription_id=$1 AND l.transcription_id=s.transcription_id AND l.provider_label=CASE WHEN s.ordinal%8<4 THEN 'A' ELSE 'B' END`, *j.TranscriptionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = f.db.Exec(ctx, `UPDATE segments SET end_ms=2500 WHERE transcription_id=$1 AND ordinal=1`, *j.TranscriptionID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +46,7 @@ func TestTranscriptChatBrowser(t *testing.T) {
 	defer stop()
 	cmd := exec.CommandContext(cmdCtx, "vp", "exec", "node", "tests/chat.browser.mjs")
 	cmd.Dir = "../../web"
-	cmd.Env = append(os.Environ(), "VOICES_TEST_URL="+f.server.URL, "VOICES_TEST_RECORDING="+rid)
+	cmd.Env = append(os.Environ(), "VOICES_TEST_URL="+f.server.URL, "VOICES_TEST_RECORDING="+rid, "VOICES_TEST_OTHER_RECORDING="+otherID)
 	output, err := cmd.CombinedOutput()
 	t.Log(string(output))
 	if err != nil {

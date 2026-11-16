@@ -44,7 +44,7 @@ test("加载阶段、行内编辑快捷键、保存状态与真实并发冲突",
   await expect(screen.getByRole("tab", { name: "目录", exact: true })).toHaveCount(0);
   await expect(browser.locator('.transcript-card [data-slot="skeleton"]')).toHaveCount(0);
   await expect(browser.locator(".detail-aside")).not.toBeVisible();
-  await expect(browser.locator(".player-panel")).toHaveCount(0);
+  await expect(browser.locator(".player-panel")).not.toBeVisible();
   await expect(screen.getByRole("button", { name: "版本与导出", exact: true })).toHaveCount(0);
   await app.screenshot("音频预处理加载状态");
   await browser.setViewport({ width: 375, height: 812 });
@@ -450,7 +450,7 @@ test("异步操作反馈、筛选空态与刷新保留内容", async ({ app, bro
   await expect(browser.locator('[data-slot="calendar"]')).toHaveCount(0);
   await browser.goto(`${base}/jobs`);
   await expect(screen.getByRole("heading", { name: "处理任务", exact: true })).toBeVisible();
-  await expect(browser.locator('[data-slot="card"]')).toHaveCount(0);
+  await expect(browser.locator('[data-slot="card"]:not(.player-panel)')).toHaveCount(0);
   await noOverflow(browser);
   await app.screenshot("single-layer-task-list");
   const taskDetails = screen.getByRole("button", { name: "任务详情", exact: true }).first();

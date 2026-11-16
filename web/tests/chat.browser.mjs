@@ -1,5 +1,6 @@
 // @use-case docs/feature/transcription/use-case/read-transcript.md
 import assert from "node:assert/strict";
+import { checkGlobalPlayback } from "./global-playback.browser.mjs";
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { mkdir } from "node:fs/promises";
@@ -32,6 +33,15 @@ try {
   await page.goto(`${base}/recordings/${process.env.VOICES_TEST_RECORDING}`);
   const messages = page.locator(".segment");
   await messages.nth(7).waitFor();
+  const heading = await page.locator(".detail-heading").evaluate((el) => {
+    const back = el.querySelector("a").getBoundingClientRect();
+    const title = el.querySelector("h1").getBoundingClientRect();
+    return {
+      aligned: Math.abs((back.top + back.bottom) / 2 - (title.top + title.bottom) / 2) < 2,
+      ordered: back.right <= title.left,
+    };
+  });
+  assert.ok(heading.aligned && heading.ordered, "return and title share a row");
   const layout = await messages.evaluateAll((rows) => {
     const box = (el) => el.getBoundingClientRect();
     return {
@@ -179,6 +189,7 @@ try {
     () => document.querySelector("#recording-metadata").getBoundingClientRect().top < 300,
   );
   await mobile.screenshot({ path: `${output}/info-mobile.png`, fullPage: false });
+  await checkGlobalPlayback(page);
   assert.deepEqual(errors, []);
   console.log(
     "聊天浏览器验收通过：连续分组、限宽、姓名头像、键盘菜单、触屏菜单、多选、引用、单句播放和本人关联入口。",

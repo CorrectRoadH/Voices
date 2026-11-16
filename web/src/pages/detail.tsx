@@ -15,6 +15,7 @@ import { useVoiceprintPublication } from "@/lib/voiceprints";
 import { segmentSpeakerName, labelName } from "@/lib/person-name";
 import { tr, interfaceLocale } from "@/lib/i18n";
 import { requestKey } from "@/lib/request-key";
+import { createPortal } from "react-dom";
 import { Fragment, useEffect, useMemo, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -61,12 +62,12 @@ import { Popover, PopoverTrigger, PopoverContent, PopoverTitle } from "@/compone
 import { MessageBubble } from "@/components/message-bubble";
 import { TranscriptSearch } from "@/components/transcript-search";
 import { useTranscriptWindow } from "@/lib/use-transcript-window";
-import { useSegmentPlayback } from "@/lib/use-segment-playback";
+import { useRecordingPlayback } from "@/components/global-player";
 import { PersonAvatar } from "@/components/person-avatar";
 import { LabelsEditor, RecordingField, SegmentEditor, SegmentText } from "@/components/editors";
 import { OptionsFields, blankOptions, optionError } from "@/components/options";
 import { useAction, useApp, useResource } from "@/lib/hooks";
-import { request, write, apiUrl, errorMessage, downloadExport } from "@/lib/api";
+import { request, write, errorMessage, downloadExport } from "@/lib/api";
 import { referenceMarkdown, referenceText, referenceUrl, copyText } from "@/lib/links";
 import { date, duration, bytes } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -210,9 +211,7 @@ export function DetailPage() {
   const [createKey, setCreateKey] = useState(() => requestKey());
   const action = useAction();
   const { session, notify } = useApp();
-  const playback = useSegmentPlayback(JSON.stringify([recordingId, selected]), (message) =>
-    notify(message, true),
-  );
+  const playback = useRecordingPlayback(recording.data, selected);
   const { queueSeek, flushSeek } = playback;
   const uncertain = jobs.data?.items.some((j) => j.duplicate_risk) || false;
   const refresh = () => {
@@ -226,7 +225,7 @@ export function DetailPage() {
   const readingGrid = useRef<HTMLDivElement>(null);
   const searchToolbar = useRef<HTMLDivElement>(null);
   const transcriptPanel = useRef<HTMLDivElement>(null);
-  const playerPanel = useRef<HTMLDivElement>(null);
+  const playerPanel = playback.panelRef;
   const chapterTarget = useRef<string | null>(null);
   const {
     version,
@@ -583,11 +582,20 @@ export function DetailPage() {
   }
   return (
     <>
-      <div className="flex items-center justify-between gap-2">
-        <Button variant="ghost" size="sm" nativeButton={false} render={<Link to="/recordings" />}>
+      <header className="detail-heading">
+        <Button
+          className="shrink-0"
+          variant="ghost"
+          size="sm"
+          nativeButton={false}
+          render={<Link to="/recordings" />}
+        >
           <ArrowLeft data-icon="inline-start" />
           {tr("录音库")}{" "}
         </Button>
+        <div className="min-w-0 flex-1 break-words">
+          <RecordingField key={r.id} field="title" recording={r} onSaved={recording.refresh} />
+        </div>
         <Button
           variant="ghost"
           size="sm"
@@ -604,9 +612,6 @@ export function DetailPage() {
         >
           {tr("录音信息")}
         </Button>
-      </div>
-      <header className="detail-heading">
-        <RecordingField key={r.id} field="title" recording={r} onSaved={recording.refresh} />
       </header>
       <ErrorBox
         message={
@@ -653,89 +658,75 @@ export function DetailPage() {
             {tr("录音已停止访问，后台仍在核对任务与清理远端资源。请在任务页查看状态。")}{" "}
           </AlertDescription>
         </Alert>
-      ) : r.state === "ready" ? (
-        <Card className="player-panel" ref={playerPanel}>
-          <CardContent>
-            <div className="player-content">
-              <div className="player-caption">
-                <p className="truncate text-xs font-medium">{r.title || r.original_name}</p>
-                {readingReady && (
-                  <Popover open={outlineOpen} onOpenChange={setOutlineOpen}>
-                    <PopoverTrigger render={<Button variant="ghost" size="xs" />}>
-                      <List data-icon="inline-start" />
-                      {tr("目录")}
-                    </PopoverTrigger>
-                    <PopoverContent
-                      side="top"
-                      align="end"
-                      finalFocus={false}
-                      className="max-h-[55dvh] overflow-y-auto"
-                    >
-                      <PopoverTitle>{tr("录音目录")}</PopoverTitle>
-                      <Tabs defaultValue="outline">
-                        <TabsList className="w-full">
-                          <TabsTrigger value="outline">{tr("目录")}</TabsTrigger>
-                          <TabsTrigger value="summary">{tr("摘要")}</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="outline">
-                          <InsightOutline
-                            hasTranscription={version?.state === "succeeded"}
-                            data={insights.data}
-                            error={insights.error}
-                            busy={action.pendingKey === "insights"}
-                            disabled={
-                              !selected ||
-                              blocked ||
-                              session.restore_mode ||
-                              version?.state !== "succeeded"
-                            }
-                            onGenerate={() => void generateInsights()}
-                            onRefresh={insights.refresh}
-                            pendingSegment={pendingAnchor}
-                            onJump={jumpChapter}
-                          />
-                        </TabsContent>
-                        <TabsContent value="summary">
-                          <InsightOutline
-                            view="summary"
-                            hasTranscription={version?.state === "succeeded"}
-                            data={insights.data}
-                            error={insights.error}
-                            busy={action.pendingKey === "insights"}
-                            disabled={
-                              !selected ||
-                              blocked ||
-                              session.restore_mode ||
-                              version?.state !== "succeeded"
-                            }
-                            onGenerate={() => void generateInsights()}
-                            onRefresh={insights.refresh}
-                            pendingSegment={pendingAnchor}
-                            onJump={jumpChapter}
-                          />
-                        </TabsContent>
-                      </Tabs>
-                    </PopoverContent>
-                  </Popover>
-                )}
-              </div>
-              <audio
-                {...playback.audioProps}
-                key={r.id}
-                controls
-                preload="metadata"
-                src={apiUrl(`/recordings/${r.id}/audio`)}
-                aria-label={tr("录音播放器")}
-              />
-              {playback.failed && (
-                <p className="text-sm text-destructive">
-                  {tr("音频暂时无法加载，请刷新会话或稍后重试。")}
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
       ) : null}
+      {r.state === "ready" && !playback.active && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mb-4"
+          onClick={() => void playback.playRecording()}
+        >
+          <Play data-icon="inline-start" />
+          {tr("播放此录音")}
+        </Button>
+      )}
+      {readingReady &&
+        playback.active &&
+        playback.outlineSlot &&
+        createPortal(
+          <Popover open={outlineOpen} onOpenChange={setOutlineOpen}>
+            <PopoverTrigger render={<Button variant="ghost" size="xs" />}>
+              <List data-icon="inline-start" />
+              {tr("目录")}
+            </PopoverTrigger>
+            <PopoverContent
+              side="top"
+              align="end"
+              finalFocus={false}
+              className="max-h-[55dvh] overflow-y-auto"
+            >
+              <PopoverTitle className="sr-only">{tr("录音目录")}</PopoverTitle>
+              <Tabs defaultValue="outline">
+                <TabsList className="w-full">
+                  <TabsTrigger value="outline">{tr("目录")}</TabsTrigger>
+                  <TabsTrigger value="summary">{tr("摘要")}</TabsTrigger>
+                </TabsList>
+                <TabsContent value="outline">
+                  <InsightOutline
+                    hasTranscription={version?.state === "succeeded"}
+                    data={insights.data}
+                    error={insights.error}
+                    busy={action.pendingKey === "insights"}
+                    disabled={
+                      !selected || blocked || session.restore_mode || version?.state !== "succeeded"
+                    }
+                    onGenerate={() => void generateInsights()}
+                    onRefresh={insights.refresh}
+                    pendingSegment={pendingAnchor}
+                    onJump={jumpChapter}
+                  />
+                </TabsContent>
+                <TabsContent value="summary">
+                  <InsightOutline
+                    view="summary"
+                    hasTranscription={version?.state === "succeeded"}
+                    data={insights.data}
+                    error={insights.error}
+                    busy={action.pendingKey === "insights"}
+                    disabled={
+                      !selected || blocked || session.restore_mode || version?.state !== "succeeded"
+                    }
+                    onGenerate={() => void generateInsights()}
+                    onRefresh={insights.refresh}
+                    pendingSegment={pendingAnchor}
+                    onJump={jumpChapter}
+                  />
+                </TabsContent>
+              </Tabs>
+            </PopoverContent>
+          </Popover>,
+          playback.outlineSlot,
+        )}
       <div
         ref={searchToolbar}
         className={selection || referenceCode ? "reference-tools" : undefined}
@@ -1679,6 +1670,7 @@ export function DetailPage() {
               void action.run(
                 async () => {
                   await write(`/recordings/${r.id}`, "DELETE");
+                  playback.close(r.id);
                   setDeleteOpen(false);
                   navigate("/recordings");
                 },
