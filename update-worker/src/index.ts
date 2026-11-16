@@ -1,5 +1,7 @@
 // @concord-file
 // @concord-implements docs/feature/updates/use-case/check-updates.md
+import { captureException } from "@sentry/cloudflare";
+import { monitor, telemetryDsn, type TelemetryEnv } from "./telemetry.ts";
 import { recordUpdateRequest } from "./analytics.ts";
 import content from "../content/announcements.json";
 import {
@@ -11,7 +13,7 @@ import {
   compare,
 } from "./manifest.ts";
 
-export interface Env {
+export interface Env extends TelemetryEnv {
   GITHUB_REPO: string;
   UPDATE_REQUESTS?: AnalyticsEngineDataset;
   GITHUB_TOKEN?: string;
@@ -79,7 +81,7 @@ async function releases(env: Env): Promise<Release[]> {
   throw new Error("incomplete release history");
 }
 
-export default {
+export default monitor({
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname !== "/") return json({ error: "not_found" }, 404);
@@ -108,6 +110,7 @@ export default {
             cache.put(key, json(releaseManifest, 200, "public, max-age=300")).catch(() => {}),
           );
       } catch (error) {
+        if (telemetryDsn(env)) captureException(error);
         // Never log request URLs, identities, credentials, or upstream bodies.
         console.warn("Release lookup unavailable", error instanceof Error ? error.name : "unknown");
         /* Keep announcements available when releases are unknown. */
@@ -124,4 +127,4 @@ export default {
     // Browsers must not cache time-bounded announcements past their expiry.
     return json(result);
   },
-};
+});

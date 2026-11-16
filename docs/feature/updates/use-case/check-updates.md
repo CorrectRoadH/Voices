@@ -18,6 +18,8 @@
 
 部署者可设置 UPDATE_TELEMETRY=true；默认开启（UPDATE_TELEMETRY=false 可关闭），恢复模式禁发。启用后实际检查向 UPDATE_URL 发送随机安装 ID、版本、Go版本、OS、架构；不发送业务内容。数据库克隆为独立部署时须重新生成安装 ID，不改变任务租约身份。统计失败不影响更新，身份读取失败或缺失时仅禁用统计。验收覆盖关闭/开启/恢复模式、身份稳定与失败降级，详见 [统计方案](../architecture/telemetry.md)。
 
+官方更新 API 的维护者可通过 production 环境启用的 Sentry 查看经清理的异常和 1% 请求耗时，组件为 `update`；非 production 环境不发送。上游错误与监控发送失败均不改变公告响应，录音或转写数据不进入监控。验收覆盖真实 SDK 发送过滤、根/子 span 与整个 envelope/DSC、环境开关、出站不传播与 workerd 请求结束后的排空。
+
 ## 契约来源
 
 [版本更新](../README.md) · [更新服务契约](../architecture/service.md) · [统计与隐私](../architecture/telemetry.md)

@@ -52,6 +52,22 @@ severity 为 info/warning/critical；时间使用 UTC RFC3339。ID 唯一、过�
 
 最终响应最多256 KiB。正文仅作纯文本展示，不执行 HTML。没有公告时使用空数组，不发布虚构内容。
 
+## 更新 API 监控
+
+更新 Worker 是自营专用服务，源码固定 `voices-update` project 的公开 DSN，组件固定为 `update`。仅现有 Vite production 构建模式初始化，环境名默认为 `production`，不要求额外配置；开发/测试构建以及显式 development/test/preview 环境关闭。部署提供 `SENTRY_RELEASE=update@<git-sha>`。录音桌面、本地服务和供他人部署的应用不接入；不固定私密上传 token。测试仅在显式拦截的 transport 边界观察投递，不访问线上 ingestion。
+
+官方 Cloudflare SDK 按请求隔离 scope，单 isolate 复用客户端，使用 execution context 的 `waitUntil` 限时排空。根请求默认采样 0.01，保留合法父级采样决定；错误不抽样。使用 stream span lifecycle；禁止向 GitHub 或其它出站服务传播 trace headers，不安装第二套 OTel provider。上游失败继续返回未知版本及有效公告，并捕获异常；监控发送失败不改变更新响应。
+
+关闭身份、IP、Cookie、请求头、请求/响应正文、query、AI/SQL 数据、栈局部变量、源码上下文、自动日志与指标。发送前按允许字段重建错误与根/子 span。异常内容替换为固定类别说明。保留安全机制类别与 handled/is_exception_group 布尔语义，删除机制 meta/data。
+
+保留经校验的 sourcemap debug ID、静态代码路径、debug images、代码栈位置和 trace 标识。操作名固定为 `update.request`，环境、release 与组件来自配置；请求地址仅保留 origin。span 删除 links、动态路径、自由文本及未知属性。
+
+最终 `beforeEnvelope` 重建 header 与动态采样上下文，保留有效 trace ID、固定操作名和本地公开配置。删除外来 transaction、任意嵌套 metadata 和未知 payload 类别；不能只检查 event/span item。不得新增公开异常测试端点。
+
+验收用真实 SDK transport 哨兵验证嵌套 extra/context/breadcrumb、异常字符串及根/子 span；在真实 workerd 中核对开发/测试零投递、错误与 span 排空、合法父 trace、出站无传播和发送失败隔离。生产事件回读与 sourcemap 上传由部署阶段另行授权验收。
+
+Sourcemap 构建始终注入 debug ID；没有 `SENTRY_AUTH_TOKEN` 不上传。production 构建显式提供 token 时，要求同一 `SENTRY_RELEASE=update@<完整git-sha>`，上传至 `instaai/voices-update` 后删除输出 `.map`。token 不写入代码或产物。真实错误 event 必须保有对应 debug images；本地构建通过不代表远端上传或生产符号化验收完成。
+
 ## Go 应用契约
 
 `voices version` 输出编译版本，默认 dev，不连接数据库。UPDATE_URL 未设置时使用 https://voices.niceeval.com/，显式为空时禁用检查；否则必须是无凭据、查询和 fragment 的完整 HTTPS 地址。
