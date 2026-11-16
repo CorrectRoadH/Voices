@@ -1,5 +1,11 @@
 name: Deploy update worker
 on:
+  push:
+    branches: [main]
+    paths:
+      - "update-worker/**"
+      - "!update-worker/README.md"
+      - ".github/workflows/update-worker-deploy.yml"
   workflow_dispatch:
 permissions:
   contents: read
@@ -12,6 +18,14 @@ jobs:
     runs-on: ubuntu-latest
     environment: update-worker-production
     steps:
+      - name: Require Sentry upload credential
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "::error::Configure SENTRY_AUTH_TOKEN before publishing production assets"
+            exit 1
+          fi
       - uses: actions/checkout@v7.0.1
       - uses: voidzero-dev/setup-vp@v1.21.2
         with:
