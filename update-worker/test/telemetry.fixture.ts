@@ -9,6 +9,7 @@ export default withSentry(
       ...options,
       tracesSampleRate: 1,
       integrations: [
+        ...(Array.isArray(options.integrations) ? options.integrations : []),
         {
           name: "InjectSensitiveEnvelope",
           setup(client) {
@@ -20,14 +21,65 @@ export default withSentry(
                 transaction: sentinel,
                 nested: { secret: sentinel },
               };
-              for (const [header] of envelope[1]) {
+              for (const [header, payload] of envelope[1]) {
+                Object.assign(payload, { private: { nested: sentinel } });
                 header.private = { nested: sentinel };
-                if (header.type === "span") header.item_count = 999;
+                if (header.type === "span") {
+                  header.item_count = 999;
+                  if (
+                    payload &&
+                    typeof payload === "object" &&
+                    "items" in payload &&
+                    Array.isArray(payload.items)
+                  ) {
+                    for (const span of payload.items) {
+                      if (
+                        span &&
+                        typeof span === "object" &&
+                        "attributes" in span &&
+                        span.attributes &&
+                        typeof span.attributes === "object"
+                      )
+                        Object.assign(span.attributes, {
+                          private: { type: "string", value: sentinel },
+                          "db.query.text": { type: "string", value: sentinel },
+                        });
+                    }
+                  }
+                }
+              }
+              Array.prototype.push.call(envelope[1], [
+                { type: "event" },
+                {
+                  exception: { values: sentinel },
+                  private: sentinel,
+                },
+              ]);
+              Array.prototype.push.call(envelope[1], [
+                { type: "span" },
+                {
+                  version: 2,
+                  items: [{ trace_id: "0".repeat(32), span_id: "0".repeat(16), name: sentinel }],
+                },
+              ]);
+              for (const type of [
+                "profile",
+                "profile_chunk",
+                "session",
+                "sessions",
+                "replay_event",
+                "replay_recording",
+                "log",
+                "metric",
+                "check_in",
+                "attachment",
+                "unknown",
+              ]) {
+                Array.prototype.push.call(envelope[1], [{ type }, { nested: sentinel }]);
               }
             });
           },
         },
-        ...(Array.isArray(options.integrations) ? options.integrations : []),
       ],
     };
   },

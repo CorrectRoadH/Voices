@@ -1,5 +1,8 @@
 // @concord-file
 // @concord-implements docs/feature/updates/use-case/check-updates.md
+import { degraded } from "./quality.ts";
+import { stage } from "./telemetry.ts";
+
 export function recordUpdateRequest(
   binding: AnalyticsEngineDataset | undefined,
   params: URLSearchParams,
@@ -19,19 +22,22 @@ export function recordUpdateRequest(
   };
   const country = request.cf?.country;
   try {
-    binding.writeDataPoint({
-      indexes: [instance.toLowerCase()],
-      blobs: [
-        version,
-        token("goVersion"),
-        token("os"),
-        token("arch"),
-        token("locale"),
-        typeof country === "string" && /^[A-Z]{2}$/.test(country) ? country : "ZZ",
-      ],
-      doubles: [],
-    });
+    stage("update.analytics", () =>
+      binding.writeDataPoint({
+        indexes: [instance.toLowerCase()],
+        blobs: [
+          version,
+          token("goVersion"),
+          token("os"),
+          token("arch"),
+          token("locale"),
+          typeof country === "string" && /^[A-Z]{2}$/.test(country) ? country : "ZZ",
+        ],
+        doubles: [],
+      }),
+    );
   } catch {
+    degraded("update.analytics");
     // Never log request parameters or interrupt update delivery.
     console.warn("voices update analytics write failed");
   }

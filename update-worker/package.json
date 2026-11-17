@@ -9,7 +9,8 @@
     "test": "vp test run --config vitest.config.ts",
     "build": "vp exec cf build",
     "deploy": "vp exec cf deploy",
-    "test:runtime": "vp exec cf build && vp exec node --test test/runtime.test.mjs"
+    "test:runtime": "vp exec cf build && vp exec node --test test/runtime.test.mjs",
+    "test:quality": "vp exec node --test test/quality.test.mjs"
   },
   "dependencies": {
     "@sentry/cloudflare": "11.12.0"

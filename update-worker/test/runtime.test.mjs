@@ -1,9 +1,27 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { after } from "node:test";
+import { writeFile } from "node:fs/promises";
 import { build } from "vite-plus";
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 
 await build({ configFile: "test/telemetry.vite.config.ts" });
+await build({
+  configFile: "test/telemetry.vite.config.ts",
+  build: {
+    outDir: ".cloudflare/test-business",
+    lib: { entry: "test/business.fixture.ts" },
+  },
+});
+
+const evidence = new Map();
+after(async () => {
+  // Only synthetic protocol IDs, timestamps and fixed fields; no DSN/public key,
+  // business response, request data, stack, token or arbitrary attributes.
+  await writeFile(
+    ".cloudflare/trace-acceptance.json",
+    JSON.stringify([...evidence.values()], null, 2),
+  );
+});
 
 const release = {
   tag_name: "v0.0.1",
@@ -100,6 +118,20 @@ function spanItems(envelopes) {
       assert.match(envelopeHeader.trace?.public_key ?? "", /^[a-f0-9]+$/);
       for (const span of body.items)
         assert.equal(envelopeHeader.trace?.trace_id, span.trace_id, envelope);
+      for (const span of body.items)
+        evidence.set(span.span_id, {
+          trace_id: span.trace_id,
+          span_id: span.span_id,
+          parent_span_id: span.parent_span_id,
+          name: span.name,
+          status: span.status,
+          is_segment: span.is_segment,
+          start_timestamp: span.start_timestamp,
+          end_timestamp: span.end_timestamp,
+          operation: span.attributes.operation?.value,
+          outcome: span.attributes.outcome?.value,
+          component: span.attributes.component?.value,
+        });
       items.push(...body.items);
     }
     return items;
@@ -137,10 +169,21 @@ void test("successful sampled request sends a v2 span container through real SDK
       }),
     ]);
     const spans = spanItems(envelopes);
-    assert.equal(spans.length, 1);
+    assert.equal(spans.length, 4);
+    const root = spans.find((span) => span.is_segment);
+    assert.deepEqual(
+      new Set(spans.map((span) => span.name)),
+      new Set(["update.request", "update.cache.read", "update.upstream.fetch", "update.response"]),
+    );
+    for (const span of spans.filter((span) => !span.is_segment)) {
+      assert.equal(span.parent_span_id, root.span_id);
+      assert.equal(span.trace_id, root.trace_id);
+      assert.equal(span.attributes.operation.value, span.name);
+      assert.ok(span.end_timestamp >= span.start_timestamp);
+    }
     assert.equal(spans[0].trace_id, "12345678901234567890123456789012");
-    assert.equal(spans[0].parent_span_id, "1234567890123456");
-    assert.equal(spans[0].name, "update.request");
+    assert.equal(root.parent_span_id, "1234567890123456");
+    assert.equal(root.name, "update.request");
     assert.equal(spans[0].attributes.component.value, "update");
     assert.ok(!envelopes.some((envelope) => envelope.includes('"type":"event"')));
   } finally {
@@ -355,4 +398,307 @@ void test("a valid unsampled parent suppresses spans while errors still deliver"
   }
   assert.ok(envelopes.some((text) => text.includes('"type":"event"')));
   assert.ok(!envelopes.some((text) => text.includes('"type":"span"')));
+});
+
+function observation(predicate) {
+  const envelopes = [];
+  let resolve;
+  const ready = new Promise((done) => {
+    resolve = done;
+  });
+  return {
+    envelopes,
+    async receive(request) {
+      envelopes.push(await request.text());
+      if (predicate(envelopes)) resolve();
+      return Response.json({});
+    },
+    async wait() {
+      let timeout;
+      try {
+        await Promise.race([
+          ready,
+          new Promise((_, reject) => {
+            timeout = setTimeout(() => reject(new Error("isolated telemetry missing")), 6000);
+          }),
+        ]);
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+  };
+}
+
+function errorItems(envelopes) {
+  return envelopes.flatMap((text) => {
+    const lines = text.trim().split("\n");
+    const events = [];
+    for (let i = 1; i < lines.length; i += 2)
+      if (JSON.parse(lines[i]).type === "event") events.push(JSON.parse(lines[i + 1]));
+    return events;
+  });
+}
+
+// @concord-implements docs/feature/updates/use-case/check-updates.md
+void test("cache hit and analytics success/failure retain finite stages under the real request root", async () => {
+  for (const failed of [false, true]) {
+    const capture = observation(
+      (envelopes) => spanItems(envelopes).filter((span) => span.is_segment).length === 2,
+    );
+    let upstream = 0;
+    const mf = runtime(
+      async (request) => {
+        if (new URL(request.url).hostname === "api.github.com") {
+          upstream++;
+          return Response.json([release]);
+        }
+        return capture.receive(request);
+      },
+      { ...telemetry, FAIL_ANALYTICS: failed },
+      ".cloudflare/test-business/index.js",
+    );
+    try {
+      const url =
+        "https://worker.test/?instanceId=f7f21b46-34e4-4b17-87db-0e39c4a283e6&version=smoke";
+      const response = await mf.dispatchFetch(url, {
+        headers: { "sentry-trace": "11111111111111111111111111111111-1111111111111111-1" },
+      });
+      assert.equal((await response.json()).latestVersion, "0.0.1");
+      // Seed the actual workerd Cache API at the external cache boundary. This
+      // avoids treating response completion as proof of a background put finishing.
+      const caches = await mf.getCaches();
+      await caches.default.put(
+        "https://worker.test/__release_cache/CorrectRoadH%2FVoices",
+        Response.json(
+          {
+            schemaVersion: 1,
+            latestVersion: "0.0.1",
+            releaseUrl: release.html_url,
+            releasedAt: release.published_at,
+            releaseNotes: release.body,
+            announcements: [],
+          },
+          { headers: { "Cache-Control": "public, max-age=300" } },
+        ),
+      );
+      const second = await mf.dispatchFetch(url, {
+        headers: { "sentry-trace": "22222222222222222222222222222222-2222222222222222-1" },
+      });
+      assert.equal((await second.json()).latestVersion, "0.0.1");
+      await capture.wait();
+      const spans = spanItems(capture.envelopes);
+      assert.equal(upstream, 1);
+      for (const trace of [
+        "11111111111111111111111111111111",
+        "22222222222222222222222222222222",
+      ]) {
+        const group = spans.filter((span) => span.trace_id === trace);
+        const root = group.find((span) => span.is_segment);
+        const analytics = group.find((span) => span.name === "update.analytics");
+        assert.equal(analytics.parent_span_id, root.span_id);
+        assert.equal(analytics.status, failed ? "error" : "ok");
+        assert.equal(analytics.attributes.outcome.value, failed ? "error" : "success");
+        for (const span of group.filter((span) => !span.is_segment))
+          assert.equal(span.parent_span_id, root.span_id);
+      }
+      const cached = spans.filter((span) => span.trace_id === "22222222222222222222222222222222");
+      assert.ok(!cached.some((span) => span.name === "update.upstream.fetch"));
+      assert.equal(
+        cached.find((span) => span.name === "update.cache.read").attributes.outcome.value,
+        "hit",
+      );
+      assert.ok(!capture.envelopes.join("\n").includes("PRIVATE_SENTINEL"));
+    } finally {
+      await mf.dispose();
+    }
+  }
+});
+
+// @concord-implements docs/feature/updates/use-case/check-updates.md
+void test("parallel sampled requests isolate parent, DSC and degraded upstream error spans", async () => {
+  const capture = observation(
+    (envelopes) =>
+      spanItems(envelopes).filter((span) => span.is_segment).length === 2 &&
+      errorItems(envelopes).length === 2,
+  );
+  const mf = runtime(async (request) => {
+    if (new URL(request.url).hostname === "api.github.com") {
+      assert.equal(request.headers.get("sentry-trace"), null);
+      assert.equal(request.headers.get("baggage"), null);
+      return new Response(null, { status: 503 });
+    }
+    return capture.receive(request);
+  }, telemetry);
+  try {
+    await Promise.all(
+      ["33333333333333333333333333333333", "44444444444444444444444444444444"].map(
+        async (trace) => {
+          const response = await mf.dispatchFetch("https://worker.test/?private=PRIVATE_SENTINEL", {
+            headers: {
+              "sentry-trace": `${trace}-${trace.slice(0, 16)}-1`,
+              baggage:
+                "sentry-transaction=PRIVATE_SENTINEL,sentry-release=PRIVATE_SENTINEL,sentry-public_key=PRIVATE_SENTINEL,thirdparty=PRIVATE_SENTINEL,sentry-sample_rate=1",
+            },
+          });
+          assert.equal((await response.json()).latestVersion, null);
+        },
+      ),
+    );
+    await capture.wait();
+    const spans = spanItems(capture.envelopes);
+    for (const trace of ["33333333333333333333333333333333", "44444444444444444444444444444444"]) {
+      const group = spans.filter((span) => span.trace_id === trace);
+      const root = group.find((span) => span.is_segment);
+      assert.equal(root.parent_span_id, trace.slice(0, 16));
+      const upstream = group.find((span) => span.name === "update.upstream.fetch");
+      assert.equal(upstream.parent_span_id, root.span_id);
+      assert.equal(upstream.status, "error");
+      assert.equal(upstream.attributes.outcome.value, "error");
+      assert.equal(group.find((span) => span.name === "update.response").status, "ok");
+      const error = errorItems(capture.envelopes).find(
+        (event) => event.contexts.trace.trace_id === trace,
+      );
+      assert.equal(error.contexts.trace.span_id, upstream.span_id);
+    }
+    assert.ok(!capture.envelopes.join("\n").includes("PRIVATE_SENTINEL"));
+  } finally {
+    await mf.dispose();
+  }
+});
+
+// @concord-implements docs/feature/updates/use-case/check-updates.md
+void test("missing and invalid parents create isolated local traces without trusting inbound baggage", async () => {
+  for (const parent of [
+    undefined,
+    "0".repeat(32) + "-1234567890123456-1",
+    "1".repeat(32) + "-" + "0".repeat(16) + "-1",
+    "PRIVATE_SENTINEL",
+    "1".repeat(32) + "-1234567890123456-2",
+  ]) {
+    const capture = observation((envelopes) => errorItems(envelopes).length > 0);
+    const mf = runtime(async (request) => {
+      if (new URL(request.url).hostname === "api.github.com")
+        return new Response(null, { status: 503 });
+      return capture.receive(request);
+    }, telemetry);
+    try {
+      const response = await mf.dispatchFetch("https://worker.test/", {
+        headers: {
+          ...(parent ? { "sentry-trace": parent } : {}),
+          baggage:
+            "sentry-trace_id=11111111111111111111111111111111,sentry-public_key=PRIVATE_SENTINEL,sentry-sampled=true",
+        },
+      });
+      await response.text();
+      await capture.wait();
+      const trace = errorItems(capture.envelopes)[0].contexts.trace;
+      assert.match(trace.trace_id, /^[a-f0-9]{32}$/);
+      assert.notEqual(trace.trace_id, "0".repeat(32));
+      assert.notEqual(trace.trace_id, "1".repeat(32));
+      assert.ok(!capture.envelopes.join("\n").includes("PRIVATE_SENTINEL"));
+    } finally {
+      await mf.dispose();
+    }
+  }
+});
+
+// @concord-implements docs/feature/updates/use-case/check-updates.md
+void test("the existing five-second upstream timeout ends the cancelled stage and still returns announcements", async () => {
+  const capture = observation(
+    (envelopes) =>
+      spanItems(envelopes).some((span) => span.is_segment) && errorItems(envelopes).length > 0,
+  );
+  let releaseUpstream;
+  const hold = new Promise((resolve) => {
+    releaseUpstream = resolve;
+  });
+  const mf = runtime(async (request) => {
+    if (new URL(request.url).hostname === "api.github.com") {
+      await hold;
+      return Response.json([release]);
+    }
+    return capture.receive(request);
+  }, telemetry);
+  try {
+    const response = await mf.dispatchFetch("https://worker.test/", {
+      headers: {
+        "sentry-trace": "55555555555555555555555555555555-5555555555555555-1",
+      },
+    });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).latestVersion, null);
+    await capture.wait();
+    const upstream = spanItems(capture.envelopes).find(
+      (span) => span.name === "update.upstream.fetch",
+    );
+    // SDK 11.12 maps its cancelled status to stream status=ok. The fixed
+    // outcome preserves cancellation separately from success and upstream errors.
+    assert.equal(upstream.status, "ok");
+    assert.equal(upstream.attributes.outcome.value, "cancelled");
+    assert.ok(upstream.end_timestamp - upstream.start_timestamp >= 4.9);
+  } finally {
+    releaseUpstream();
+    await mf.dispose();
+  }
+});
+
+// @concord-implements docs/feature/updates/use-case/check-updates.md
+void test("real HTTP redirect receivers observe no trace headers and no redirected request", async () => {
+  const { createServer } = await import("node:http");
+  const { once } = await import("node:events");
+  const seen = [];
+  let status = 302;
+  const receiver = createServer((request, response) => {
+    seen.push({
+      path: request.url,
+      trace: request.headers["sentry-trace"],
+      baggage: request.headers.baggage,
+    });
+    response.writeHead(status, {
+      Location: `http://127.0.0.1:${receiver.address().port}/redirect-target`,
+    });
+    response.end();
+  });
+  receiver.listen(0, "127.0.0.1");
+  await once(receiver, "listening");
+  try {
+    for (const redirect of [302, 307]) {
+      status = redirect;
+      const capture = observation(
+        (envelopes) =>
+          spanItems(envelopes).some((span) => span.is_segment) && errorItems(envelopes).length > 0,
+      );
+      const mf = runtime(async (request) => {
+        const host = new URL(request.url).hostname;
+        if (host === "127.0.0.1")
+          return fetch(request.url, { headers: request.headers, redirect: "manual" });
+        if (host !== "api.github.com") return capture.receive(request);
+        // The broker returns the receiver's redirect to workerd, where the
+        // production fetch's own redirect mode decides whether another hop runs.
+        return fetch(`http://127.0.0.1:${receiver.address().port}/github`, {
+          headers: request.headers,
+          redirect: "manual",
+        });
+      }, telemetry);
+      try {
+        const response = await mf.dispatchFetch("https://worker.test/", {
+          headers: {
+            "sentry-trace": "66666666666666666666666666666666-6666666666666666-1",
+            baggage: "thirdparty=PRIVATE_SENTINEL",
+          },
+        });
+        assert.equal((await response.json()).latestVersion, null);
+        await capture.wait();
+      } finally {
+        await mf.dispose();
+      }
+    }
+    assert.deepEqual(seen, [
+      { path: "/github", trace: undefined, baggage: undefined },
+      { path: "/github", trace: undefined, baggage: undefined },
+    ]);
+  } finally {
+    receiver.closeAllConnections();
+    await new Promise((resolve) => receiver.close(resolve));
+  }
 });

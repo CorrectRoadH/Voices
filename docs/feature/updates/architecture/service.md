@@ -58,15 +58,33 @@ severity 为 info/warning/critical；时间使用 UTC RFC3339。ID 唯一、过�
 
 官方 Cloudflare SDK 按请求隔离 scope，单 isolate 复用客户端，使用 execution context 的 `waitUntil` 限时排空。根请求默认采样 0.01，保留合法父级采样决定；错误不抽样。使用 stream span lifecycle；禁止向 GitHub 或其它出站服务传播 trace headers，不安装第二套 OTel provider。上游失败继续返回未知版本及有效公告，并捕获异常；监控发送失败不改变更新响应。
 
-关闭身份、IP、Cookie、请求头、请求/响应正文、query、AI/SQL 数据、栈局部变量、源码上下文、自动日志与指标。发送前按允许字段重建错误与根/子 span。异常内容替换为固定类别说明。保留安全机制类别与 handled/is_exception_group 布尔语义，删除机制 meta/data。
+关闭身份、IP、Cookie、请求头、请求/响应正文、query、AI/SQL 数据、栈局部变量、源码上下文、任意日志转发与未知指标。发送前按允许字段重建错误与根/子 span。异常内容替换为固定类别说明。保留安全机制类别与 handled/is_exception_group 布尔语义，删除机制 meta/data。
 
-保留经校验的 sourcemap debug ID、静态代码路径、debug images、代码栈位置和 trace 标识。操作名固定为 `update.request`，环境、release 与组件来自配置；请求地址仅保留 origin。span 删除 links、动态路径、自由文本及未知属性。
+保留经校验的 sourcemap debug ID、静态代码路径、debug images、代码栈位置和 trace 标识。根操作名固定为 `update.request`；实际 Cache API 读取、GitHub release 拉取（含分页/JSON）、响应组装、已验证的 Analytics Engine 写入分别为 `update.cache.read`、`update.upstream.fetch`、`update.response`、`update.analytics`。固定 operation 注册表同时驱动埋点和发送过滤，保留固定 outcome；未知名称回退 `update.request`。
 
-最终 `beforeEnvelope` 重建 header 与动态采样上下文，保留有效 trace ID、固定操作名和本地公开配置。删除外来 transaction、任意嵌套 metadata 和未知 payload 类别；不能只检查 event/span item。不得新增公开异常测试端点。
+阶段失败/取消在原有 catch 之前标记并抛回原错误，原有降级行为不变；analytics span 在原 `waitUntil` 回调内执行，根请求及响应 body 生命周期由 SDK 维护，响应组装 span 不代表传输完成。缓存写入没有已批准的独立 operation，不新增名称。Worker 无受支持的 CPU profiler，不增加 profile 依赖、manifest 或开启环境变量，拒绝 profile/profile_chunk。
+
+环境、release 与组件来自配置；请求地址仅保留 origin。span 删除 links、动态路径、自由文本及未知属性。
+
+入站 trace/span ID 只接受非零合法十六进制及可选 0/1 采样；丢弃外来 baggage，SDK 继续维护请求隔离与父采样，业务 handler 接收原始 Request。无 baggage 的 span v2 DSC 从同一 span ID 与本地配置修复，不借用其它请求。
+
+最终 transport.send 在所有 envelope listeners 之后再次重建合法 error/span v2 与 typed attributes，并保留官方 transport 的缓冲、限时排空和 rate-limit 行为；不能通过直接 sendEnvelope 绕过清洗。`beforeEnvelope` 重建 header 与动态采样上下文，保留有效 trace ID、固定操作名和本地公开配置。删除外来 transaction、任意嵌套 metadata 和未知 payload 类别；每种已批准 item 独立按真实协议重建。不得新增公开异常测试端点。
 
 验收用真实 SDK transport 哨兵验证嵌套 extra/context/breadcrumb、异常字符串及根/子 span；在真实 workerd 中核对开发/测试零投递、错误与 span 排空、合法父 trace、出站无传播和发送失败隔离。生产事件回读与 sourcemap 上传由部署阶段另行授权验收。
 
 Sourcemap 构建始终注入 debug ID；没有 `SENTRY_AUTH_TOKEN` 不上传。production 构建显式提供 token 时，要求同一 `SENTRY_RELEASE=update@<完整git-sha>`，上传至 `instaai/voices-update` 后删除输出 `.map`。token 不写入代码或产物。真实错误 event 必须保有对应 debug images；本地构建通过不代表远端上传或生产符号化验收完成。
+
+### 固定日志与请求指标
+
+顶层 update.request 在原 handler 完成的 finally 记录一次 app.operation.count（counter=1）与 app.operation.duration（distribution，millisecond）。成功、错误、取消、拒绝使用固定 outcome；SDK 接管的实际请求全量计数；OPTIONS/HEAD 沿其既有旁路，不新造业务操作，不依赖 trace 采样，子阶段不重复计数。没有实际 scheduled handler，不造 scheduler 指标。
+
+实际上游与 analytics 捕获降级处只发固定 operation.degraded/warn；未捕获的顶层错误为 operation.failed/error。成功不重复发 info，Worker 每请求不冒充 service.started/stopped。现有 console/logger 不自动转发；日志只允许有限 operation/outcome、状态、耗时和安全配置/关联 ID。
+
+早期 beforeSendLog/beforeSendMetric 清洗后，最终 transport 再次重建 typed attributes，防止 SDK 回填 scope 身份或任意属性。log 与 trace_metric 均使用数字 version=2、真实 item_count 和各自 content_type；timestamp 与合法关联 ID 沿 SDK，不变造为其它语言 schema。过滤同步执行，没有独立异步排队，沿官方有界 flush。
+
+sendClientReports=true 保留 SDK 丢弃记录；client_report 只接受安装版有限 reason/category 和正整数 quantity。Cloudflare 11.12 没有公开自动排空路径，本次不调用 protected _flushOutcomes，也不包装 recordDroppedEvent 重造聚合；自动投递仍未完成，不称真实报告验收通过。
+
+Worker 没有 browserSession，不创建 session/sessions；profile/profile_chunk、check_in/Cron、Replay、附件与其它未知 item 仍拒绝。真实 SDK/HTTP receiver 验固定日志、未采样请求指标、scope 回填/晚期注入过滤与发送失败隔离；client_report 仅作 schema 白名单测试，生产接收另验。
 
 ## Go 应用契约
 

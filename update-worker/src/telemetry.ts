@@ -2,12 +2,16 @@
 // @concord-implements docs/feature/updates/use-case/check-updates.md
 import {
   withSentry,
+  startSpan,
+  type Span,
+  type CloudflareClient,
   spanStreamingIntegration,
   SDK_VERSION,
   type CloudflareOptions,
   type ErrorEvent,
 } from "@sentry/cloudflare";
 
+import { filterLog, filterMetric, filterQualityItem, observeRequest } from "./quality.ts";
 import { UPDATE_SENTRY_DSN } from "./sentry-config.ts";
 
 export interface TelemetryEnv {
@@ -63,9 +67,7 @@ export function filterError(event: ErrorEvent, env: TelemetryEnv): ErrorEvent {
     transaction: "update.request",
     request: event.request?.url ? { url: origin(event.request.url) } : undefined,
     contexts:
-      trace &&
-      /^[a-f0-9]{32}$/.test(trace.trace_id ?? "") &&
-      /^[a-f0-9]{16}$/.test(trace.span_id ?? "")
+      trace && validId(trace.trace_id, 32) && validId(trace.span_id, 16)
         ? { trace: { trace_id: trace.trace_id, span_id: trace.span_id, op: "http.server" } }
         : undefined,
     debug_meta: {
@@ -129,35 +131,222 @@ export function filterError(event: ErrorEvent, env: TelemetryEnv): ErrorEvent {
   };
 }
 
+/** The finite registry is shared by instrumentation and both privacy boundaries. */
+const operations = {
+  "update.request": "http.server",
+  "update.cache.read": "cache.get",
+  "update.upstream.fetch": "http.client",
+  "update.response": "function",
+  "update.analytics": "function",
+} as const;
+export type Operation = keyof typeof operations;
+const operation = (value: unknown): Operation =>
+  typeof value === "string" && Object.hasOwn(operations, value)
+    ? (value as Operation)
+    : "update.request";
+const outcomes = ["success", "error", "cancelled", "hit", "miss", "skipped"];
+const validId = (value: unknown, length: number): value is string =>
+  typeof value === "string" &&
+  value.length === length &&
+  /^[a-f0-9]+$/.test(value) &&
+  !/^0+$/.test(value);
+
+function failed(span: Span, error: unknown) {
+  const cancelled = error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name);
+  span.setAttribute("outcome", cancelled ? "cancelled" : "error");
+  span.setStatus({ code: 2, message: cancelled ? "cancelled" : "internal_error" });
+}
+
+/** SDK startSpan owns the active scope and ends once, including rejected promises. */
+export function stage<T>(name: Operation, callback: (span: Span) => T): T {
+  return startSpan({ name, op: operations[name], attributes: { operation: name } }, (span) => {
+    span.setAttribute("outcome", "success");
+    try {
+      const result = callback(span);
+      if (result instanceof Promise) {
+        return result.catch((error: unknown) => {
+          failed(span, error);
+          throw error;
+        }) as T;
+      }
+      return result;
+    } catch (error) {
+      failed(span, error);
+      throw error;
+    }
+  });
+}
+
 type StreamedSpan = Parameters<NonNullable<CloudflareOptions["beforeSendSpan"]>>[0];
 export function filterSpan(span: StreamedSpan, env: TelemetryEnv): StreamedSpan {
+  const name = operation(span.name);
   const attributes: StreamedSpan["attributes"] = {
     component: "update",
-    "sentry.op": "http.server",
+    operation: name,
+    "sentry.op": operations[name],
+    "sentry.segment.name": "update.request",
+    "sentry.environment": identity(env.SENTRY_ENVIRONMENT) ?? "production",
   };
+  const outcome = span.attributes.outcome;
+  if (typeof outcome === "string" && outcomes.includes(outcome)) attributes.outcome = outcome;
   for (const key of ["sentry.sample_rate", "http.response.status_code"] as const) {
     const value = span.attributes[key];
-    if (typeof value === "number" && Number.isFinite(value)) attributes[key] = value;
+    if (
+      typeof value === "number" &&
+      Number.isFinite(value) &&
+      (key !== "sentry.sample_rate" || (value >= 0 && value <= 1))
+    )
+      attributes[key] = value;
   }
-  if (["auto.http.cloudflare", "manual"].includes(String(span.attributes["sentry.origin"])))
+  if (
+    typeof span.attributes["sentry.origin"] === "string" &&
+    ["auto.http.cloudflare", "manual"].includes(span.attributes["sentry.origin"])
+  )
     attributes["sentry.origin"] = span.attributes["sentry.origin"];
   const segment = span.attributes["sentry.segment.id"];
-  if (typeof segment === "string" && /^[a-f0-9]{16}$/.test(segment))
-    attributes["sentry.segment.id"] = segment;
-  attributes["sentry.segment.name"] = "update.request";
+  if (validId(segment, 16)) attributes["sentry.segment.id"] = segment;
   if (identity(env.SENTRY_RELEASE)) attributes["sentry.release"] = identity(env.SENTRY_RELEASE);
-  attributes["sentry.environment"] = identity(env.SENTRY_ENVIRONMENT) ?? "production";
   return {
     trace_id: span.trace_id,
     span_id: span.span_id,
-    parent_span_id: span.parent_span_id,
+    ...(validId(span.parent_span_id, 16) ? { parent_span_id: span.parent_span_id } : {}),
     start_timestamp: span.start_timestamp,
     end_timestamp: span.end_timestamp,
     status: span.status,
     is_segment: span.is_segment,
-    name: "update.request",
+    name,
     attributes,
   };
+}
+
+type Envelope = Parameters<NonNullable<ReturnType<CloudflareClient["getTransport"]>>["send"]>[0];
+const record = (value: unknown): Record<string, unknown> | undefined =>
+  value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+
+/** Called again at transport.send, after every beforeEnvelope listener. */
+export function filterEnvelope(
+  envelope: Envelope,
+  env: TelemetryEnv,
+  publicKey?: string,
+): Envelope {
+  const items: [Record<string, unknown>, unknown][] = [];
+  for (const [header, payload] of envelope[1]) {
+    try {
+      const body = record(payload);
+      if (!body) continue;
+      const quality = filterQualityItem(
+        header.type,
+        body,
+        {
+          environment: identity(env.SENTRY_ENVIRONMENT) ?? "production",
+          release: identity(env.SENTRY_RELEASE),
+        },
+        operations,
+      );
+      if (quality) {
+        items.push(quality);
+        continue;
+      }
+      if (header.type === "event" && body.type === undefined) {
+        items.push([{ type: "event" }, filterError({ ...body, type: undefined }, env)]);
+      } else if (header.type === "span" && body.version === 2 && Array.isArray(body.items)) {
+        const spans = body.items.flatMap((value: unknown) => {
+          const raw = record(value);
+          if (
+            !raw ||
+            !validId(raw.trace_id, 32) ||
+            !validId(raw.span_id, 16) ||
+            typeof raw.start_timestamp !== "number" ||
+            !Number.isFinite(raw.start_timestamp) ||
+            typeof raw.end_timestamp !== "number" ||
+            !Number.isFinite(raw.end_timestamp) ||
+            raw.end_timestamp < raw.start_timestamp ||
+            !["ok", "error"].includes(String(raw.status)) ||
+            typeof raw.is_segment !== "boolean"
+          )
+            return [];
+          const attributes = Object.fromEntries(
+            Object.entries(record(raw.attributes) ?? {}).flatMap(([key, value]) => {
+              const typed = record(value);
+              return typed &&
+                ["string", "integer", "double", "boolean"].includes(String(typed.type))
+                ? [[key, typed.value]]
+                : [];
+            }),
+          );
+          const clean = filterSpan({ ...raw, attributes } as StreamedSpan, env);
+          return [
+            {
+              ...clean,
+              attributes: Object.fromEntries(
+                Object.entries(clean.attributes).map(([key, value]) => [
+                  key,
+                  {
+                    type:
+                      typeof value === "number"
+                        ? Number.isInteger(value)
+                          ? "integer"
+                          : "double"
+                        : typeof value,
+                    value,
+                  },
+                ]),
+              ),
+            },
+          ];
+        });
+        if (spans.length)
+          items.push([
+            {
+              type: "span",
+              item_count: spans.length,
+              content_type: "application/vnd.sentry.items.span.v2+json",
+            },
+            { version: 2, items: spans },
+          ]);
+      }
+    } catch {
+      // Malformed items fail closed independently of valid items in the same envelope.
+    }
+    // Worker has no CPU profiler, browser sessions or scheduler. Those and unknown items stay denied.
+  }
+  const rawTrace = record(envelope[0].trace);
+  const spanBody = record(items.find(([header]) => header.type === "span")?.[1]);
+  const first = Array.isArray(spanBody?.items) ? record(spanBody.items[0]) : undefined;
+  const traceId = first?.trace_id ?? rawTrace?.trace_id;
+  const rate = rawTrace?.sample_rate;
+  const random = rawTrace?.sample_rand;
+  const sampled = rawTrace?.sampled;
+  const trace = validId(traceId, 32)
+    ? {
+        trace_id: traceId,
+        public_key: publicKey,
+        environment: identity(env.SENTRY_ENVIRONMENT) ?? "production",
+        release: identity(env.SENTRY_RELEASE),
+        transaction: "update.request",
+        ...(typeof rate === "string" && /^(?:0(?:\.\d+)?|1(?:\.0+)?)$/.test(rate)
+          ? { sample_rate: rate }
+          : {}),
+        ...(typeof random === "string" && /^(?:0(?:\.\d+)?|1(?:\.0+)?)$/.test(random)
+          ? { sample_rand: random }
+          : {}),
+        ...(sampled === "true" || sampled === "false" ? { sampled } : {}),
+      }
+    : undefined;
+  return [
+    {
+      ...(validId(envelope[0].event_id, 32) ? { event_id: envelope[0].event_id } : {}),
+      ...(typeof envelope[0].sent_at === "string" &&
+      Number.isFinite(Date.parse(envelope[0].sent_at))
+        ? { sent_at: new Date(envelope[0].sent_at).toISOString() }
+        : {}),
+      sdk: { name: "sentry.javascript.cloudflare", version: SDK_VERSION },
+      ...(trace ? { trace } : {}),
+    },
+    items,
+  ] as Envelope;
 }
 
 export function telemetryOptions(env: TelemetryEnv): CloudflareOptions {
@@ -175,76 +364,42 @@ export function telemetryOptions(env: TelemetryEnv): CloudflareOptions {
       {
         name: "UpdateEnvelopePrivacy",
         setup(client) {
-          client.on("beforeEnvelope", (envelope) => {
-            const header = envelope[0];
-            // DSC is assembled after beforeSend, so item hooks alone cannot protect it.
-            const rawTrace = header.trace;
-            const spanPayload = envelope[1].find(([item]) => item.type === "span")?.[1];
-            const firstSpan: unknown =
-              spanPayload &&
-              typeof spanPayload === "object" &&
-              "items" in spanPayload &&
-              Array.isArray(spanPayload.items)
-                ? spanPayload.items[0]
-                : undefined;
-            // SDK 11.12 can omit DSC for incoming sentry-trace without baggage.
-            // Span v2 requires it; derive only the already-filtered SDK trace ID.
-            const traceId =
-              firstSpan && typeof firstSpan === "object" && "trace_id" in firstSpan
-                ? firstSpan.trace_id
-                : rawTrace && typeof rawTrace === "object" && "trace_id" in rawTrace
-                  ? rawTrace.trace_id
-                  : undefined;
-            const trace =
-              typeof traceId === "string" && /^[a-f0-9]{32}$/.test(traceId)
-                ? {
-                    trace_id: traceId,
-                    public_key: client.getDsn()?.publicKey,
-                    environment: identity(env.SENTRY_ENVIRONMENT) ?? "production",
-                    release: identity(env.SENTRY_RELEASE),
-                    transaction: "update.request",
-                  }
-                : undefined;
-            envelope[0] = {
-              ...(typeof header.event_id === "string" && /^[a-f0-9]{32}$/.test(header.event_id)
-                ? { event_id: header.event_id }
-                : {}),
-              ...(typeof header.sent_at === "string" && Number.isFinite(Date.parse(header.sent_at))
-                ? { sent_at: new Date(header.sent_at).toISOString() }
-                : {}),
-              sdk: { name: "sentry.javascript.cloudflare", version: SDK_VERSION },
-              ...(trace ? { trace } : {}),
+          const transport = client.getTransport();
+          if (transport) {
+            const send = transport.send.bind(transport);
+            transport.send = (envelope) => {
+              const clean = filterEnvelope(envelope, env, client.getDsn()?.publicKey);
+              return clean[1].length ? send(clean) : Promise.resolve({});
             };
-            // No attachments, sessions, replay, logs, metrics or other payload classes.
-            for (let index = envelope[1].length - 1; index >= 0; index--) {
-              const item = envelope[1][index];
-              if (item[0].type !== "event" && item[0].type !== "span") envelope[1].splice(index, 1);
-              else {
-                // The v2 media type selects Relay's span-container decoder. Without it,
-                // the SDK's { version: 2, items: [...] } is read as one invalid v1 span.
-                item[0] =
-                  item[0].type === "span"
-                    ? {
-                        type: "span",
-                        item_count:
-                          item[1] &&
-                          typeof item[1] === "object" &&
-                          "items" in item[1] &&
-                          Array.isArray(item[1].items)
-                            ? item[1].items.length
-                            : 0,
-                        content_type: "application/vnd.sentry.items.span.v2+json",
-                      }
-                    : { type: "event" };
-              }
-            }
+          }
+          client.on("beforeEnvelope", (envelope) => {
+            const clean = filterEnvelope(envelope, env, client.getDsn()?.publicKey);
+            envelope[0] = clean[0];
+            envelope[1] = clean[1];
           });
         },
       },
     ],
-    beforeSendLog: () => null,
-    beforeSendMetric: () => null,
-    sendClientReports: false,
+    beforeSendLog: (log) =>
+      filterLog(
+        log,
+        {
+          environment: identity(env.SENTRY_ENVIRONMENT) ?? "production",
+          release: identity(env.SENTRY_RELEASE),
+        },
+        operations,
+      ),
+    beforeSendMetric: (metric) =>
+      filterMetric(
+        metric,
+        {
+          environment: identity(env.SENTRY_ENVIRONMENT) ?? "production",
+          release: identity(env.SENTRY_RELEASE),
+        },
+        operations,
+      ),
+    // Cloudflare 11.12 records outcomes but exposes no public automatic report drain.
+    sendClientReports: true,
     dataCollection: {
       userInfo: false,
       cookies: false,
@@ -268,12 +423,32 @@ export function telemetryOptions(env: TelemetryEnv): CloudflareOptions {
 export function monitor<T extends TelemetryEnv>(handler: {
   fetch(request: Request, env: T, ctx: ExecutionContext): Promise<Response>;
 }) {
-  const monitored = withSentry((env: T) => telemetryOptions(env), { ...handler });
   return {
     fetch(request: Request, env: T, ctx: ExecutionContext) {
-      return telemetryDsn(env)
-        ? monitored.fetch(request, env, ctx)
-        : handler.fetch(request, env, ctx);
+      if (!telemetryDsn(env)) return handler.fetch(request, env, ctx);
+      // Only the SDK sees rebuilt trace headers. Business receives its original Request,
+      // including body, AbortSignal, cf metadata and all original headers.
+      const headers = new Headers(request.headers);
+      const incoming = headers.get("sentry-trace");
+      const parts = incoming?.match(/^([a-f0-9]{32})-([a-f0-9]{16})(?:-([01]))?$/);
+      headers.delete("baggage");
+      if (!parts || !validId(parts[1], 32) || !validId(parts[2], 16))
+        headers.delete("sentry-trace");
+      const sdkRequest = new Proxy(request, {
+        get(target, key) {
+          if (key === "headers") return headers;
+          const value = Reflect.get(target, key, target);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
+      const monitored = withSentry((env: T) => telemetryOptions(env), {
+        fetch(_sdkRequest: Request, env: T, ctx: ExecutionContext) {
+          return ["OPTIONS", "HEAD"].includes(request.method)
+            ? handler.fetch(request, env, ctx)
+            : observeRequest(() => handler.fetch(request, env, ctx));
+        },
+      });
+      return monitored.fetch(sdkRequest, env, ctx);
     },
   };
 }

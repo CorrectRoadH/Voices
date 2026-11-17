@@ -1,7 +1,8 @@
 // @concord-file
 // @concord-implements docs/feature/updates/use-case/check-updates.md
 import { captureException } from "@sentry/cloudflare";
-import { monitor, telemetryDsn, type TelemetryEnv } from "./telemetry.ts";
+import { monitor, stage, telemetryDsn, type TelemetryEnv } from "./telemetry.ts";
+import { degraded } from "./quality.ts";
 import { recordUpdateRequest } from "./analytics.ts";
 import content from "../content/announcements.json";
 import {
@@ -97,34 +98,46 @@ export default monitor({
     let releaseManifest: Manifest | undefined;
     const cache = typeof caches === "undefined" ? undefined : caches.default;
     try {
-      const hit = await cache?.match(key);
-      if (hit) releaseManifest = await hit.json<Manifest>();
+      if (cache)
+        releaseManifest = await stage("update.cache.read", async (span) => {
+          const hit = await cache.match(key);
+          span.setAttribute("outcome", hit ? "hit" : "miss");
+          return hit ? hit.json<Manifest>() : undefined;
+        });
     } catch {
       /* cache is optional */
     }
     if (!releaseManifest) {
       try {
-        releaseManifest = buildManifest(await releases(env), []);
+        releaseManifest = buildManifest(
+          await stage("update.upstream.fetch", () => releases(env)),
+          [],
+        );
         if (releaseManifest.latestVersion && cache)
           ctx.waitUntil(
             cache.put(key, json(releaseManifest, 200, "public, max-age=300")).catch(() => {}),
           );
       } catch (error) {
-        if (telemetryDsn(env)) captureException(error);
+        if (telemetryDsn(env)) {
+          captureException(error);
+          degraded("update.upstream.fetch", error);
+        }
         // Never log request URLs, identities, credentials, or upstream bodies.
         console.warn("Release lookup unavailable", error instanceof Error ? error.name : "unknown");
         /* Keep announcements available when releases are unknown. */
       }
     }
-    const noticeManifest = buildManifest([], announcements);
-    const result = {
-      ...noticeManifest,
-      ...(releaseManifest ?? {}),
-      announcements: noticeManifest.announcements,
-    };
-    if (new TextEncoder().encode(JSON.stringify(result)).length > 262144)
-      return json(noticeManifest);
-    // Browsers must not cache time-bounded announcements past their expiry.
-    return json(result);
+    return stage("update.response", () => {
+      const noticeManifest = buildManifest([], announcements);
+      const result = {
+        ...noticeManifest,
+        ...(releaseManifest ?? {}),
+        announcements: noticeManifest.announcements,
+      };
+      if (new TextEncoder().encode(JSON.stringify(result)).length > 262144)
+        return json(noticeManifest);
+      // Browsers must not cache time-bounded announcements past their expiry.
+      return json(result);
+    });
   },
 });
