@@ -8,6 +8,10 @@ overrides:
   vite@*: npm:@voidzero-dev/vite-plus-core@1.3.0
   vitest@*: 5.0.5
 
+patchedDependencies:
+  '@sentry/bundler-plugins@11.12.0': 33b5e15d7584524615dc7d261f5cb11800edcbc9805f7f4ce880b0c3ab55a407
+  sentry@0.49.0: d4894ffb0aeeae597a769c4727d6f7aef1230c3056261a2b75453b6537480c87
+
 importers:
 
   .:
@@ -2522,14 +2526,14 @@ snapshots:
 
   '@poppinss/exception@1.2.3': {}
 
-  '@sentry/bundler-plugins@11.12.0':
+  '@sentry/bundler-plugins@11.12.0(patch_hash=33b5e15d7584524615dc7d261f5cb11800edcbc9805f7f4ce880b0c3ab55a407)':
     dependencies:
       '@sentry/core': 11.12.0
       dotenv: 17.4.2
       glob: 14.0.6
       magic-string: 1.4.3
       oxc-parser: 0.152.0
-      sentry: 0.49.0
+      sentry: 0.49.0(patch_hash=d4894ffb0aeeae597a769c4727d6f7aef1230c3056261a2b75453b6537480c87)
 
   '@sentry/cloudflare@11.12.0(@cloudflare/workers-types@5.20261016.1)(@voidzero-dev/vite-plus-core@1.3.0(@types/node@24.19.2)(esbuild@0.28.2)(typescript@5.9.3))':
     dependencies:
@@ -2563,7 +2567,7 @@ snapshots:
 
   '@sentry/vite-plugin@11.12.0':
     dependencies:
-      '@sentry/bundler-plugins': 11.12.0
+      '@sentry/bundler-plugins': 11.12.0(patch_hash=33b5e15d7584524615dc7d261f5cb11800edcbc9805f7f4ce880b0c3ab55a407)
     transitivePeerDependencies:
       - rollup
       - webpack
@@ -3073,7 +3077,7 @@ snapshots:
 
   semver@7.8.5: {}
 
-  sentry@0.49.0: {}
+  sentry@0.49.0(patch_hash=d4894ffb0aeeae597a769c4727d6f7aef1230c3056261a2b75453b6537480c87): {}
 
   sharp@0.35.4(@types/node@24.19.2):
     dependencies:
