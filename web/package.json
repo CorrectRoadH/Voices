@@ -8,7 +8,7 @@
     "preview": "vp preview --host 0.0.0.0",
     "check:i18n": "vp exec node scripts/check-i18n.mjs",
     "test": "vp test",
-    "generate:api": "vp exec openapi-typescript ../docs/api/openapi.json -o src/lib/api.generated.ts",
+    "generate:api": "vp -C tools/openapi install --frozen-lockfile && vp -C tools/openapi run generate",
     "test:e2e": "vp -C .. run test:e2e",
     "check": "vp check && vp run typecheck"
   },
@@ -43,8 +43,8 @@
     "ai": "7.0.176",
     "dotenv": "^18.0.10",
     "e2e": "0.23.1",
-    "openapi-typescript": "^7.13.0",
-    "typescript": "^5.9.3",
+    "typescript": "7.0.2",
+    "typescript-legacy": "npm:@typescript/typescript6@6.0.2",
     "vite-plus": "1.7.0"
   },
   "engines": {

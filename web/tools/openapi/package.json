@@ -1,0 +1,12 @@
+{
+  "name": "voices-openapi-codegen",
+  "private": true,
+  "scripts": {
+    "generate": "openapi-typescript ../../../docs/api/openapi.json -o ../../src/lib/api.generated.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
+  },
+  "packageManager": "pnpm@12.21.0"
+}

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import ts from "typescript";
+import ts from "typescript-legacy";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const en = JSON.parse(readFileSync(join(root, "src/locales/en.json"), "utf8"));
 const zh = JSON.parse(readFileSync(join(root, "src/locales/zh-CN.json"), "utf8"));
