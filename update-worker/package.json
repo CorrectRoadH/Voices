@@ -22,7 +22,7 @@
     "@types/node": "^24.0.0",
     "cf": "1.0.0-rc.0",
     "miniflare": "5.20261116.0-beta",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vite-plus": "1.7.0"
   },

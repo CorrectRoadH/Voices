@@ -1,3 +1,4 @@
+diff --git a/build/cjs/core/cli.js b/build/cjs/core/cli.js
 --- a/build/cjs/core/cli.js
 +++ b/build/cjs/core/cli.js
 @@ -85,6 +85,8 @@
@@ -9,6 +10,7 @@
  				directory: target.directory,
  				release: name,
  				dist: target.dist ?? require_classPrivateFieldGet2.default(_options, this).release.dist,
+diff --git a/build/esm/core/cli.js b/build/esm/core/cli.js
 --- a/build/esm/core/cli.js
 +++ b/build/esm/core/cli.js
 @@ -85,6 +85,8 @@
