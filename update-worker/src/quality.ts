@@ -23,7 +23,7 @@ const metricKinds = {
   "app.operation.count": "counter",
   "app.operation.duration": "distribution",
 } as const;
-// Exact core@11.13.0 EventDropReason/DataCategory unions. No free-text escape hatch.
+// Exact core@11.14.0 EventDropReason/DataCategory unions. No free-text escape hatch.
 const reasons = new Set([
   "before_send",
   "callback_error",

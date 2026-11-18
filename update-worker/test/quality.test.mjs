@@ -169,7 +169,7 @@ void test("real SDK scope/global/isolation/call and late listener fields are rem
       assert.equal(record.attributes.private, undefined);
       assert.equal(record.attributes["scope.private"], undefined);
       assert.equal(record.attributes.component.value, "update");
-      assert.equal(record.attributes["sentry.sdk.version"].value, "11.13.0");
+      assert.equal(record.attributes["sentry.sdk.version"].value, "11.14.0");
     }
     assert.equal(logs[0].severity_number, 13);
     evidence.push({ scenario: "scope-final-transport", metrics, logs });
