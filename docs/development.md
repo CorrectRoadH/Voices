@@ -1,6 +1,6 @@
 # 开发与测试
 
-需要 Python 3、Go 1.26、Air、Node.js 24.11+、Vite+ 1.3.0（`vp`，使用 pnpm）、Docker、FFmpeg/ffprobe。命令均在仓库根目录执行，命令说明见 [命令](cli.md)。
+需要 Python 3、Go 1.27.4、Air、Node.js 24.22+、Vite+ 1.7.0（`vp`，使用 pnpm）、Docker、FFmpeg/ffprobe。命令均在仓库根目录执行，命令说明见 [命令](cli.md)。
 
 ## 本地运行
 

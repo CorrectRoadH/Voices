@@ -1,7 +1,7 @@
 {
   "name": "voices",
   "private": true,
-  "packageManager": "pnpm@11.18.0",
+  "packageManager": "pnpm@12.21.0",
   "scripts": {
     "dev": "vp -C web run dev",
     "build": "vp -C web run build",

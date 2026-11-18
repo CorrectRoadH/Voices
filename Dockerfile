@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM ghcr.io/voidzero-dev/vite-plus:1.3.0 AS web
+FROM --platform=$BUILDPLATFORM ghcr.io/voidzero-dev/vite-plus:1.7.0 AS web
 USER root
 RUN mkdir -p /src/web && chown -R vp:vp /src
 USER vp
@@ -12,7 +12,7 @@ ENV PUBLIC_BASE_URL=$PUBLIC_BASE_URL
 RUN vp run build
 
 # Native CGO build runs on the target platform (native CI runner or buildx QEMU).
-FROM golang:1.26-bookworm AS backend
+FROM golang:1.27.4-bookworm AS backend
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download

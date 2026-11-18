@@ -31,7 +31,7 @@ void i18n.use(initReactI18next).init({
 
 // Call at render/event time. User content must never be passed as a resource key.
 export function tr(key: string, values?: Record<string, unknown>): string {
-  return i18n.t(key, values);
+  return i18n.t(key, values ?? {});
 }
 
 export function interfaceLocale(): UILanguage {

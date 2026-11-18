@@ -38,7 +38,7 @@ Chromium 下载目录按系统、架构和 web 锁文件缓存；仍执行引擎
 
 ### 工具链入口
 
-JS/TS 命令统一通过 Vite+ 1.3.0；pnpm 仍为底层包管理器，根目录、web 与 update-worker 保持独立安装边界。
+JS/TS 命令统一通过 Vite+ 1.7.0；pnpm 仍为底层包管理器，根目录、web 与 update-worker 保持独立安装边界。
 
 CI 使用固定版本 setup-vp，安装必须使用 frozen lockfile。
 

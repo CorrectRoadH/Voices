@@ -28,9 +28,9 @@ export default defineConfig(({ command, mode }) => {
         },
         sourcemaps: {
           disable: upload ? false : "disable-upload",
-          assets: ".cloudflare/output/v0/workers/default/bundle/**",
+          assets: ".cloudflare/output/v1/workers/default/bundle/**",
           ...(upload
-            ? { filesToDeleteAfterUpload: ".cloudflare/output/v0/workers/default/bundle/**/*.map" }
+            ? { filesToDeleteAfterUpload: ".cloudflare/output/v1/workers/default/bundle/**/*.map" }
             : {}),
         },
       }),

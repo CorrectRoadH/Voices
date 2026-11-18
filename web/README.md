@@ -1,6 +1,6 @@
 # Voices Web
 
-中文录音工作台，使用 React / TypeScript、Vite+ 1.3.0 和官方 shadcn Base UI 源码组件。业务数据、上传、音频与导出均调用 Go API；生产源码不包含示例业务数据或 mock 服务。
+中文录音工作台，使用 React / TypeScript、Vite+ 1.7.0 和官方 shadcn Base UI 源码组件。业务数据、上传、音频与导出均调用 Go API；生产源码不包含示例业务数据或 mock 服务。
 
 ## 开发
 
@@ -20,7 +20,7 @@ vp run build
 vp run preview
 ```
 
-按 [Vite+ 官方本地安装文档](https://viteplus.dev/guide/local-cli) 配置，工具链入口均为 `vp`；`vite` 依赖通过 pnpm override 指向同版本 `@voidzero-dev/vite-plus-core`，测试使用 `vite-plus/test` 与内置 Vitest。部分第三方包按 Vite 的主版本声明 peer，pnpm 会针对 core 的 1.3.0 包版本显示 peer 提示；本项目实际使用的 Vite 核心版本可由 `vp toolchain` 查看。
+按 [Vite+ 官方本地安装文档](https://viteplus.dev/guide/local-cli) 配置，工具链入口均为 `vp`；`vite` 依赖通过 pnpm override 指向 Vite+ 固定的 `@voidzero-dev/vite-plus-core` 版本，测试使用 `vite-plus/test` 与内置 Vitest。本项目实际使用的 Vite 核心版本可由 `vp toolchain` 查看。
 
 ## 部署路径前缀
 

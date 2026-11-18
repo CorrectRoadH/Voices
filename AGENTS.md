@@ -24,7 +24,7 @@ Follow the returned instructions and the repository's current `docs/taste.md`. A
 
 ## JavaScript / TypeScript toolchain
 
-- Use Vite+ 1.3.0 (`vp`) for JS/TS commands: `vp install`, `vp run <script>`, `vp exec <tool>`, and `vp exec node <file>`. pnpm remains the underlying package manager.
+- Use Vite+ 1.7.0 (`vp`) for JS/TS commands: `vp install`, `vp run <script>`, `vp exec <tool>`, and `vp exec node <file>`. pnpm remains the underlying package manager.
 - Root, `web`, and `update-worker` remain separate installation roots; install with `vp -C web install --frozen-lockfile` and `vp -C update-worker install --frozen-lockfile`.
 - From the repository root, run `vp run check` for the full gate; it requires an isolated `TEST_DATABASE_URL`. `vp check` is only the built-in static checker, not the full project gate.
 - Use `vp run test:e2e` for real Go/PostgreSQL/browser acceptance and `vp run test:worker:runtime` for workerd. Keep these uncached; they depend on runtime state.

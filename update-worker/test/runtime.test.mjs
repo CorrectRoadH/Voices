@@ -35,7 +35,7 @@ const release = {
 function runtime(
   outboundService,
   bindings = {},
-  scriptPath = ".cloudflare/output/v0/workers/default/bundle/index.js",
+  scriptPath = ".cloudflare/output/v1/workers/default/bundle/index.js",
 ) {
   return new Miniflare(
     convertV4MiniflareOptions({

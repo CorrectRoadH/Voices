@@ -4,9 +4,9 @@ allowBuilds:
   esbuild: true
   workerd: true
 overrides:
-  vite@*: npm:@voidzero-dev/vite-plus-core@1.3.0
-  vitest@*: 5.0.5
+  vite@*: npm:@voidzero-dev/vite-plus-core@8.3.8000
+  vitest@*: 5.1.0
 
 patchedDependencies:
-  "@sentry/bundler-plugins@11.12.0": patches/@sentry__bundler-plugins@11.12.0.patch
+  "@sentry/bundler-plugins@11.13.0": patches/@sentry__bundler-plugins@11.13.0.patch
   sentry@0.49.0: patches/sentry@0.49.0.patch
