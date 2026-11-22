@@ -126,7 +126,7 @@ void test("actual update handler records exactly one count/duration under unsamp
     (texts) => items(texts, "trace_metric").length === 2 && items(texts, "log").length === 1,
   );
   try {
-    const response = await r.mf.dispatchFetch("https://worker.test/?private=PRIVATE_SENTINEL", {
+    const response = await r.mf.dispatchFetch("https://worker.test/?token=PRIVATE_SENTINEL", {
       headers: { "sentry-trace": "77777777777777777777777777777777-7777777777777777-0" },
     });
     assert.equal(response.status, 200);

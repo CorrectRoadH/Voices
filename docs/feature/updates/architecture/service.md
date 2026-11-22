@@ -58,19 +58,19 @@ severity 为 info/warning/critical；时间使用 UTC RFC3339。ID 唯一、过�
 
 官方 Cloudflare SDK 按请求隔离 scope，单 isolate 复用客户端，使用 execution context 的 `waitUntil` 限时排空。根请求默认采样 0.01，保留合法父级采样决定；错误不抽样。使用 stream span lifecycle；禁止向 GitHub 或其它出站服务传播 trace headers，不安装第二套 OTel provider。上游失败继续返回未知版本及有效公告，并捕获异常；监控发送失败不改变更新响应。
 
-关闭身份、IP、Cookie、请求头、请求/响应正文、query、AI/SQL 数据、栈局部变量、源码上下文、任意日志转发与未知指标。发送前按允许字段重建错误与根/子 span。异常内容替换为固定类别说明。保留安全机制类别与 handled/is_exception_group 布尔语义，删除机制 meta/data。
+错误事件保留实际异常类型、消息、原因链、堆栈及结构化业务详情。路由模板、HTTP 方法和响应状态码记录为 `route`、`http.method`、`http.status_code`；请求 URL 保留路径与非凭据 query。过滤凭据相关请求头、敏感 query 与结构化字段值，以及字符串中的 Bearer、API key、JWT、URL userinfo 和 Sentry DSN 公钥。SDK 默认个人数据采集保持关闭，不主动附加请求或响应正文、栈局部变量或源码上下文。4xx 和客户端中止不生成错误事件，5xx 与未处理异常上报；上游失败的降级异常仍上报并标记更新端点实际返回的 200。
 
 保留经校验的 sourcemap debug ID、静态代码路径、debug images、代码栈位置和 trace 标识。根操作名固定为 `update.request`；实际 Cache API 读取、GitHub release 拉取（含分页/JSON）、响应组装、已验证的 Analytics Engine 写入分别为 `update.cache.read`、`update.upstream.fetch`、`update.response`、`update.analytics`。固定 operation 注册表同时驱动埋点和发送过滤，保留固定 outcome；未知名称回退 `update.request`。
 
 阶段失败/取消在原有 catch 之前标记并抛回原错误，原有降级行为不变；analytics span 在原 `waitUntil` 回调内执行，根请求及响应 body 生命周期由 SDK 维护，响应组装 span 不代表传输完成。缓存写入没有已批准的独立 operation，不新增名称。Worker 无受支持的 CPU profiler，不增加 profile 依赖、manifest 或开启环境变量，拒绝 profile/profile_chunk。
 
-环境、release 与组件来自配置；请求地址仅保留 origin。span 删除 links、动态路径、自由文本及未知属性。
+环境、release 与组件来自配置。span 删除 links、动态路径、自由文本及未知属性。
 
 入站 trace/span ID 只接受非零合法十六进制及可选 0/1 采样；丢弃外来 baggage，SDK 继续维护请求隔离与父采样，业务 handler 接收原始 Request。无 baggage 的 span v2 DSC 从同一 span ID 与本地配置修复，不借用其它请求。
 
-最终 transport.send 在所有 envelope listeners 之后再次重建合法 error/span v2 与 typed attributes，并保留官方 transport 的缓冲、限时排空和 rate-limit 行为；不能通过直接 sendEnvelope 绕过清洗。`beforeEnvelope` 重建 header 与动态采样上下文，保留有效 trace ID、固定操作名和本地公开配置。删除外来 transaction、任意嵌套 metadata 和未知 payload 类别；每种已批准 item 独立按真实协议重建。不得新增公开异常测试端点。
+最终 transport.send 在所有 envelope listeners 之后再次重建合法 error/span v2 与 typed attributes，并保留官方 transport 的缓冲、限时排空和 rate-limit 行为；不能通过直接 sendEnvelope 绕过清洗。`beforeEnvelope` 重建 header 与动态采样上下文，保留有效 trace ID、固定操作名和本地公开配置。删除外来 transaction、envelope header 中任意嵌套 metadata 和未知 payload 类别；每种已批准 item 独立按真实协议重建。不得新增公开异常测试端点。
 
-验收用真实 SDK transport 哨兵验证嵌套 extra/context/breadcrumb、异常字符串及根/子 span；在真实 workerd 中核对开发/测试零投递、错误与 span 排空、合法父 trace、出站无传播和发送失败隔离。生产事件回读与 sourcemap 上传由部署阶段另行授权验收。
+验收用真实 SDK transport 核对错误详情和请求标签、嵌套 extra/context/breadcrumb 中的凭据过滤及根/子 span；在真实 workerd 中核对开发/测试零投递、错误与 span 排空、合法父 trace、出站无传播和发送失败隔离。生产事件回读与 sourcemap 上传由部署阶段另行授权验收。
 
 Sourcemap 构建始终注入 debug ID；没有 `SENTRY_AUTH_TOKEN` 不上传。production 构建显式提供 token 时，要求同一 `SENTRY_RELEASE=update@<完整git-sha>`，上传至 `instaai/voices-update` 后删除输出 `.map`。token 不写入代码或产物。真实错误 event 必须保有对应 debug images；本地构建通过不代表远端上传或生产符号化验收完成。
 
