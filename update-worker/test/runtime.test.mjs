@@ -212,12 +212,12 @@ void test("real SDK sends sanitized errors and sampled spans through workerd wai
     }
     assert.equal(request.headers.get("sentry-trace"), null);
     assert.equal(request.headers.get("baggage"), null);
-    throw new Error(sentinel);
+    return Response.json({ invalid: true });
   }, telemetry);
   let timeout;
   try {
     const response = await mf.dispatchFetch(
-      `https://voices.niceeval.com/?instanceId=${sentinel}#${sentinel}`,
+      `https://voices.niceeval.com/?version=1.2.3&token=${sentinel}#${sentinel}`,
       {
         headers: {
           Authorization: `Bearer ${sentinel}`,
@@ -249,6 +249,18 @@ void test("real SDK sends sanitized errors and sampled spans through workerd wai
       return result;
     })[0];
     assert.equal(event.environment, "production");
+    assert.deepEqual(event.tags, {
+      component: "update",
+      operation: "update.upstream.fetch",
+      route: "/",
+      "http.method": "GET",
+      "http.status_code": 200,
+    });
+    assert.equal(event.transaction, "update.request");
+    assert.equal(event.request.url, "https://voices.niceeval.com/?version=1.2.3&token=[Filtered]");
+    assert.equal(event.exception.values[0].type, "Error");
+    assert.equal(event.exception.values[0].value, "invalid releases");
+    assert.ok(event.exception.values[0].stacktrace.frames.length > 0);
     assert.ok(event.exception.values.every((value) => value.mechanism.handled === true));
     assert.ok(
       event.debug_meta.images.some(
@@ -326,7 +338,7 @@ void test("real SDK removes sensitive root, child and injected DSC fields from e
   let timeout;
   try {
     const response = await mf.dispatchFetch(
-      "https://voices.niceeval.com/PRIVATE_SENTINEL_nested_913?private=PRIVATE_SENTINEL_nested_913",
+      "https://voices.niceeval.com/releases?token=PRIVATE_SENTINEL_nested_913",
     );
     await response.text();
     await Promise.race([
@@ -348,11 +360,17 @@ void test("real SDK removes sensitive root, child and injected DSC fields from e
       return result;
     });
     const error = items.find(([header]) => header.type === "event")[1];
-    assert.deepEqual(error.exception.values[0].mechanism, {
-      type: "auto.http.cloudflare",
-      handled: false,
-      is_exception_group: true,
-    });
+    const rootError = error.exception.values.find(({ type }) => type === "TypeError");
+    const cause = error.exception.values.find(({ type }) => type === "SyntaxError");
+    assert.equal(rootError.value, "Cannot decode release notes");
+    assert.equal(rootError.mechanism.type, "auto.http.cloudflare");
+    assert.equal(rootError.mechanism.handled, false);
+    assert.equal(rootError.mechanism.is_exception_group, true);
+    assert.equal(rootError.mechanism.data.secret, "[Filtered]");
+    assert.equal(cause.value, "Invalid document Bearer [Filtered]");
+    assert.equal(error.extra.nested.secret, "[Filtered]");
+    assert.equal(error.contexts.business.nested.secret, "[Filtered]");
+    assert.equal(error.breadcrumbs[0].message, "Loading release notes");
     const spans = spanItems(envelopes);
     assert.equal(spans.length, 3);
     assert.ok(spans.some((span) => span.is_segment));
@@ -438,6 +456,49 @@ function errorItems(envelopes) {
     return events;
   });
 }
+
+// @concord-implements docs/feature/updates/use-case/check-updates.md
+void test("reports unhandled errors and 5xx responses with routing tags, excluding 4xx and aborts", async () => {
+  const capture = observation((envelopes) => errorItems(envelopes).length >= 2);
+  const mf = runtime(
+    (request) => capture.receive(request),
+    telemetry,
+    ".cloudflare/test-telemetry/index.js",
+  );
+  const url = "https://worker.test/";
+  const dispatch = (fixture, method = "GET") =>
+    mf.dispatchFetch(url, { method, headers: { "X-Fixture": fixture } });
+  try {
+    const rejected = await dispatch("client-error");
+    assert.equal(rejected.status, 405);
+    await rejected.text();
+    for (const scenario of ["abort", "throw"]) {
+      const failed = await dispatch(scenario);
+      assert.equal(failed.status, 500);
+      await failed.text();
+    }
+    const unavailable = await dispatch("server-error", "POST");
+    assert.equal(unavailable.status, 503);
+    await unavailable.text();
+    await capture.wait();
+
+    const events = errorItems(capture.envelopes);
+    assert.equal(events.length, 2);
+    const thrown = events.find((event) => event.exception);
+    assert.equal(thrown.exception.values[0].type, "TypeError");
+    assert.equal(thrown.exception.values[0].value, "Failed to build release manifest");
+    assert.ok(thrown.exception.values[0].stacktrace.frames.length > 0);
+    assert.equal(thrown.tags.route, "/");
+    assert.equal(thrown.tags["http.method"], "GET");
+    assert.equal(thrown.tags["http.status_code"], 500);
+    const response = events.find((event) => event.message === "HTTP 503");
+    assert.equal(response.tags.route, "/");
+    assert.equal(response.tags["http.method"], "POST");
+    assert.equal(response.tags["http.status_code"], 503);
+  } finally {
+    await mf.dispose();
+  }
+});
 
 // @concord-implements docs/feature/updates/use-case/check-updates.md
 void test("cache hit and analytics success/failure retain finite stages under the real request root", async () => {
@@ -533,7 +594,7 @@ void test("parallel sampled requests isolate parent, DSC and degraded upstream e
     await Promise.all(
       ["33333333333333333333333333333333", "44444444444444444444444444444444"].map(
         async (trace) => {
-          const response = await mf.dispatchFetch("https://worker.test/?private=PRIVATE_SENTINEL", {
+          const response = await mf.dispatchFetch("https://worker.test/?session=PRIVATE_SENTINEL", {
             headers: {
               "sentry-trace": `${trace}-${trace.slice(0, 16)}-1`,
               baggage:

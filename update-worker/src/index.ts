@@ -119,7 +119,12 @@ export default monitor({
           );
       } catch (error) {
         if (telemetryDsn(env)) {
-          captureException(error);
+          // Upstream failures keep the successful announcement response available.
+          captureException(error, {
+            captureContext: {
+              tags: { operation: "update.upstream.fetch", "http.status_code": 200 },
+            },
+          });
           degraded("update.upstream.fetch", error);
         }
         // Never log request URLs, identities, credentials, or upstream bodies.

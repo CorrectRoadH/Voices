@@ -1,8 +1,8 @@
 // Test-only entry: never included in the deployed Worker.
 import { withSentry, startSpan, withScope, captureException } from "@sentry/cloudflare";
-import { telemetryOptions, type TelemetryEnv } from "../src/telemetry.ts";
+import { monitor, telemetryOptions, type TelemetryEnv } from "../src/telemetry.ts";
 const sentinel = "PRIVATE_SENTINEL_nested_913";
-export default withSentry(
+const injectedEnvelope = withSentry(
   (env: TelemetryEnv) => {
     const options = telemetryOptions(env);
     return {
@@ -22,7 +22,9 @@ export default withSentry(
                 nested: { secret: sentinel },
               };
               for (const [header, payload] of envelope[1]) {
-                Object.assign(payload, { private: { nested: sentinel } });
+                Object.assign(payload, {
+                  extra: { ...(payload as { extra?: object }).extra, secret: sentinel },
+                });
                 header.private = { nested: sentinel };
                 if (header.type === "span") {
                   header.item_count = 999;
@@ -84,7 +86,7 @@ export default withSentry(
     };
   },
   {
-    async fetch() {
+    async fetch(_request: Request, _env: TelemetryEnv, _ctx: ExecutionContext) {
       await startSpan(
         {
           name: sentinel,
@@ -115,21 +117,26 @@ export default withSentry(
                 scope.setContext("business", { nested: { secret: sentinel } });
                 scope.setExtra("nested", { secret: sentinel });
                 scope.addBreadcrumb({
-                  message: sentinel,
+                  message: "Loading release notes",
                   data: { nested: { secret: sentinel } },
                 });
-                captureException(new Error(sentinel), {
-                  mechanism: {
-                    type: "auto.http.cloudflare",
-                    handled: false,
-                    is_exception_group: true,
-                    data: { private: sentinel },
+                captureException(
+                  new TypeError("Cannot decode release notes", {
+                    cause: new SyntaxError(`Invalid document Bearer ${sentinel}`),
+                  }),
+                  {
+                    mechanism: {
+                      type: "auto.http.cloudflare",
+                      handled: false,
+                      is_exception_group: true,
+                      data: { secret: sentinel },
+                    },
+                    captureContext: {
+                      tags: { operation: "update.response" },
+                      extra: { nested: { secret: sentinel } },
+                    },
                   },
-                  captureContext: {
-                    tags: { private: sentinel },
-                    extra: { nested: { secret: sentinel } },
-                  },
-                });
+                );
               });
             },
           );
@@ -139,3 +146,26 @@ export default withSentry(
     },
   },
 );
+
+const failedRequests = monitor({
+  async fetch(request: Request) {
+    switch (request.headers.get("X-Fixture")) {
+      case "abort":
+        throw new DOMException("Client disconnected", "AbortError");
+      case "throw":
+        throw new TypeError("Failed to build release manifest");
+      case "client-error":
+        return new Response(null, { status: 405 });
+      default:
+        return new Response(null, { status: 503 });
+    }
+  },
+});
+
+export default {
+  fetch(request: Request, env: TelemetryEnv, ctx: ExecutionContext) {
+    return request.headers.has("X-Fixture")
+      ? failedRequests.fetch(request, env, ctx)
+      : injectedEnvelope.fetch(request, env, ctx);
+  },
+};

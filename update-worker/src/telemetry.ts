@@ -2,6 +2,9 @@
 // @concord-implements docs/feature/updates/use-case/check-updates.md
 import {
   withSentry,
+  captureMessage,
+  getIsolationScope,
+  linkedErrorsIntegration,
   startSpan,
   type Span,
   type CloudflareClient,
@@ -29,106 +32,125 @@ export function telemetryDsn(env: TelemetryEnv): string | undefined {
     : undefined;
 }
 
-function origin(value?: string): string | undefined {
-  try {
-    return value ? new URL(value).origin : undefined;
-  } catch {
-    return undefined;
-  }
+const filtered = "[Filtered]";
+const sentryPublicKey = new URL(UPDATE_SENTRY_DSN).username;
+const sensitiveHeader = /authorization|cookie|token|secret|key|password/i;
+
+function sensitiveKey(key: string) {
+  const words = key.replace(/([a-z0-9])([A-Z])/g, "$1_$2");
+  return (
+    /^(?:(?:auth|authorization|oauth|verification)[_-]?)?code$/i.test(words) ||
+    /(?:^|[^a-z0-9])(?:token|secret|password|passwd|api[_-]?key|signature|sig|session)(?:$|[^a-z0-9])/i.test(
+      words,
+    )
+  );
 }
 
-function codeFile(value?: string): string | undefined {
-  if (!value) return undefined;
-  try {
-    const url = new URL(value);
-    return ["https:", "http:"].includes(url.protocol)
-      ? url.origin + url.pathname
-      : value.split(/[?#]/, 1)[0];
-  } catch {
-    return value.split(/[?#]/, 1)[0];
-  }
+function filterText(value: string) {
+  return value
+    .replace(/\bBearer\s+[^\s"'<>[\](),;]+/gi, `Bearer ${filtered}`)
+    .replace(/\b(?:sk|pk)-[\w-]+/g, filtered)
+    .replace(/(?<![\w-])eyJ[\w-]+\.[\w-]+\.[\w-]+(?![\w-])/g, filtered)
+    .replace(/(\b[a-z][a-z0-9+.-]*:\/\/)[^\s/?#@"'<>]+@/gi, `$1${filtered}@`)
+    .replace(/([?&])([^\s=&?#"'<>]+)=([^\s&#"'<>]*)/g, (pair, separator: string, key: string) => {
+      let name = key;
+      try {
+        name = decodeURIComponent(key.replaceAll("+", " "));
+      } catch {
+        // Retain the literal key when percent encoding is malformed.
+      }
+      return sensitiveKey(name) ? `${separator}${key}=${filtered}` : pair;
+    })
+    .replaceAll(sentryPublicKey, filtered);
 }
+
+function filterValue(value: unknown): unknown {
+  if (typeof value === "string") return filterText(value);
+  if (Array.isArray(value)) return value.map(filterValue);
+  if (value === null || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, nested]) => [
+      filterText(key),
+      sensitiveKey(key) ? filtered : filterValue(nested),
+    ]),
+  );
+}
+
+function filterRequest(request: ErrorEvent["request"]): ErrorEvent["request"] {
+  if (!request) return undefined;
+  const query = request.query_string;
+  return {
+    url: request.url && filterText(request.url),
+    method: request.method,
+    headers:
+      request.headers &&
+      Object.fromEntries(
+        Object.entries(request.headers).map(([key, value]) => [
+          key,
+          sensitiveHeader.test(key) ? filtered : filterText(value),
+        ]),
+      ),
+    query_string:
+      typeof query === "string"
+        ? filterText(`?${query}`).slice(1)
+        : Array.isArray(query)
+          ? query.map(([key, value]) => [key, sensitiveKey(key) ? filtered : filterText(value)])
+          : (filterValue(query) as typeof query),
+  };
+}
+
 const debugId = (value?: string) =>
   value && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(value)
     ? value
     : undefined;
 
 export function filterError(event: ErrorEvent, env: TelemetryEnv): ErrorEvent {
-  const trace = event.contexts?.trace;
   return {
+    ...(filterValue({
+      ...event,
+      request: undefined,
+      user: undefined,
+      sdkProcessingMetadata: undefined,
+      exception: event.exception && {
+        values: event.exception.values?.map((exception) => ({
+          ...exception,
+          stacktrace: exception.stacktrace && {
+            ...exception.stacktrace,
+            frames: exception.stacktrace.frames?.map((frame) => ({
+              ...frame,
+              vars: undefined,
+              context_line: undefined,
+              pre_context: undefined,
+              post_context: undefined,
+            })),
+          },
+        })),
+      },
+      debug_meta: event.debug_meta && {
+        images: event.debug_meta.images?.filter(
+          (image) => image.type === "sourcemap" && debugId(image.debug_id),
+        ),
+      },
+      tags: { ...event.tags, component: "update" },
+      transaction: "update.request",
+    }) as ErrorEvent),
     type: undefined,
-    event_id: event.event_id,
-    timestamp: event.timestamp,
     platform: "javascript",
     level: "error",
     environment: identity(env.SENTRY_ENVIRONMENT) ?? "production",
     release: identity(env.SENTRY_RELEASE),
-    tags: { component: "update" },
-    transaction: "update.request",
-    request: event.request?.url ? { url: origin(event.request.url) } : undefined,
-    contexts:
-      trace && validId(trace.trace_id, 32) && validId(trace.span_id, 16)
-        ? { trace: { trace_id: trace.trace_id, span_id: trace.span_id, op: "http.server" } }
-        : undefined,
-    debug_meta: {
-      images: event.debug_meta?.images?.flatMap((image) =>
-        image.type === "sourcemap" && debugId(image.debug_id)
-          ? [
-              {
-                type: "sourcemap",
-                debug_id: image.debug_id,
-                code_file: codeFile(image.code_file) ?? "index.js",
-              },
-            ]
-          : [],
-      ),
-    },
-    exception: {
-      values: event.exception?.values?.map((exception) => ({
-        type: [
-          "Error",
-          "TypeError",
-          "RangeError",
-          "SyntaxError",
-          "AbortError",
-          "TimeoutError",
-        ].includes(exception.type ?? "")
-          ? exception.type
-          : "Error",
-        value: "Update service error",
-        mechanism: exception.mechanism
-          ? {
-              type: [
-                "generic",
-                "auto.http.cloudflare",
-                "auto.faas.cloudflare",
-                "auto.faas.cloudflare.durable_object",
-              ].includes(exception.mechanism.type)
-                ? exception.mechanism.type
-                : "generic",
-              ...(typeof exception.mechanism.handled === "boolean"
-                ? { handled: exception.mechanism.handled }
-                : {}),
-              ...(typeof exception.mechanism.is_exception_group === "boolean"
-                ? { is_exception_group: exception.mechanism.is_exception_group }
-                : {}),
-            }
-          : undefined,
-        stacktrace: exception.stacktrace
-          ? {
-              frames: exception.stacktrace.frames?.map((frame) => ({
-                function: frame.function,
-                filename: codeFile(frame.filename),
-                debug_id: debugId(frame.debug_id),
-                module: frame.module,
-                lineno: frame.lineno,
-                colno: frame.colno,
-              })),
-            }
-          : undefined,
-      })),
-    },
+    request: filterRequest(event.request),
   };
+}
+
+function isClientFailure(event: ErrorEvent) {
+  const status = Number(event.tags?.["http.status_code"]);
+  return (
+    (status >= 400 && status < 500) ||
+    event.exception?.values?.some(
+      (exception) => exception.type === "AbortError" && exception.mechanism?.handled === false,
+    )
+  );
 }
 
 /** The finite registry is shared by instrumentation and both privacy boundaries. */
@@ -250,7 +272,8 @@ export function filterEnvelope(
         continue;
       }
       if (header.type === "event" && body.type === undefined) {
-        items.push([{ type: "event" }, filterError({ ...body, type: undefined }, env)]);
+        const event = { ...body, type: undefined } as ErrorEvent;
+        if (!isClientFailure(event)) items.push([{ type: "event" }, filterError(event, env)]);
       } else if (header.type === "span" && body.version === 2 && Array.isArray(body.items)) {
         const spans = body.items.flatMap((value: unknown) => {
           const raw = record(value);
@@ -361,6 +384,7 @@ export function telemetryOptions(env: TelemetryEnv): CloudflareOptions {
     defaultIntegrations: false,
     integrations: [
       spanStreamingIntegration({ flushOnSegmentEnd: false }),
+      linkedErrorsIntegration(),
       {
         name: "UpdateEnvelopePrivacy",
         setup(client) {
@@ -414,7 +438,7 @@ export function telemetryOptions(env: TelemetryEnv): CloudflareOptions {
       stackFrameVariables: false,
       frameContextLines: 0,
     },
-    beforeSend: (event) => filterError(event, env),
+    beforeSend: (event) => (isClientFailure(event) ? null : filterError(event, env)),
     beforeSendSpan: (span) => filterSpan(span, env),
   };
 }
@@ -442,10 +466,33 @@ export function monitor<T extends TelemetryEnv>(handler: {
         },
       });
       const monitored = withSentry((env: T) => telemetryOptions(env), {
-        fetch(_sdkRequest: Request, env: T, ctx: ExecutionContext) {
-          return ["OPTIONS", "HEAD"].includes(request.method)
+        async fetch(_sdkRequest: Request, env: T, ctx: ExecutionContext) {
+          const url = new URL(request.url);
+          url.hash = "";
+          getIsolationScope().addEventProcessor((event) => {
+            if (request.signal.aborted) return null;
+            return {
+              ...event,
+              request: { ...event.request, url: url.href, method: request.method },
+              tags: {
+                operation: "update.request",
+                ...event.tags,
+                route: url.pathname === "/" ? "/" : "<unmatched>",
+                "http.method": request.method,
+                "http.status_code":
+                  event.tags?.["http.status_code"] ?? event.contexts?.response?.status_code ?? 500,
+              },
+            };
+          });
+          const response = await (["OPTIONS", "HEAD"].includes(request.method)
             ? handler.fetch(request, env, ctx)
-            : observeRequest(() => handler.fetch(request, env, ctx));
+            : observeRequest(() => handler.fetch(request, env, ctx)));
+          if (response.status >= 500)
+            captureMessage(`HTTP ${response.status}`, {
+              level: "error",
+              tags: { "http.status_code": response.status },
+            });
+          return response;
         },
       });
       return monitored.fetch(sdkRequest, env, ctx);
