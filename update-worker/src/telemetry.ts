@@ -94,7 +94,10 @@ function filterRequest(request: ErrorEvent["request"]): ErrorEvent["request"] {
       typeof query === "string"
         ? filterText(`?${query}`).slice(1)
         : Array.isArray(query)
-          ? query.map(([key, value]) => [key, sensitiveKey(key) ? filtered : filterText(value)])
+          ? query.map(([key, value]): [string, string] => [
+              key,
+              sensitiveKey(key) ? filtered : filterText(value),
+            ])
           : (filterValue(query) as typeof query),
   };
 }
