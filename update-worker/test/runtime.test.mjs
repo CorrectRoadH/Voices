@@ -664,7 +664,7 @@ void test("missing and invalid parents create isolated local traces without trus
 });
 
 // @concord-implements docs/feature/updates/use-case/check-updates.md
-void test("the existing five-second upstream timeout ends the cancelled stage and still returns announcements", async () => {
+void test("upstream timeout returns the degraded manifest within the five-second client deadline", async () => {
   const capture = observation(
     (envelopes) =>
       spanItems(envelopes).some((span) => span.is_segment) && errorItems(envelopes).length > 0,
@@ -681,22 +681,30 @@ void test("the existing five-second upstream timeout ends the cancelled stage an
     return capture.receive(request);
   }, telemetry);
   try {
+    await mf.ready;
     const response = await mf.dispatchFetch("https://worker.test/", {
+      signal: AbortSignal.timeout(5_000),
       headers: {
         "sentry-trace": "55555555555555555555555555555555-5555555555555555-1",
       },
     });
     assert.equal(response.status, 200);
-    assert.equal((await response.json()).latestVersion, null);
+    assert.equal(response.headers.get("Cache-Control"), "no-store");
+    const manifest = await response.json();
+    assert.equal(manifest.latestVersion, null);
+    assert.ok(Array.isArray(manifest.announcements));
     await capture.wait();
-    const upstream = spanItems(capture.envelopes).find(
-      (span) => span.name === "update.upstream.fetch",
-    );
+    const spans = spanItems(capture.envelopes);
+    const cache = spans.find((span) => span.name === "update.cache.read");
+    assert.equal(cache.attributes.outcome.value, "miss");
+    const upstream = spans.find((span) => span.name === "update.upstream.fetch");
     // SDK 11.12 maps its cancelled status to stream status=ok. The fixed
     // outcome preserves cancellation separately from success and upstream errors.
     assert.equal(upstream.status, "ok");
     assert.equal(upstream.attributes.outcome.value, "cancelled");
-    assert.ok(upstream.end_timestamp - upstream.start_timestamp >= 4.9);
+    const [error] = errorItems(capture.envelopes);
+    assert.equal(error.exception.values[0].type, "TimeoutError");
+    assert.equal(error.tags["http.status_code"], 200);
   } finally {
     releaseUpstream();
     await mf.dispose();

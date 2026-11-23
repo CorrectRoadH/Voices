@@ -38,7 +38,7 @@ Manifest 字段：
 
 不使用 cookie。GET 可选统计参数按 [统计与部署方案](telemetry.md) 验证，统计写入不影响 manifest。允许跨域读取。
 
-GITHUB_REPO 为部署配置 CorrectRoadH/Voices；GITHUB_TOKEN 为可选服务端 secret。GitHub 请求总超时 5 秒，不跟随重定向。
+GITHUB_REPO 为部署配置 CorrectRoadH/Voices，GITHUB_TOKEN 为可选服务端 secret。GitHub 各页共用 4 秒期限，不跟随重定向。Go 客户端的 5 秒 HTTP 期限还要覆盖 Worker 处理和响应传输。
 
 每页100条，最多10页；仍有下一页则返回未知版本，不从不完整集合推断最大版本。过滤 draft、prerelease 和非法 tag，按数值取最大稳定版本。
 

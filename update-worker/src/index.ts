@@ -36,7 +36,8 @@ async function releases(env: Env): Promise<Release[]> {
   };
   if (env.GITHUB_TOKEN) headers.Authorization = `Bearer ${env.GITHUB_TOKEN}`;
   let latest: Release | undefined;
-  const signal = AbortSignal.timeout(5000);
+  // Leave time to return the fallback before the client's five-second deadline.
+  const signal = AbortSignal.timeout(4_000);
   for (let page = 1; page <= 10; page++) {
     const response = await fetch(
       `https://api.github.com/repos/${env.GITHUB_REPO}/releases?per_page=100&page=${page}`,
