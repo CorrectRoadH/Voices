@@ -107,7 +107,7 @@ func safeAuditDetails(action string, raw json.RawMessage) map[string]any {
 		}
 		provider, _ := in["provider"].(string)
 		model, _ := in["model"].(string)
-		if (provider == "soniox" || provider == "assemblyai") && len(model) <= 200 {
+		if (provider == "soniox" || provider == "assemblyai" || provider == "elevenlabs") && len(model) <= 200 {
 			out["provider"], out["model"] = provider, model
 		}
 	case "account_updated":
@@ -127,7 +127,7 @@ func safeAuditDetails(action string, raw json.RawMessage) map[string]any {
 			for _, v := range values {
 				s, _ := v.(string)
 				switch s {
-				case "public_base_url", "allowed_origins", "soniox_api_key", "assemblyai_api_key", "llm_base_url", "llm_model", "llm_api_key":
+				case "public_base_url", "allowed_origins", "soniox_api_key", "assemblyai_api_key", "elevenlabs_api_key", "llm_base_url", "llm_model", "llm_api_key":
 					fields = append(fields, s)
 				}
 			}

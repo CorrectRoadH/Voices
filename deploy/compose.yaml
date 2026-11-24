@@ -8,6 +8,7 @@ services:
     environment:
       # The database is reachable only on the internal Compose network, so a default password is acceptable.
       DATABASE_URL: postgres://voices:${POSTGRES_PASSWORD:-voices}@db:5432/voices?sslmode=disable
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
     ports:
       - "${PORT:-8080}:8080"

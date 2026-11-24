@@ -52,7 +52,11 @@ func (a *App) insertTranscription(ctx context.Context, tx pgx.Tx, recordingID st
 	if dedupe == "" {
 		dedupe = "transcribe:" + id
 	}
-	_, err := tx.Exec(ctx, "INSERT INTO jobs(id,kind,recording_id,transcription_id,dedupe_key,stage,state) VALUES($1,'transcribe',$2,$3,$4,'uploading','queued')", job, recordingID, id, dedupe)
+	stage := "uploading"
+	if _, fileSubmit := a.Providers[o.Provider].(providers.FileSubmitAdapter); fileSubmit {
+		stage = "submitting"
+	}
+	_, err := tx.Exec(ctx, "INSERT INTO jobs(id,kind,recording_id,transcription_id,dedupe_key,stage,state) VALUES($1,'transcribe',$2,$3,$4,$5,'queued')", job, recordingID, id, dedupe, stage)
 	return id, job, err
 }
 func (a *App) createTranscription(w http.ResponseWriter, r *http.Request) error {

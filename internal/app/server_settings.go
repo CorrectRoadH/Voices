@@ -29,6 +29,7 @@ type ServerSettings struct {
 	AllowedOrigins   []string `json:"allowed_origins"`
 	SonioxKey        string   `json:"soniox_api_key"`
 	AssemblyAIKey    string   `json:"assemblyai_api_key"`
+	ElevenLabsKey    string   `json:"elevenlabs_api_key"`
 	LLMBaseURL       string   `json:"llm_base_url"`
 	LLMModel         string   `json:"llm_model"`
 	LLMKey           string   `json:"llm_api_key"`
@@ -41,6 +42,7 @@ type serverSettingsView struct {
 	AllowedOrigins       []string `json:"allowed_origins"`
 	SonioxConfigured     bool     `json:"soniox_configured"`
 	AssemblyAIConfigured bool     `json:"assemblyai_configured"`
+	ElevenLabsConfigured bool     `json:"elevenlabs_configured"`
 	LLMBaseURL           string   `json:"llm_base_url"`
 	LLMModel             string   `json:"llm_model"`
 	LLMConfigured        bool     `json:"llm_configured"`
@@ -48,14 +50,14 @@ type serverSettingsView struct {
 
 func settingsFromConfig(c Config) ServerSettings {
 	origins := append([]string{}, c.AllowedOrigins...)
-	return ServerSettings{PublicBaseURL: c.PublicBaseURL, AllowedOrigins: origins, SonioxKey: c.SonioxKey, AssemblyAIKey: c.AssemblyAIKey, LLMBaseURL: c.LLMBaseURL, LLMModel: c.LLMModel, LLMKey: c.LLMKey, OpenAISTTBaseURL: c.OpenAISTTBaseURL, OpenAISTTKey: c.OpenAISTTKey}
+	return ServerSettings{PublicBaseURL: c.PublicBaseURL, AllowedOrigins: origins, SonioxKey: c.SonioxKey, AssemblyAIKey: c.AssemblyAIKey, ElevenLabsKey: c.ElevenLabsKey, LLMBaseURL: c.LLMBaseURL, LLMModel: c.LLMModel, LLMKey: c.LLMKey, OpenAISTTBaseURL: c.OpenAISTTBaseURL, OpenAISTTKey: c.OpenAISTTKey}
 }
 func (s ServerSettings) view() serverSettingsView {
-	return serverSettingsView{PublicBaseURL: s.PublicBaseURL, AllowedOrigins: append([]string{}, s.AllowedOrigins...), SonioxConfigured: s.SonioxKey != "", AssemblyAIConfigured: s.AssemblyAIKey != "", LLMBaseURL: s.LLMBaseURL, LLMModel: s.LLMModel, LLMConfigured: s.LLMKey != "", OpenAISTTBaseURL: s.OpenAISTTBaseURL, OpenAISTTConfigured: s.OpenAISTTKey != ""}
+	return serverSettingsView{PublicBaseURL: s.PublicBaseURL, AllowedOrigins: append([]string{}, s.AllowedOrigins...), SonioxConfigured: s.SonioxKey != "", AssemblyAIConfigured: s.AssemblyAIKey != "", ElevenLabsConfigured: s.ElevenLabsKey != "", LLMBaseURL: s.LLMBaseURL, LLMModel: s.LLMModel, LLMConfigured: s.LLMKey != "", OpenAISTTBaseURL: s.OpenAISTTBaseURL, OpenAISTTConfigured: s.OpenAISTTKey != ""}
 }
 func (s ServerSettings) apply(c Config) Config {
 	c.PublicBaseURL, c.AllowedOrigins = s.PublicBaseURL, append([]string{}, s.AllowedOrigins...)
-	c.SonioxKey, c.AssemblyAIKey = s.SonioxKey, s.AssemblyAIKey
+	c.SonioxKey, c.AssemblyAIKey, c.ElevenLabsKey = s.SonioxKey, s.AssemblyAIKey, s.ElevenLabsKey
 	c.LLMBaseURL, c.LLMModel, c.LLMKey = s.LLMBaseURL, s.LLMModel, s.LLMKey
 	c.OpenAISTTBaseURL, c.OpenAISTTKey = s.OpenAISTTBaseURL, s.OpenAISTTKey
 	c.seedEnv = nil
@@ -87,8 +89,12 @@ func seedServerSettings(c Config) (ServerSettings, error) {
 		}
 		*dest = value
 	}
-	err := s.validate()
-	return s, err
+	key, err := elevenLabsSeed(values)
+	if err != nil {
+		return s, err
+	}
+	s.ElevenLabsKey = key
+	return s, s.validate()
 }
 
 // LoadServerConfig serializes bootstrap and reads the database on every process start.
@@ -129,7 +135,7 @@ func NewServer(ctx context.Context, c Config, db *pgxpool.Pool) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	return New(c, db, providers.NewSoniox(c.SonioxKey), providers.NewAssemblyAI(c.AssemblyAIKey), providers.NewOpenAI(c.OpenAISTTBaseURL, c.OpenAISTTKey)), nil
+	return New(c, db, providers.NewSoniox(c.SonioxKey), providers.NewAssemblyAI(c.AssemblyAIKey), providers.NewElevenLabs(c.ElevenLabsKey), providers.NewOpenAI(c.OpenAISTTBaseURL, c.OpenAISTTKey)), nil
 }
 
 func validConfigURL(value string, originOnly bool) bool {
@@ -180,7 +186,7 @@ func (s *ServerSettings) validate() error {
 		}
 	}
 	s.AllowedOrigins = origins
-	for _, secret := range []string{s.SonioxKey, s.AssemblyAIKey, s.LLMKey, s.OpenAISTTKey} {
+	for _, secret := range []string{s.SonioxKey, s.AssemblyAIKey, s.ElevenLabsKey, s.LLMKey, s.OpenAISTTKey} {
 		if len(secret) > 8192 || !utf8.ValidString(secret) || strings.IndexFunc(secret, unicode.IsControl) >= 0 {
 			return bad("invalid_api_key", "API Key 最多 8192 字节，不能包含控制字符")
 		}
@@ -210,7 +216,7 @@ func (a *App) adminServerSettings(w http.ResponseWriter, r *http.Request) error 
 		}
 		for key, value := range fields {
 			switch key {
-			case "openai_stt_base_url", "openai_stt_api_key", "public_base_url", "allowed_origins", "soniox_api_key", "assemblyai_api_key", "llm_base_url", "llm_model", "llm_api_key":
+			case "openai_stt_base_url", "openai_stt_api_key", "public_base_url", "allowed_origins", "soniox_api_key", "assemblyai_api_key", "elevenlabs_api_key", "llm_base_url", "llm_model", "llm_api_key":
 			default:
 				return bad("invalid_request", "包含未知配置字段")
 			}

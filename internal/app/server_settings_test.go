@@ -74,6 +74,45 @@ func TestServerSettingsDatabasePriority(t *testing.T) {
 }
 
 // @use-case docs/feature/accounts/use-case/manage-server.md
+func TestElevenLabsOnboardKeyAndAdminSettings(t *testing.T) {
+	f := setup(t)
+	ctx := context.Background()
+	t.Chdir(t.TempDir())
+	if err := os.WriteFile(".env.local", []byte("ELEVENLABS_API_KEY=local-scribe-test"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.db.Exec(ctx, "DELETE FROM server_settings"); err != nil {
+		t.Fatal(err)
+	}
+	config := f.a.Config
+	config.seedEnv = map[string]string{"PUBLIC_BASE_URL": f.server.URL}
+	restart := func() *App {
+		t.Helper()
+		a, err := NewServer(ctx, config, f.db)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return a
+	}
+	a := restart()
+	if a.Config.ElevenLabsKey != "local-scribe-test" || a.Providers["elevenlabs"].Models()[0].ID != "scribe_v2" {
+		t.Fatal("first start must register the Scribe adapter using the onboarding configuration")
+	}
+	f.server.Config.Handler = a.Handler()
+	_, saved := f.json(t, "PATCH", "/api/v1/admin/server-settings", map[string]any{"revision": 1, "elevenlabs_api_key": "replaced-scribe-test"}, 200, "")
+	if bytes.Contains(jsonBytes(saved), []byte("scribe-test")) || saved["restart_required"] != true || saved["saved"].(map[string]any)["elevenlabs_configured"] != true {
+		t.Fatal("replacement must stay secret and require restart")
+	}
+	if restart().Config.ElevenLabsKey != "replaced-scribe-test" {
+		t.Fatal("saved key did not win on restart")
+	}
+	f.json(t, "PATCH", "/api/v1/admin/server-settings", map[string]any{"revision": 2, "elevenlabs_api_key": ""}, 200, "")
+	if restart().Config.ElevenLabsKey != "" {
+		t.Fatal("cleared key revived from onboarding configuration")
+	}
+}
+
+// @use-case docs/feature/accounts/use-case/manage-server.md
 func TestServerSettingsConcurrentBootstrap(t *testing.T) {
 	f := setup(t)
 	if _, err := f.db.Exec(context.Background(), "DELETE FROM server_settings"); err != nil {

@@ -40,6 +40,13 @@ const states: Record<string, string> = {
   uncertain: "结果待确认",
   interrupted: "调用中断",
 };
+const providers: Record<string, string> = {
+  soniox: "Soniox",
+  assemblyai: "AssemblyAI",
+  elevenlabs: "ElevenLabs",
+  openai_compatible: "OpenAI Compatible",
+  openai: "OpenAI",
+};
 const filterKeys = [
   "category",
   "operation",
@@ -206,12 +213,7 @@ export function CallLogs({ admin = false }: { admin?: boolean }) {
           {select("category", "调用类别", { stt: "STT", ai: "AI" })}
           {select("state", "调用结果", states)}
           {select("operation", "调用操作", operations)}
-          {select("provider", "服务商", {
-            soniox: "Soniox",
-            assemblyai: "AssemblyAI",
-            openai_compatible: "OpenAI Compatible",
-            openai: "OpenAI",
-          })}
+          {select("provider", "服务商", providers)}
           <Field className="min-w-0">
             <FieldLabel htmlFor="call-model">{tr("模型 ID")}</FieldLabel>
             <Input
@@ -342,13 +344,9 @@ function CallRow({ call, admin, name }: { call: Call; admin: boolean; name?: str
     operation_id: "操作 ID",
     generation: "生成 ID",
   } as const;
-  const provider =
-    {
-      soniox: "Soniox",
-      assemblyai: "AssemblyAI",
-      openai_compatible: "OpenAI Compatible",
-      openai: "OpenAI",
-    }[call.provider] || call.provider;
+  const provider = Object.hasOwn(providers, call.provider)
+    ? providers[call.provider]
+    : call.provider;
   return (
     <Item className="items-start" render={<article />}>
       <ItemContent className="gap-3">

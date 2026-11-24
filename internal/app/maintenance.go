@@ -65,14 +65,18 @@ func (a *App) cleanupRemote(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	p, ok := a.Providers[provider].(providers.AsyncAdapter)
-	if !ok {
-		return nil
-	}
 	resource := providers.Resource{ID: remote, Kind: kind}
 	stepCtx, cancel := context.WithTimeout(ctx, a.Config.HTTPTimeout)
 	defer cancel()
-	if kind == "transcription" {
+	var deleteResource func(context.Context, providers.Resource) error
+	switch p := a.Providers[provider].(type) {
+	case providers.FileSubmitAdapter:
+		deleteResource = p.DeleteResource
+	case providers.AsyncAdapter:
+		deleteResource = p.DeleteResource
+		if kind != "transcription" {
+			break
+		}
 		state, err := observedSTT(stepCtx, a, tid, "poll", func(c context.Context) (providers.RemoteState, error) { return p.Poll(c, resource) })
 		if err == nil && (state.State == "pending" || state.State == "running") {
 			_, err = a.DB.Exec(ctx, "UPDATE provider_resources SET cleanup_state='pending',next_cleanup_at=clock_timestamp()+interval '10 seconds' WHERE id=$1", id)
@@ -84,8 +88,10 @@ func (a *App) cleanupRemote(ctx context.Context) error {
 				return a.cleanupFailure(ctx, id, tid, err)
 			}
 		}
+	default:
+		return nil
 	}
-	if _, err := observedSTT(stepCtx, a, tid, "delete_"+kind, func(c context.Context) (struct{}, error) { return struct{}{}, p.DeleteResource(c, resource) }); err != nil {
+	if _, err := observedSTT(stepCtx, a, tid, "delete_"+kind, func(c context.Context) (struct{}, error) { return struct{}{}, deleteResource(c, resource) }); err != nil {
 		return a.cleanupFailure(ctx, id, tid, err)
 	}
 	return persistence.Transaction(ctx, a.DB, func(tx pgx.Tx) error {
@@ -99,7 +105,9 @@ func (a *App) cleanupRemote(ctx context.Context) error {
 				return err
 			}
 		}
-		_, err := tx.Exec(ctx, "UPDATE jobs SET error_code=NULL WHERE transcription_id=$1 AND state='succeeded' AND NOT EXISTS(SELECT 1 FROM provider_resources WHERE transcription_id=$1 AND cleanup_state='failed')", tid)
+		_, err := tx.Exec(ctx, `UPDATE jobs SET error_code=NULL WHERE transcription_id=$1
+		 AND (state='succeeded' OR state='cancelled' AND starts_with(error_code,'cleanup_'))
+		 AND NOT EXISTS(SELECT 1 FROM provider_resources WHERE transcription_id=$1 AND cleanup_state='failed')`, tid)
 		return err
 	})
 }

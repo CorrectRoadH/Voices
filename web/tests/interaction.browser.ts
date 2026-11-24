@@ -459,6 +459,26 @@ test("异步操作反馈、筛选空态与刷新保留内容", async ({ app, bro
   await noOverflow(browser);
   await browser.keyboard.press("Escape");
   await expect(taskDetails).toBeFocused();
+  await browser.goto(`${base}/admin/calls`);
+  const callProvider = screen.getByLabel("服务商", { exact: true });
+  await callProvider.selectOption({ label: "ElevenLabs" });
+  await expect(callProvider).toHaveValue("elevenlabs");
+  await expect(screen.getByText("没有匹配的调用记录", { exact: true })).toBeVisible();
+  await screen.getByRole("tab", { name: "STT 费用", exact: true }).click();
+  const costEndpoints = new Set<string>();
+  await browser.route("**/api/v1/admin/stt/**", async (route) => {
+    const url = new URL(route.request.url);
+    if (url.searchParams.get("provider") === "elevenlabs") costEndpoints.add(url.pathname);
+    await route.continue();
+  });
+  const costProvider = screen.getByLabel("服务商", { exact: true });
+  await costProvider.selectOption({ label: "ElevenLabs" });
+  await expect(costProvider).toHaveValue("elevenlabs");
+  await screen.getByRole("button", { name: "筛选", exact: true }).click();
+  await expect.poll(() => costEndpoints.has("/api/v1/admin/stt/calls")).toBe(true);
+  await expect.poll(() => costEndpoints.has("/api/v1/admin/stt/summary")).toBe(true);
+  await expect(screen.getByText("没有匹配的 STT 调用", { exact: true })).toBeVisible();
+  await browser.unroute("**/api/v1/admin/stt/**");
   await browser.goto(`${base}/admin/server`);
   await screen.getByLabel("LLM Base URL", { exact: true }).fill("https://models.example.test/v1");
   await expect(screen.getByTestId("settings-save-status")).toHaveAttribute(
@@ -497,6 +517,59 @@ test("异步操作反馈、筛选空态与刷新保留内容", async ({ app, bro
   await noOverflow(browser);
   await app.screenshot("手机服务器设置与官方模型选择器");
   await browser.unroute("**/api/v1/admin/llm-models");
+});
+
+// @use-case docs/feature/accounts/use-case/manage-server.md#elevenlabs-stt
+test("ElevenLabs 密钥自动保存、留空保留与显式清除", async ({ app, browser, screen }) => {
+  const base = fixture("VOICES_TEST_URL");
+  const testKey = "elevenlabs-browser-fixture-only";
+  await app.open();
+  await screen.getByLabel("用户名或邮箱").fill("tester@example.test");
+  await screen.getByLabel("密码", { exact: true }).fill("acceptance-password");
+  await screen.getByRole("button", { name: "进入工作台" }).click();
+  await expect(screen.getByRole("button", { name: "导入录音" }).first()).toBeVisible();
+  await browser.goto(`${base}/admin/server`);
+
+  const key = screen.getByLabel("ElevenLabs API Key", { exact: true });
+  const saveStatus = screen.getByTestId("settings-save-status");
+  const clearKey = screen.getByRole("button", { name: "清除 ElevenLabs 密钥", exact: true });
+  await expect(clearKey).toHaveCount(0);
+  await key.fill(testKey);
+  await expect(saveStatus).toHaveAttribute("data-save-state", "saved");
+  await expect(clearKey).toBeVisible();
+  await expect(screen.getByText("已保存，等待重启生效", { exact: true })).toBeVisible();
+  const saved = await (await api(browser, "/admin/server-settings")).json();
+  expect(saved.saved.elevenlabs_configured).toBe(true);
+  expect(saved.active.elevenlabs_configured).toBe(false);
+  expect(JSON.stringify(saved)).not.toContain("elevenlabs_api_key");
+  expect(JSON.stringify(saved)).not.toContain(testKey);
+
+  await browser.reload();
+  await expect(clearKey).toBeVisible();
+  const origins = screen.getByLabel("额外可信来源", { exact: true });
+  await origins.fill("https://elevenlabs-browser.example.test");
+  await expect(saveStatus).toHaveAttribute("data-save-state", "saved");
+  const updated = await (await api(browser, "/admin/server-settings")).json();
+  expect(updated.saved.allowed_origins).toEqual(["https://elevenlabs-browser.example.test"]);
+  expect(updated.saved.elevenlabs_configured).toBe(true);
+  await origins.fill(saved.saved.allowed_origins.join("\n"));
+  await expect(saveStatus).toHaveAttribute("data-save-state", "saved");
+
+  await browser.setViewport({ width: 375, height: 812 });
+  await browser.emulateMedia({ colorScheme: "dark" });
+  await noOverflow(browser);
+  await browser.evaluate(() => {
+    document.getElementById("elevenlabs-key")?.scrollIntoView({ block: "center" });
+    return null;
+  });
+  await app.screenshot("ElevenLabs 密钥已保存、待重启");
+  await clearKey.click();
+  await expect(saveStatus).toHaveAttribute("data-save-state", "saved");
+  await expect(clearKey).toHaveCount(0);
+  const cleared = await (await api(browser, "/admin/server-settings")).json();
+  expect(cleared.saved.elevenlabs_configured).toBe(false);
+  expect(cleared.active.elevenlabs_configured).toBe(false);
+  expect(cleared.restart_required).toBe(false);
 });
 
 // @use-case docs/feature/updates/use-case/check-updates.md

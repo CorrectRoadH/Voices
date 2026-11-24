@@ -32,3 +32,5 @@
 [外部调用记录](../README.md) · [数据与生命周期](../architecture.md)
 
 OpenAI 直接转写记录 category=stt、operation=transcribe、provider=openai，期限 30 分钟，无 provider operation ID。direct_* 采用固定受控错误白名单，调用失败 state=failed；direct_uncertain 保留其错误码但不触发任务自动重发。恢复或重启拒绝已消耗许可不伪造第二次外部调用。
+
+ElevenLabs 转写在调用列表中记录实际发生的提交、结果读取和远端删除，可按服务商筛选；一次提交直接发送原始文件。

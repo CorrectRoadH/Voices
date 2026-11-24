@@ -65,6 +65,9 @@ func (a *App) listProviders(w http.ResponseWriter, r *http.Request) error {
 	for _, id := range ids {
 		p := a.Providers[id]
 		name := id
+		if id == "elevenlabs" {
+			name = "ElevenLabs"
+		}
 		if id == "openai" {
 			name = "OpenAI"
 		}
@@ -74,7 +77,7 @@ func (a *App) listProviders(w http.ResponseWriter, r *http.Request) error {
 		if id == "assemblyai" {
 			name = "AssemblyAI"
 		}
-		configured := (id == "openai" && a.Config.OpenAISTTKey != "") || (id == "soniox" && a.Config.SonioxKey != "") || (id == "assemblyai" && a.Config.AssemblyAIKey != "")
+		configured := (id == "elevenlabs" && a.Config.ElevenLabsKey != "") || (id == "openai" && a.Config.OpenAISTTKey != "") || (id == "soniox" && a.Config.SonioxKey != "") || (id == "assemblyai" && a.Config.AssemblyAIKey != "")
 		items = append(items, map[string]any{"id": id, "name": name, "configured": configured, "models": p.Models()})
 	}
 	writeJSON(w, 200, map[string]any{"items": items, "next_cursor": nil})
@@ -85,7 +88,7 @@ func (a *App) validateOptions(o providers.Options, duration, size int64) (provid
 	if !ok {
 		return providers.Model{}, bad("unsupported_provider", "服务商不支持")
 	}
-	if (o.Provider == "openai" && a.Config.OpenAISTTKey == "") || (o.Provider == "soniox" && a.Config.SonioxKey == "") || (o.Provider == "assemblyai" && a.Config.AssemblyAIKey == "") {
+	if (o.Provider == "elevenlabs" && a.Config.ElevenLabsKey == "") || (o.Provider == "openai" && a.Config.OpenAISTTKey == "") || (o.Provider == "soniox" && a.Config.SonioxKey == "") || (o.Provider == "assemblyai" && a.Config.AssemblyAIKey == "") {
 		return providers.Model{}, bad("provider_not_configured", "请先由管理员在服务器设置中配置服务商凭据并重启应用")
 	}
 	for _, m := range p.Models() {

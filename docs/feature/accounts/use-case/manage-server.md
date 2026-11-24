@@ -27,3 +27,7 @@
 ## OpenAI STT
 
 OpenAI STT 卡片提供独立 Base URL/API Key，空地址使用 https://api.openai.com/v1；空密钥禁用，不借用 LLM 密钥。更改地址时须同时重新输入或明确清除旧密钥。保存不调用服务商，重启后在转写选项显示 gpt-4o-transcribe-diarize，支持说话人与时间戳，最大文件 25 MB。
+
+## ElevenLabs STT {#elevenlabs-stt}
+
+管理员可以保存或清除独立的 ElevenLabs API Key。保存不访问服务商；全部副本重启后，用户可选择 Scribe v2。读取配置只返回是否已配置，服务地址固定为 ElevenLabs 官方 API。首次初始化支持 `ELEVENLABS_API_KEY` 和 `ELEVENLABS_API_KEY_FILE`。
