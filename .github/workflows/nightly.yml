@@ -9,38 +9,75 @@ concurrency:
   group: nightly-${{ github.ref }}
   cancel-in-progress: false
 jobs:
-  full:
+  prepare:
     if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-    uses: ./.github/workflows/ci.yml
-    secrets:
-      E2E_MODEL_BASE_URL: ${{ secrets.E2E_MODEL_BASE_URL }}
-      TS_AUTHKEY: ${{ secrets.TS_AUTHKEY }}
-      E2E_MODEL_API_KEY: ${{ secrets.E2E_MODEL_API_KEY }}
-  report:
-    needs: full
-    if: failure() || needs.full.result == 'success'
     runs-on: ubuntu-latest
     permissions:
-      issues: write
+      contents: write
+    outputs:
+      skip: ${{ steps.tag.outputs.skip }}
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
-      - name: Report Nightly result
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Prepare nightly tag
+        id: tag
         shell: bash
+        run: |
+          version_pattern='v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
+          head=$(git rev-parse HEAD)
+          tags=$(git tag --list --sort=-version:refname 'v*')
+          next_patch=''
+          previous_tag=''
+          previous_run=0
+          while IFS= read -r tag; do
+            if [[ -z "$next_patch" && "$tag" =~ ^${version_pattern}$ ]]; then
+              next_patch="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((BASH_REMATCH[3] + 1))"
+            elif [[ "$tag" =~ ^${version_pattern}-nightly\.([1-9][0-9]*)$ ]]; then
+              run_number=${BASH_REMATCH[4]}
+              if [[ "$run_number" == "$GITHUB_RUN_NUMBER" ]]; then
+                if [[ "$(git rev-parse "refs/tags/$tag^{commit}")" != "$head" ]]; then
+                  echo "::error::This run's nightly tag points to a different commit"
+                  exit 1
+                fi
+                echo "skip=false" >> "$GITHUB_OUTPUT"
+                echo "tag=$tag" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              if (( run_number > previous_run )); then
+                previous_run=$run_number
+                previous_tag=$tag
+              fi
+            fi
+          done <<< "$tags"
+
+          if [[ -n "$previous_tag" && "$(git rev-parse "refs/tags/$previous_tag^{commit}")" == "$head" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ -z "$next_patch" ]]; then
+            echo "::error::No stable tag found for nightly version"
+            exit 1
+          fi
+
+          tag="v$next_patch-nightly.$GITHUB_RUN_NUMBER"
+          git tag "$tag" "$head"
+          git push origin "refs/tags/$tag"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+  dispatch:
+    needs: prepare
+    if: needs.prepare.outputs.skip == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch Nightly release
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          RESULT: ${{ needs.full.result }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
         run: |
-          title='Nightly CI failing'
-          matches="$(gh api --paginate "repos/$GH_REPO/issues?state=open&per_page=100" \
-            --jq '.[] | select(.pull_request == null and .title == "Nightly CI failing") | .number')"
-          issue="${matches%%$'\n'*}"
-          if [[ "$RESULT" == failure ]]; then
-            if [[ -n "$issue" ]]; then
-              gh issue comment "$issue" --body "Nightly failed: $RUN_URL"
-            else
-              gh issue create --title "$title" --body "Nightly failed: $RUN_URL"
-            fi
-          elif [[ "$RESULT" == success && -n "$issue" ]]; then
-            gh issue close "$issue" --comment "Nightly passed: $RUN_URL"
-          fi
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref "$DEFAULT_BRANCH" \
+            -f nightly=true -f "release_tag=$RELEASE_TAG"

@@ -5,9 +5,13 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing stable tag to publish
+        description: Existing stable or nightly tag to publish
         required: true
         type: string
+      nightly:
+        description: Report this run as a Nightly release
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -19,11 +23,8 @@ jobs:
     outputs:
       tag: ${{ steps.target.outputs.tag }}
       sha: ${{ steps.target.outputs.sha }}
+      nightly: ${{ steps.target.outputs.nightly }}
     steps:
-      - name: Require a stable version tag
-        env:
-          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
-        run: '[[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]'
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
@@ -31,10 +32,25 @@ jobs:
         id: target
         env:
           RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+          REPORT_NIGHTLY: ${{ inputs.nightly == true }}
         run: |
+          version_pattern='v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
+          if [[ "$RELEASE_TAG" =~ ^${version_pattern}$ ]]; then
+            nightly=false
+          elif [[ "$RELEASE_TAG" =~ ^${version_pattern}-nightly\.[1-9][0-9]*$ ]]; then
+            nightly=true
+          else
+            echo "::error::Expected a stable or nightly version tag"
+            exit 1
+          fi
+          if [[ "$REPORT_NIGHTLY" == true && "$nightly" != true ]]; then
+            echo "::error::Nightly dispatch requires a nightly tag"
+            exit 1
+          fi
           sha=$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}")
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "nightly=$nightly" >> "$GITHUB_OUTPUT"
   ci:
     needs: validate
     uses: ./.github/workflows/ci.yml
@@ -60,6 +76,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Prevent latest version regression
+        if: needs.validate.outputs.nightly == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.validate.outputs.tag }}
@@ -86,11 +103,14 @@ jobs:
           labels: |
             org.opencontainers.image.version=${{ needs.validate.outputs.tag }}
             org.opencontainers.image.revision=${{ needs.validate.outputs.sha }}
+          flavor: latest=${{ needs.validate.outputs.nightly == 'true' && 'false' || 'auto' }}
           tags: |
-            type=semver,pattern={{version}},value=${{ needs.validate.outputs.tag }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ needs.validate.outputs.tag }}
-            type=raw,value=${{ needs.validate.outputs.sha }}
-            type=raw,value=latest
+            type=semver,pattern={{version}},value=${{ needs.validate.outputs.tag }},enable=${{ needs.validate.outputs.nightly == 'false' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.validate.outputs.tag }},enable=${{ needs.validate.outputs.nightly == 'false' }}
+            type=raw,value=${{ needs.validate.outputs.sha }},enable=${{ needs.validate.outputs.nightly == 'false' }}
+            type=raw,value=latest,enable=${{ needs.validate.outputs.nightly == 'false' }}
+            type=raw,value=${{ needs.validate.outputs.tag }},enable=${{ needs.validate.outputs.nightly == 'true' }}
+            type=raw,value=nightly,enable=${{ needs.validate.outputs.nightly == 'true' }}
       - uses: docker/build-push-action@v7.4.0
         with:
           context: .
@@ -157,6 +177,8 @@ jobs:
           test -s voices-linux-arm64.tar.gz
           sha256sum voices-linux-amd64.tar.gz voices-linux-arm64.tar.gz > SHA256SUMS
       - name: Generate release notes
+        env:
+          GIT_CLIFF_TAG_PATTERN: ${{ needs.validate.outputs.nightly == 'false' && '^v[0-9]+[.][0-9]+[.][0-9]+$' || '^v[0-9]+[.][0-9]+[.][0-9]+(-nightly[.][0-9]+)?$' }}
         uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4.9.1
         id: notes
         with:
@@ -167,9 +189,40 @@ jobs:
         with:
           tag_name: ${{ needs.validate.outputs.tag }}
           body: ${{ steps.notes.outputs.content }}
-          prerelease: false
+          prerelease: ${{ needs.validate.outputs.nightly == 'true' }}
+          make_latest: ${{ needs.validate.outputs.nightly == 'true' && 'false' || '' }}
           fail_on_unmatched_files: true
           files: |
             release-assets/voices-linux-amd64.tar.gz
             release-assets/voices-linux-arm64.tar.gz
             release-assets/SHA256SUMS
+  report:
+    needs: [validate, ci, image, binary, release]
+    if: >-
+      ${{ always() && inputs.nightly &&
+      (contains(needs.*.result, 'failure') || needs.release.result == 'success') }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Report Nightly result
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RESULT: ${{ contains(needs.*.result, 'failure') && 'failure' || needs.release.result }}
+        run: |
+          title='Nightly release failing'
+          matches="$(gh api --paginate "repos/$GH_REPO/issues?state=open&per_page=100" \
+            --jq '.[] | select(.pull_request == null and .title == "Nightly release failing") | .number')"
+          issue="${matches%%$'\n'*}"
+          if [[ "$RESULT" == failure ]]; then
+            if [[ -n "$issue" ]]; then
+              gh issue comment "$issue" --body "Nightly release failed: $RUN_URL"
+            else
+              gh issue create --title "$title" --body "Nightly release failed: $RUN_URL"
+            fi
+          elif [[ "$RESULT" == success && -n "$issue" ]]; then
+            gh issue close "$issue" --comment "Nightly release succeeded: $RUN_URL"
+          fi

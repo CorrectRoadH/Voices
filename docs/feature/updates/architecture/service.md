@@ -8,7 +8,7 @@
 
 ## 发布与 CI
 
-PR 和 main push 执行 Go vet、前端与 Worker 静态检查、API 生成一致性及 CI 脚本检查。Nightly 和发布门槛执行 Go test/vet、独立 PostgreSQL 集成测试、前端 typecheck/test/build、e2e 真实应用浏览器验收、workerd 运行时验收及双架构 Docker 构建验证。
+PR 和 main push 执行 Go vet、前端与 Worker 静态检查、API 生成一致性及 CI 脚本检查。应用发版与 Worker 手动部署执行 Go test/vet、独立 PostgreSQL 集成测试、前端 typecheck/test/build、e2e 真实应用浏览器验收、workerd 运行时验收及双架构 Docker 构建验证。
 
 Worker 独立执行 check/test 和 cf build。依赖使用锁文件，Docker 构建检查不推送镜像。
 
@@ -16,11 +16,13 @@ Worker 独立执行 check/test 和 cf build。依赖使用锁文件，Docker 构
 
 所有 job 使用触发 tag 的 SHA，tag 不得重写。应用 `main.version` 注入同一 tag。容器保留 ffmpeg、非 root、healthcheck，无应用数据卷。
 
-全局 release concurrency 串行。镜像发布前读取 GitHub 全部分页正式 Releases，拒绝低于或等于已发布最大版本的 tag。
+全局 release concurrency 串行。正式镜像发布前读取 GitHub 全部分页正式 Releases，拒绝低于或等于已发布最大版本的 tag。
 
-同时读取 Docker Hub latest 的版本标签，拒绝降级。只有明确不存在的 package 才允许首次发布；认证或网络失败中止。同 tag 镜像成功而 Release 失败可重跑。
+正式发版同时读取 Docker Hub latest 的版本标签，拒绝降级。只有明确不存在的 package 才允许首次发布；认证或网络失败中止。同 tag 镜像成功而 Release 失败可重跑。
 
-CI 验收使用只读权限，Nightly 的报告 job 单独获取 issues 写入权限。镜像和 Release job 分别获取 Docker Hub secrets/contents 写入权限。Worker 部署限于 main 的相关文件变更或手动触发。两种入口均执行配置校验、静态检查和 Worker 单测，手动入口另跑 workerd 验收。Cloudflare token 限定目标账户与 Worker。
+默认分支的 Nightly 从最高稳定 Git tag 递增 patch，拼入运行编号生成 `vX.Y.Z-nightly.<run_number>`。Nightly 在提交未变时跳过发版。其余运行从默认分支手动调度 Release，传入该 tag 和 `nightly=true`。Release 执行完整 CI，再发布同名 Docker tag 与 `nightly`，并创建 GitHub prerelease。
+
+CI 验收使用只读权限，Release 的 Nightly 报告 job 单独获取 issues 写入权限。镜像和 Release job 分别获取 Docker Hub secrets/contents 写入权限。Worker 部署限于 main 的相关文件变更或手动触发。两种入口均执行配置校验、静态检查和 Worker 单测。手动入口先通过完整 CI，并在部署 job 中再次运行 workerd 验收。Cloudflare token 限定目标账户与 Worker。
 
 本地实现和测试不授权实际 push、tag、发布或部署。镜像默认前端路径为 `/`；子路径继续使用 PUBLIC_BASE_URL 构建参数从源码构建。
 
@@ -155,6 +157,6 @@ main 等待更新 Manager、原后台任务及 HTTP Shutdown 结束。Shutdown �
 
 ## 发布产物
 
-沿用 OpenTickly 的 tag 发版流程：Docker Hub 仓库 correctroad/voices，镜像标签为 X.Y.Z、X.Y、SHA 和 latest。DOCKERHUB_USERNAME 与 DOCKERHUB_TOKEN 仅在 image job 使用。Registry 查询错误不视为首次发布；仅明确 latest 不存在可跳过镜像版本比较。
+沿用 OpenTickly 的 tag 发版流程：Docker Hub 仓库 correctroad/voices，正式版镜像标签为 X.Y.Z、X.Y、SHA 和 latest。DOCKERHUB_USERNAME 与 DOCKERHUB_TOKEN 仅在 image job 使用。Registry 查询错误不视为首次发布；仅明确 latest 不存在可跳过镜像版本比较。
 
-GitHub Release 同时提供 voices-linux-amd64.tar.gz、voices-linux-arm64.tar.gz 和 SHA256SUMS。每个压缩包包含对应架构的 voices 可执行文件、同一 tag 构建的 web/ 静态资源及运行说明；运行需要 PostgreSQL 与 ffmpeg，默认从解压目录启动并设置 WEB_DIR=web。前端只构建一次供两个发布包共享。发布等待镜像和发布包都成功，不自动创建或推送 tag。
+GitHub Release 同时提供 voices-linux-amd64.tar.gz、voices-linux-arm64.tar.gz 和 SHA256SUMS。每个压缩包包含对应架构的 voices 可执行文件、同一 tag 构建的 web/ 静态资源及运行说明；运行需要 PostgreSQL 与 ffmpeg，默认从解压目录启动并设置 WEB_DIR=web。前端只构建一次供两个发布包共享。GitHub Release 等待镜像和发布包均成功。
