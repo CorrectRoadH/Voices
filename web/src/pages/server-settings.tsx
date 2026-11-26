@@ -100,8 +100,12 @@ type Draft = {
   model: string;
   soniox: Secret;
   assembly: Secret;
+  elevenlabs: Secret;
   llm: Secret;
 };
+// @concord-code
+// @concord-implements docs/feature/accounts/use-case/manage-server.md#edit
+// @concord-implements docs/feature/accounts/use-case/manage-server.md#elevenlabs-stt
 function settingsPatch(draft: Draft, data: Response): Schema["ServerSettingsPatch"] | null {
   const patch: Schema["ServerSettingsPatch"] = { revision: data.revision };
   const baseURL = draft.baseURL.trim().replace(/\/+$/, "");
@@ -124,6 +128,7 @@ function settingsPatch(draft: Draft, data: Response): Schema["ServerSettingsPatc
   for (const [key, secret] of [
     ["soniox_api_key", draft.soniox],
     ["assemblyai_api_key", draft.assembly],
+    ["elevenlabs_api_key", draft.elevenlabs],
     ["llm_api_key", draft.llm],
     ["openai_stt_api_key", draft.openai],
   ] as const) {
@@ -152,9 +157,11 @@ export function ServerSettingsForm({
     model: initial.saved.llm_model,
     soniox: { value: "", clear: false },
     assembly: { value: "", clear: false },
+    elevenlabs: { value: "", clear: false },
     llm: { value: "", clear: false },
   }));
-  const { baseURL, origins, llmURL, model, soniox, assembly, llm, openaiURL, openai } = draft;
+  const { baseURL, origins, llmURL, model, soniox, assembly, elevenlabs, llm, openaiURL, openai } =
+    draft;
   const [saving, setSaving] = useState(false);
   useSaveToast(saving);
   const [error, setError] = useState("");
@@ -210,7 +217,7 @@ export function ServerSettingsForm({
         });
         saved.current = result;
         const next = { ...latest.current };
-        for (const key of ["soniox", "assembly", "llm", "openai"] as const) {
+        for (const key of ["soniox", "assembly", "elevenlabs", "llm", "openai"] as const) {
           if (next[key] === submitted[key]) next[key] = { value: "", clear: false };
         }
         latest.current = next;
@@ -417,6 +424,14 @@ export function ServerSettingsForm({
                   active={data.active.assemblyai_configured}
                   secret={assembly}
                   onChange={(value) => update("assembly", value)}
+                />
+                <SecretField
+                  id="elevenlabs-key"
+                  label="ElevenLabs"
+                  configured={data.saved.elevenlabs_configured}
+                  active={data.active.elevenlabs_configured}
+                  secret={elevenlabs}
+                  onChange={(value) => update("elevenlabs", value)}
                 />
               </FieldGroup>
             </CardContent>

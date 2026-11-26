@@ -64,6 +64,14 @@ type AsyncAdapter interface {
 	DeleteResource(context.Context, Resource) error
 }
 
+// FileSubmitAdapter submits audio in one request that creates a durable remote transcription.
+type FileSubmitAdapter interface {
+	Adapter
+	SubmitFile(context.Context, io.Reader, string, int64, Options) (Resource, error)
+	FetchResult(context.Context, Resource) (Result, error)
+	DeleteResource(context.Context, Resource) error
+}
+
 // DirectAdapter returns a result in one request without durable remote resources.
 // The caller owns audio and must provide durable protection against replay.
 type DirectAdapter interface {

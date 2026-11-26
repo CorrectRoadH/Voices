@@ -18,7 +18,7 @@ type Config struct {
 	// AllowedOrigins lists explicit additional browser origins; request Host is never trusted.
 	AllowedOrigins                                          []string
 	DatabaseURL, ListenAddr, PublicBaseURL, WebDir, TempDir string
-	SonioxKey, AssemblyAIKey                                string
+	SonioxKey, AssemblyAIKey, ElevenLabsKey                 string
 	OpenAISTTBaseURL, OpenAISTTKey                          string
 	LLMBaseURL, LLMModel, LLMKey                            string
 	seedEnv                                                 map[string]string
@@ -88,6 +88,23 @@ func LoadConfig() (Config, error) {
 	}
 	return c, nil
 }
+
+// The ElevenLabs CLI writes its key to .env.local. Consult it only during
+// first-start import, when neither of the deployment settings supplies a key.
+func elevenLabsSeed(values map[string]string) (string, error) {
+	if values["ELEVENLABS_API_KEY"] != "" || values["ELEVENLABS_API_KEY_FILE"] != "" {
+		return configSecret(values, "ELEVENLABS_API_KEY")
+	}
+	local, err := godotenv.Read(".env.local")
+	if errors.Is(err, os.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", errors.New("cannot parse ElevenLabs configuration in .env.local")
+	}
+	return local["ELEVENLABS_API_KEY"], nil
+}
+
 func configSecret(values map[string]string, key string) (string, error) {
 	value := values[key]
 	if file := values[key+"_FILE"]; file != "" {

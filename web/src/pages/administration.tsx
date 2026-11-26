@@ -188,6 +188,7 @@ const detailValues: Record<string, string> = {
   allowed_origins: "可信来源",
   soniox_api_key: "Soniox 密钥",
   assemblyai_api_key: "AssemblyAI 密钥",
+  elevenlabs_api_key: "ElevenLabs 密钥",
   llm_base_url: "LLM 地址",
   llm_model: "LLM 模型",
   llm_api_key: "LLM 密钥",

@@ -46,7 +46,7 @@ func parseSTTQuery(r *http.Request, prices bool) (sttQuery, error) {
 		enums := ""
 		switch k {
 		case "provider":
-			enums = "soniox assemblyai"
+			enums = "soniox assemblyai elevenlabs"
 		case "state":
 			enums = "pending running succeeded failed cancelled"
 		case "submission_state":

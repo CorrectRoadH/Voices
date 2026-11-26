@@ -14,7 +14,7 @@
 
 ## 快速开始
 
-需要 Docker，以及一个 [Soniox](https://soniox.com) 或 [AssemblyAI](https://www.assemblyai.com) 的 API key。
+需要 Docker，以及一个 [Soniox](https://soniox.com)、[ElevenLabs](https://elevenlabs.io) 或 [AssemblyAI](https://www.assemblyai.com) 的 API key。
 
 ```sh
 mkdir voices && cd voices
@@ -27,6 +27,8 @@ docker compose up -d
 1. 注册账号。第一个注册的账号就是管理员。
 2. 配置 AI 摘要用的模型，不需要可以跳过。
 3. 在「服务器管理」填入转写服务的 API key，就可以拖入录音了。
+
+使用 ElevenLabs 时，保存 API key 后重启应用（Docker Compose 可运行 `docker compose restart app`），在「转写偏好」选择 **ElevenLabs → Scribe v2**。导入录音或新建转写版本时，Voices 会把所选录音发送到 ElevenLabs。
 
 ### 从手机或其他电脑访问
 

@@ -108,6 +108,7 @@ function ProviderField({
         {all && <NativeSelectOption value="">{tr("全部")}</NativeSelectOption>}
         <NativeSelectOption value="soniox">Soniox</NativeSelectOption>
         <NativeSelectOption value="assemblyai">AssemblyAI</NativeSelectOption>
+        <NativeSelectOption value="elevenlabs">ElevenLabs</NativeSelectOption>
       </NativeSelect>
     </Field>
   );

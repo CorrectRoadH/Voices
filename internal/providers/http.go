@@ -22,9 +22,10 @@ import (
 const maxResponseBytes = 64 << 20
 
 type remoteHTTP struct {
-	baseURL string
-	apiKey  string
-	client  *http.Client
+	baseURL      string
+	apiKey       string
+	apiKeyHeader string
+	client       *http.Client
 }
 
 func newRemoteHTTP(base, key string) remoteHTTP {
@@ -88,7 +89,11 @@ func (h *remoteHTTP) request(ctx context.Context, method, path, contentType stri
 	if bearer {
 		key = "Bearer " + key
 	}
-	req.Header.Set("Authorization", key)
+	header := h.apiKeyHeader
+	if header == "" {
+		header = "Authorization"
+	}
+	req.Header.Set(header, key)
 	req.Header.Set("Accept", "application/json")
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
@@ -107,9 +112,9 @@ func (h *remoteHTTP) request(ctx context.Context, method, path, contentType stri
 		return nil, responseError(resp, creation)
 	}
 	// These APIs document completed deletion as 204 (Soniox) or 200
-	// (AssemblyAI). An unexpected 202 is acceptance, not proof of cleanup.
+	// (AssemblyAI and ElevenLabs). A 202 only confirms acceptance.
 	if method == http.MethodDelete && (bearer && resp.StatusCode != http.StatusNoContent || !bearer && resp.StatusCode != http.StatusOK) {
-		return nil, operationError(false)
+		return nil, responseError(resp, false)
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
 	if err != nil {

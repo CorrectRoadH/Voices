@@ -131,6 +131,7 @@ func (a *App) reconcileJob(ctx context.Context, jobID string, in reconciliation,
 		if provider == "openai" {
 			return &apiError{409, "direct_reconciliation_unsupported", "直接转写没有可核对的远端 ID，请新建版本"}
 		}
+		submitsOriginal := provider == "elevenlabs"
 		if _, err := tx.Exec(ctx, "SELECT id FROM recordings WHERE id=$1 FOR UPDATE", rid); err != nil {
 			return err
 		}
@@ -157,6 +158,9 @@ func (a *App) reconcileJob(ctx context.Context, jobID string, in reconciliation,
 				_, err := tx.Exec(ctx, "UPDATE jobs SET error_code='restore_observation_recorded' WHERE id=$1", jobID)
 				return err
 			}
+		}
+		if submitsOriginal && kind != "submit" {
+			return bad("invalid_operation", "该服务商仅支持核对转写提交操作")
 		}
 		if in.RemoteID != nil && !trustedOperator {
 			var known bool
@@ -197,7 +201,21 @@ func (a *App) reconcileJob(ctx context.Context, jobID string, in reconciliation,
 		if a.Config.RestoreMode {
 			return nil
 		}
-		_, err := tx.Exec(ctx, "UPDATE jobs SET state=CASE WHEN cancel_requested THEN 'cancelled' ELSE 'queued' END,stage=CASE WHEN EXISTS(SELECT 1 FROM provider_operations WHERE job_id=$1 AND kind='submit' AND state='known') THEN 'polling' ELSE 'submitting' END,attempt=0,error_code=NULL,next_run_at=clock_timestamp(),lease_owner=NULL,lease_until=NULL WHERE id=$1", jobID)
-		return err
+		stageAfterSubmit := "polling"
+		if submitsOriginal {
+			stageAfterSubmit = "normalizing"
+		}
+		var cancelled bool
+		if err := tx.QueryRow(ctx, `UPDATE jobs SET state=CASE WHEN cancel_requested THEN 'cancelled' ELSE 'queued' END,
+		 stage=CASE WHEN EXISTS(SELECT 1 FROM provider_operations WHERE job_id=$1 AND kind='submit' AND state='known') THEN $2 ELSE 'submitting' END,
+		 attempt=0,error_code=NULL,error_detail=NULL,next_run_at=clock_timestamp(),lease_owner=NULL,lease_until=NULL WHERE id=$1
+		 RETURNING cancel_requested`, jobID, stageAfterSubmit).Scan(&cancelled); err != nil {
+			return err
+		}
+		if submitsOriginal && cancelled {
+			_, err := tx.Exec(ctx, "UPDATE transcriptions SET state='cancelled',error_code=NULL,revision=revision+1 WHERE id=$1", tid)
+			return err
+		}
+		return nil
 	})
 }

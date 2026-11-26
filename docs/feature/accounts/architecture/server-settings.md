@@ -37,3 +37,7 @@ Base URL 路径变更要求前端构建 BASE_URL、代理和健康检查同步�
 ## OpenAI STT 配置
 
 独立 openai_stt_base_url/openai_stt_api_key，首启环境导入 OPENAI_STT_BASE_URL 与 OPENAI_STT_API_KEY 或 OPENAI_STT_API_KEY_FILE。空 URL 调用默认 https://api.openai.com/v1，空密钥禁用；旧 JSON 缺字段按空处理，绝不借用 LLM 密钥。读取仅返回 openai_stt_configured；地址变化且已有密钥时必须显式替换或清除密钥。保存、URL 校验、重启生效与凭据保密沿用其它 STT 设置。
+
+## ElevenLabs STT 配置
+
+首次初始化先读取 `ELEVENLABS_API_KEY` 或 `ELEVENLABS_API_KEY_FILE`；两者均为空时可以使用 ElevenLabs CLI 在工作目录 `.env.local` 写入的 `ELEVENLABS_API_KEY`。数据库已有配置时始终使用保存值。管理员读写与重启行为见[管理服务器配置](../use-case/manage-server.md)。

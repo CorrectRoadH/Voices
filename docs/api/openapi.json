@@ -9285,6 +9285,9 @@
           "assemblyai_configured": {
             "type": "boolean"
           },
+          "elevenlabs_configured": {
+            "type": "boolean"
+          },
           "llm_configured": {
             "type": "boolean"
           },
@@ -9302,6 +9305,7 @@
           "allowed_origins",
           "soniox_configured",
           "assemblyai_configured",
+          "elevenlabs_configured",
           "llm_configured",
           "openai_stt_base_url",
           "openai_stt_configured"
@@ -9367,6 +9371,12 @@
             "maxLength": 8192,
             "writeOnly": true,
             "description": "Omit to preserve; empty string clears. Never returned."
+          },
+          "elevenlabs_api_key": {
+            "type": "string",
+            "maxLength": 8192,
+            "writeOnly": true,
+            "description": "Omit to preserve; empty string clears. Never returned. Changes take effect after restart."
           },
           "llm_api_key": {
             "type": "string",

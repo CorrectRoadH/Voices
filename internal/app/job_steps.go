@@ -116,6 +116,9 @@ func (a *App) prepare(ctx context.Context, j job) error {
 		return err
 	})
 }
+
+// @concord-code
+// @concord-implements docs/feature/transcription/use-case/transcribe.md
 func (a *App) transcribe(ctx context.Context, j job) error {
 	if j.TranscriptionID == nil {
 		return errors.New("transcription missing")
@@ -138,8 +141,9 @@ func (a *App) transcribe(ctx context.Context, j job) error {
 	if direct, ok := p.(providers.DirectAdapter); ok {
 		return a.transcribeDirect(ctx, j, direct, originalName, duration, options)
 	}
-	async, ok := p.(providers.AsyncAdapter)
-	if !ok {
+	fileSubmit, submitsOriginal := p.(providers.FileSubmitAdapter)
+	async, submitsUpload := p.(providers.AsyncAdapter)
+	if !submitsOriginal && !submitsUpload {
 		return &providers.Error{Code: "unsupported", Definitive: true}
 	}
 	// Any abandoned sent request is unsafe even if the job stage was not advanced.
@@ -158,6 +162,15 @@ func (a *App) transcribe(ctx context.Context, j job) error {
 	if err != nil {
 		return err
 	}
+	if submitsOriginal {
+		if !found {
+			remote, err = a.submitOriginal(ctx, &j, fileSubmit, originalName, options)
+			if err != nil {
+				return err
+			}
+		}
+		return a.fetchAndPublishTranscription(ctx, j, remote, duration, fileSubmit.FetchResult)
+	}
 	if !found {
 		file, uploaded, err := a.knownResource(ctx, j.ID, "upload")
 		if err != nil {
@@ -167,11 +180,7 @@ func (a *App) transcribe(ctx context.Context, j job) error {
 			if err := a.stage(ctx, &j, "uploading"); err != nil {
 				return err
 			}
-			var blob string
-			if err := a.DB.QueryRow(ctx, "SELECT blob_id FROM media_assets WHERE recording_id=$1 AND kind='original'", j.RecordingID).Scan(&blob); err != nil {
-				return err
-			}
-			reader, err := a.Blobs.Open(ctx, j.RecordingID, blob)
+			reader, err := a.openOriginal(ctx, j.RecordingID)
 			if err != nil {
 				return err
 			}
@@ -215,11 +224,37 @@ func (a *App) transcribe(ctx context.Context, j job) error {
 		}
 	}
 completed:
+	return a.fetchAndPublishTranscription(ctx, j, remote, duration, async.FetchResult)
+}
+
+func (a *App) openOriginal(ctx context.Context, recordingID string) (*storage.Reader, error) {
+	var blob string
+	if err := a.DB.QueryRow(ctx, "SELECT blob_id FROM media_assets WHERE recording_id=$1 AND kind='original'", recordingID).Scan(&blob); err != nil {
+		return nil, err
+	}
+	return a.Blobs.Open(ctx, recordingID, blob)
+}
+
+func (a *App) submitOriginal(ctx context.Context, j *job, adapter providers.FileSubmitAdapter, name string, options providers.Options) (providers.Resource, error) {
+	if err := a.stage(ctx, j, "submitting"); err != nil {
+		return providers.Resource{}, err
+	}
+	reader, err := a.openOriginal(ctx, j.RecordingID)
+	if err != nil {
+		return providers.Resource{}, err
+	}
+	defer reader.Close()
+	return a.remoteCreate(ctx, *j, adapter.ID(), "submit", func(c context.Context) (providers.Resource, error) {
+		return adapter.SubmitFile(c, reader, name, reader.Size, options)
+	})
+}
+
+func (a *App) fetchAndPublishTranscription(ctx context.Context, j job, remote providers.Resource, duration int64, fetch func(context.Context, providers.Resource) (providers.Result, error)) error {
 	if err := a.stage(ctx, &j, "normalizing"); err != nil {
 		return err
 	}
 	stepCtx, cancel := context.WithTimeout(ctx, a.Config.HTTPTimeout)
-	result, err := observedSTT(stepCtx, a, *j.TranscriptionID, "fetch_result", func(c context.Context) (providers.Result, error) { return async.FetchResult(c, remote) })
+	result, err := observedSTT(stepCtx, a, *j.TranscriptionID, "fetch_result", func(c context.Context) (providers.Result, error) { return fetch(c, remote) })
 	cancel()
 	if err != nil {
 		return err
@@ -308,7 +343,8 @@ func (a *App) remoteCreate(ctx context.Context, j job, provider, kind string, ca
 	op := uuid.NewString()
 	var callID string
 	deadline := a.Config.HTTPTimeout
-	if kind == "upload" {
+	_, submitsOriginal := a.Providers[provider].(providers.FileSubmitAdapter)
+	if kind == "upload" || kind == "submit" && submitsOriginal {
 		deadline = 30 * time.Minute
 	}
 	err := persistence.Transaction(ctx, a.DB, func(tx pgx.Tx) error {

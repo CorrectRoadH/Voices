@@ -7170,6 +7170,7 @@ export interface components {
             allowed_origins: string[];
             soniox_configured: boolean;
             assemblyai_configured: boolean;
+            elevenlabs_configured: boolean;
             llm_configured: boolean;
             openai_stt_base_url: string;
             openai_stt_configured: boolean;
@@ -7190,6 +7191,8 @@ export interface components {
             soniox_api_key?: string;
             /** @description Omit to preserve; empty string clears. Never returned. */
             assemblyai_api_key?: string;
+            /** @description Omit to preserve; empty string clears. Never returned. Changes take effect after restart. */
+            elevenlabs_api_key?: string;
             /** @description Omit to preserve; empty string clears. Never returned. */
             llm_api_key?: string;
             revision: number;

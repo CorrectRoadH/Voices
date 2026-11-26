@@ -14,7 +14,7 @@ For people who record their day. Drop in audio from your recorder or phone, and 
 
 ## Quick start
 
-You need Docker and an API key from [Soniox](https://soniox.com) or [AssemblyAI](https://www.assemblyai.com).
+You need Docker and an API key from [Soniox](https://soniox.com), [ElevenLabs](https://elevenlabs.io), or [AssemblyAI](https://www.assemblyai.com).
 
 ```sh
 mkdir voices && cd voices
@@ -27,6 +27,8 @@ Open <http://localhost:8080> and follow the prompts:
 1. Sign up. The first account becomes the administrator.
 2. Set up a model for AI summaries, or skip this step.
 3. Enter your transcription API key under Server management, then start dropping in recordings.
+
+To use ElevenLabs, save the API key and restart the app (`docker compose restart app` with Docker Compose). Select **ElevenLabs → Scribe v2** in transcription preferences. Importing or retranscribing a recording with this provider sends its audio to ElevenLabs.
 
 ### Access from your phone or another computer
 

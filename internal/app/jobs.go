@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"strings"
@@ -32,6 +33,9 @@ func (a *App) Restore(ctx context.Context) error {
 		if err := a.restoreDirectIntents(ctx, tx); err != nil {
 			return err
 		}
+		if err := a.restoreFileSubmitIntents(ctx, tx); err != nil {
+			return err
+		}
 		for _, sql := range []string{
 			"UPDATE jobs SET auto_insights_suppressed=true",
 			"UPDATE voiceprint_execution SET run_id=NULL,lease_until=NULL WHERE id",
@@ -43,7 +47,11 @@ func (a *App) Restore(ctx context.Context) error {
 			"UPDATE jobs SET lease_generation=lease_generation+1,lease_owner=NULL,lease_until=NULL,state=CASE WHEN kind='transcribe' THEN 'restore_hold' WHEN state IN ('running','retry_wait') THEN 'queued' ELSE state END,error_code=CASE WHEN kind='transcribe' THEN 'restore_hold' ELSE error_code END WHERE (state<>'succeeded' OR EXISTS(SELECT 1 FROM provider_operations o WHERE o.job_id=jobs.id AND o.state IN ('prepared','sent','uncertain'))) AND NOT EXISTS(SELECT 1 FROM transcriptions dt WHERE dt.id=jobs.transcription_id AND dt.provider='openai')",
 			"UPDATE transcriptions t SET state='restore_hold',error_code='restore_hold',revision=revision+1 WHERE EXISTS(SELECT 1 FROM jobs j WHERE j.transcription_id=t.id AND j.state='restore_hold')",
 			"UPDATE provider_operations o SET state='uncertain' WHERE o.state IN ('prepared','sent') AND EXISTS(SELECT 1 FROM jobs j WHERE j.id=o.job_id AND j.state='restore_hold')",
-			`INSERT INTO provider_operations(id,job_id,transcription_id,kind,lease_generation,state,resolution_note) SELECT gen_random_uuid(),j.id,j.transcription_id,k.kind,j.lease_generation,'uncertain','数据库快照之后的远端状态须核对' FROM jobs j CROSS JOIN (VALUES ('upload'),('submit')) AS k(kind) WHERE j.state='restore_hold' AND NOT EXISTS(SELECT 1 FROM transcriptions dt WHERE dt.id=j.transcription_id AND dt.provider='openai') AND NOT EXISTS(SELECT 1 FROM provider_operations o WHERE o.job_id=j.id AND o.kind=k.kind AND o.state IN ('known','uncertain','sent','prepared'))`,
+			`INSERT INTO provider_operations(id,job_id,transcription_id,kind,lease_generation,state,resolution_note)
+			 SELECT gen_random_uuid(),j.id,j.transcription_id,k.kind,j.lease_generation,'uncertain','数据库快照之后的远端状态须核对'
+			 FROM jobs j JOIN transcriptions t ON t.id=j.transcription_id CROSS JOIN (VALUES ('upload'),('submit')) AS k(kind)
+			 WHERE j.state='restore_hold' AND t.provider<>'openai' AND (t.provider<>'elevenlabs' OR k.kind='submit')
+			 AND NOT EXISTS(SELECT 1 FROM provider_operations o WHERE o.job_id=j.id AND o.kind=k.kind AND o.state IN ('known','uncertain','sent','prepared'))`,
 		} {
 			if _, err := tx.Exec(ctx, sql); err != nil {
 				return err
@@ -51,6 +59,37 @@ func (a *App) Restore(ctx context.Context) error {
 		}
 		return nil
 	})
+}
+
+// @concord-code
+// @concord-implements docs/feature/transcription/use-case/recover-task.md
+func (a *App) restoreFileSubmitIntents(ctx context.Context, tx pgx.Tx) error {
+	// Restore must quarantine the intent even if the snapshot predates its prepare job finishing.
+	rows, err := tx.Query(ctx, `SELECT r.id,r.import_transcription_options FROM recordings r
+	 WHERE r.state<>'deleting' AND r.auto_transcribe AND r.import_transcription_options->>'provider'='elevenlabs'
+	 AND NOT EXISTS(SELECT 1 FROM jobs j WHERE j.dedupe_key='auto:'||r.id::text) ORDER BY r.id FOR UPDATE OF r`)
+	if err != nil {
+		return err
+	}
+	type intent struct {
+		ID  string
+		Raw []byte
+	}
+	intents, err := pgx.CollectRows(rows, pgx.RowToStructByPos[intent])
+	if err != nil {
+		return err
+	}
+	model := providers.NewElevenLabs("").Models()[0]
+	for _, in := range intents {
+		var options providers.Options
+		if err := json.Unmarshal(in.Raw, &options); err != nil {
+			return err
+		}
+		if _, _, err := a.insertTranscription(ctx, tx, in.ID, options, model, "auto:"+in.ID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Run supervises durable jobs until shutdown; no application-local queue owns work.

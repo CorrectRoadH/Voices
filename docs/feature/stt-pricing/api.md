@@ -10,7 +10,7 @@ GET `/admin/stt/calls` 返回 `{items,next_cursor}`。
 cursor 为严格 base64url JSON `{created_at,id}`，最大 512 字符，时间和 UUID 均须有效。
 
 筛选支持 from/to（RFC3339，含起不含止）、owner_id UUID、provider、model 精确匹配、state 与 submission_state。
-provider 仅 soniox/assemblyai。state 为 pending/running/succeeded/failed/cancelled。
+provider 仅 soniox/assemblyai/elevenlabs。state 为 pending/running/succeeded/failed/cancelled。
 submission_state 为 prepared/sent/known/uncertain/confirmed_absent。
 未知参数、重复参数、非法日期/范围/枚举/游标均 400。
 
