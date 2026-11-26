@@ -1,0 +1,98 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - '**'
+      - '!README*'
+      - '!docs/**'
+      - '!memory/**'
+      - '!**/*.md'
+      - 'docs/api/**'
+      - 'docs/release-package.txt'
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      required: ${{ steps.paths.outputs.required }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: paths
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT_NAME" = pull_request ]; then
+            python3 .github/scripts/ci-paths.py "$BASE_SHA" "$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo 'required=true' >> "$GITHUB_OUTPUT"
+          fi
+  static:
+    needs: changes
+    if: needs.changes.outputs.required == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7.1.0
+        with:
+          go-version-file: go.mod
+      - name: Check workflow syntax and CI helpers
+        run: |
+          bash .github/scripts/install-actionlint.sh
+          "$RUNNER_TEMP/actionlint/actionlint"
+          node --test .github/scripts/model-privacy.test.mjs
+          python3 .github/scripts/ci-paths.test.py
+          python3 .github/scripts/e2e-timings.test.py
+          python3 scripts/check-e2e-shards.py
+      - name: Identify dependency cache
+        id: dependency-cache
+        run: |
+          sha256sum web/pnpm-lock.yaml update-worker/pnpm-lock.yaml > .ci-pnpm-lock.yaml
+          echo 'path=.ci-pnpm-lock.yaml' >> "$GITHUB_OUTPUT"
+      - uses: voidzero-dev/setup-vp@v1.22.0
+        with:
+          node-version: '24'
+          version: '1.7.0'
+          run-install: false
+          cache: true
+          cache-dependency-path: ${{ steps.dependency-cache.outputs.path }}
+      - run: vp -C web install --frozen-lockfile
+      - run: vp -C update-worker install --frozen-lockfile
+      - run: vp run check:web
+      - run: vp run check:worker
+      - run: vp run check:go
+      - name: Verify generated API types
+        run: |
+          vp -C web run generate:api
+          git diff --exit-code -- web/src/lib/api.generated.ts
+  required:
+    name: CI required
+    if: always()
+    needs: [changes, static]
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          RUN_REQUIRED: ${{ needs.changes.outputs.required }}
+          STATIC_RESULT: ${{ needs.static.result }}
+        run: |
+          test "$CHANGES_RESULT" = success
+          if [ "$RUN_REQUIRED" = false ]; then
+            test "$STATIC_RESULT" = skipped
+          else
+            test "$RUN_REQUIRED" = true
+            test "$STATIC_RESULT" = success
+          fi

@@ -38,6 +38,7 @@ jobs:
       - run: vp -C update-worker run check
       - run: vp -C update-worker run test
       - run: vp -C update-worker run test:runtime
+        if: github.event_name == 'workflow_dispatch'
       - run: vp -C update-worker run deploy
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}

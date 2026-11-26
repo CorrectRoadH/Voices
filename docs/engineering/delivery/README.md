@@ -4,11 +4,13 @@
 
 ## 目标
 
-涉及可执行输入的 PR 与 main 更新验证 Go、PostgreSQL、前端和更新 Worker。正式版本的镜像、版本号和 GitHub Release 对应同一 tag。
+涉及可执行输入的 PR 与 main 更新验证 Go、前端和更新 Worker 的静态检查。Nightly 与发布门槛执行完整验收。正式版本的镜像、版本号和 GitHub Release 对应同一 tag。
 
 ## 机制
 
-`.github/workflows/ci.yml` 也是可复用发布前检查。使用独立 PostgreSQL 服务，执行 `vp run check`、生成 API 无差异检查和 `vp run test:e2e` 真实 Go/数据库浏览器验收。`vp run check` 包含前端与 Worker 的格式、lint、类型检查、常规测试、Go vet、前端类型检查与构建、Worker 类型检查；`vp run test:worker:runtime` 单独构建发布 bundle，在真实 workerd 中验证更新请求及拒绝重定向。Docker 构建检查不推送。
+`.github/workflows/pr.yml` 执行 Go vet、前端和 Worker 的格式、lint 与类型检查、API 生成一致性和 CI 脚本检查。
+
+`.github/workflows/nightly.yml` 每天 UTC 05:21 定时执行，也可手动运行，目标均为默认分支。Nightly 和 Release 调用 `.github/workflows/ci.yml` 执行完整验收。完整验收使用独立 PostgreSQL 服务，执行 `vp run check`、生成 API 无差异检查和 `vp run test:e2e` 真实 Go/数据库浏览器验收。`vp run check` 包含前端与 Worker 的格式、lint、类型检查、常规测试、Go vet、前端类型检查与构建、Worker 类型检查；`vp run test:worker:runtime` 单独构建发布 bundle，在真实 workerd 中验证更新请求及拒绝重定向。Docker 构建检查不推送。
 
 ### CI 并行与缓存
 
@@ -16,7 +18,7 @@
 
 浏览器 job 在下载依赖前检查模型配置。
 
-仅 PR 的新提交取消同一 PR 的旧 CI；main、手动运行与发布调用使用独立运行分组，不取消运行中或等待中的其它提交。
+仅 PR 的新提交取消同一 PR 的旧 CI。Nightly 同组串行，保留运行中的任务。完整验收失败时新建或评论 `Nightly CI failing` issue；恢复通过时留言并关闭该 issue。
 
 浏览器场景按实测耗时分成六组；工作台与摘要目录分别运行，其余独立场景用于平衡分片耗时，分组以工作流的 e2e_filter 为准。
 
@@ -34,7 +36,7 @@ Go 与 Vite+ 使用 setup action 内置缓存，浏览器仅关联 web 锁文件
 
 Chromium 下载目录按系统、架构和 web 锁文件缓存；仍执行引擎自带安装命令以校验所需版本并安装系统库。缓存恢复与下载的实际收益通过 Actions 步骤耗时比较，不预先承诺加速比例。Actions 引用采用核实过的最新稳定补丁版本；已有 SHA 固定引用保留固定方式并标明对应版本。Vite+ 版本继续遵守本仓库工具链约定。
 
-纯 README、Markdown 文档、memory 与代理说明的 main push 通过 paths 过滤；`docs/api/**`、`docs/release-package.txt` 等构建输入必须触发。PR 始终创建工作流，使用 Git base/head 的完整变更路径判断是否需要重任务；文件重命名同时检查旧、新路径。纯文档 PR 跳过重任务并完成 `CI required`。分支保护应要求 `CI required`；该汇总仅在路径检查成功且所有必需任务成功时通过，取消、失败或意外跳过均失败。手动与发布调用无条件执行完整验收。
+纯 README、Markdown 文档、memory 与代理说明的 main push 通过 paths 过滤；`docs/api/**`、`docs/release-package.txt` 等构建输入必须触发。PR 始终创建工作流，使用 Git base/head 的完整变更路径判断是否需要静态检查；文件重命名同时检查旧、新路径。纯文档 PR 跳过静态检查并完成 `CI required`。分支保护应要求 `CI required`；该汇总仅在路径检查成功且所有必需任务成功时通过，取消、失败或意外跳过均失败。默认分支的定时与手动 Nightly 和发布调用都执行完整验收，忽略路径过滤。
 
 ### 工具链入口
 
@@ -74,15 +76,15 @@ Go fixture 创建隔离 schema、测试账号与外部服务，启动应用任�
 
 CI 从仓库 variable 读取 E2E_MODEL，从 Secrets 读取 E2E_MODEL_BASE_URL 与 E2E_MODEL_API_KEY；没有凭据时不跳过或宣称验收通过。e2e 原始产物位于 `web/.e2e/`，CI 失败时仅上传另行生成的脱敏文本副本；压缩包、二进制 trace、图片与符号链接不上传。本地原始诊断产物保持不变。本地可指定 `E2E_CHROMIUM_EXECUTABLE_PATH` 使用系统 Chromium。
 
-正式 tag `vX.Y.Z` 通过 CI 后构建 amd64/arm64 镜像，注入应用版本，推送 Docker Hub，最后生成 GitHub Release。版本日志由 `cliff.toml` 从提交生成。CI 仅只读权限，发布 job 单独获取 Docker Hub secrets/contents 写入权限。发布与部署命令须由操作者主动执行；本地实现或测试不构成发布授权。
+正式 tag `vX.Y.Z` 通过 CI 后构建 amd64/arm64 镜像，注入应用版本，推送 Docker Hub，最后生成 GitHub Release。版本日志由 `cliff.toml` 从提交生成。CI 验收使用只读权限，Nightly 报告 job 单独获取 issues 写入权限。发布 job 单独获取 Docker Hub secrets/contents 写入权限。发布与部署命令须由操作者主动执行；本地实现或测试不构成发布授权。
 
-Worker 手动部署工作流单独使用 Cloudflare 凭据。有限安装统计默认开启，可用 UPDATE_TELEMETRY=false 关闭；更新服务可通过空 UPDATE_URL 禁用。
+Worker 部署工作流单独使用 Cloudflare 凭据。有限安装统计默认开启，可用 UPDATE_TELEMETRY=false 关闭；更新服务可通过空 UPDATE_URL 禁用。
 
 ## 使用与验收
 
 [完整契约与设计](../../feature/updates/architecture/service.md) · [部署与恢复](../../operations.md)
 
-CI 的可执行入口为 `.github/workflows/ci.yml`。本地通过单元/集成/浏览器测试、Docker 版本与 healthcheck、actionlint 检查工作流。远端流水线和多架构发布的通过状态只能由实际授权运行证明。
+完整 CI 的本地入口为 `vp run check`、`vp run test:e2e` 和 `vp run test:worker:runtime`。本地通过单元/集成/浏览器测试、Docker 版本与 healthcheck、actionlint 检查工作流。远端流水线和多架构发布的通过状态只能由实际授权运行证明。
 
 ### CI 耗时采样
 
@@ -108,7 +110,7 @@ CSV 保留每个 job 的来源链接及成功、失败或取消结论。排队�
 
 发布调用 CI 时显式传递 E2E_MODEL_BASE_URL、E2E_MODEL_API_KEY 与 TS_AUTHKEY。若需修复工作流后恢复发布，可从 main 手动运行 Release 并指定已有稳定标签 `release_tag`。工作流将标签解析为固定提交，CI、镜像、前端、二进制与发布说明均使用该提交；版本仍取该标签，不移动标签或跳过检查。
 
-Worker 通过 `Deploy update worker` 手动部署，与应用版本发布分离。需要 Cloudflare secrets；具体配置、公告格式和首次连接步骤见 [Worker 操作说明](../../../update-worker/README.md)。
+Worker 通过 `Deploy update worker` 部署，与应用版本发布分离。main 上的相关文件变更和手动触发均执行发布配置校验、静态检查及 Worker 单测；手动触发另跑 workerd 验收。需要 Cloudflare secrets；具体配置、公告格式和首次连接步骤见 [Worker 操作说明](../../../update-worker/README.md)。
 
 ## 发布产物
 
@@ -118,7 +120,7 @@ GitHub Release 同时提供 voices-linux-amd64.tar.gz、voices-linux-arm64.tar.g
 
 ## 模型私网接入
 
-浏览器验收通过官方 Tailscale action 使用本仓 TS_AUTHKEY 加入 Tailnet；采用用户指定的 tag:ci 临时节点，结束时显式 logout 并检查结果，action post 终止 daemon。该身份继承基础设施现有 CI 权限，不是仅能访问模型的隔离身份。新增网络授权仅允许 Studio HTTPS；普通检查与 Docker 构建不入网。fork 与 Dependabot PR 没有模型或 Tailnet 凭据，缺配置仍明确失败，不降级为虚假通过。
+浏览器验收通过官方 Tailscale action 使用本仓 TS_AUTHKEY 加入 Tailnet；采用用户指定的 tag:ci 临时节点，结束时显式 logout 并检查结果，action post 终止 daemon。该身份继承基础设施现有 CI 权限，不是仅能访问模型的隔离身份。新增网络授权仅允许 Studio HTTPS；普通检查与 Docker 构建不入网。模型与 Tailnet 凭据只用于 Nightly 与 Release 的浏览器验收，缺配置视为验收失败。
 
 模型地址保存在 Secret，不出现在源码默认值。网络请求前为完整地址、origin、hostname 和密钥注册日志掩码；连接探针只报告受控结果，不打印原始异常、URL 或响应。访问新模型地址前先完成基础设施 ACL 发布。流水线不配置 exit node，不修改 runner 的 DNS 设置。官方 action 入网后立即通过 tailscale set 关闭子网路由，再执行连接探针与测试；不能在 action args 中重复声明它自带的 accept-routes 参数。
 

@@ -1,17 +1,5 @@
-name: CI
+name: Full CI
 on:
-  pull_request:
-  push:
-    branches: [main]
-    paths:
-      - '**'
-      - '!README*'
-      - '!docs/**'
-      - '!memory/**'
-      - '!**/*.md'
-      - 'docs/api/**'
-      - 'docs/release-package.txt'
-  workflow_dispatch:
   workflow_call:
     inputs:
       ref:
@@ -30,30 +18,7 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      required: ${{ steps.paths.outputs.required }}
-    steps:
-      - uses: actions/checkout@v7.0.1
-        if: github.event_name == 'pull_request'
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - id: paths
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          if [ "$EVENT_NAME" = pull_request ]; then
-            python3 .github/scripts/ci-paths.py "$BASE_SHA" "$HEAD_SHA" >> "$GITHUB_OUTPUT"
-          else
-            echo 'required=true' >> "$GITHUB_OUTPUT"
-          fi
   test:
-    needs: changes
-    if: needs.changes.outputs.required == 'true'
     name: test (${{ matrix.suite }}${{ matrix.shard }})
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -292,8 +257,6 @@ jobs:
     strategy:
       matrix:
         runner: [ubuntu-latest, ubuntu-24.04-arm]
-    needs: changes
-    if: needs.changes.outputs.required == 'true'
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7.0.1
@@ -313,21 +276,12 @@ jobs:
   required:
     name: CI required
     if: always()
-    needs: [changes, test, docker]
+    needs: [test, docker]
     runs-on: ubuntu-latest
     steps:
       - env:
-          CHANGES_RESULT: ${{ needs.changes.result }}
-          RUN_REQUIRED: ${{ needs.changes.outputs.required }}
           TEST_RESULT: ${{ needs.test.result }}
           DOCKER_RESULT: ${{ needs.docker.result }}
         run: |
-          test "$CHANGES_RESULT" = success
-          if [ "$RUN_REQUIRED" = false ]; then
-            test "$TEST_RESULT" = skipped
-            test "$DOCKER_RESULT" = skipped
-          else
-            test "$RUN_REQUIRED" = true
-            test "$TEST_RESULT" = success
-            test "$DOCKER_RESULT" = success
-          fi
+          test "$TEST_RESULT" = success
+          test "$DOCKER_RESULT" = success

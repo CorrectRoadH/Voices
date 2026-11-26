@@ -8,7 +8,7 @@
 
 ## 发布与 CI
 
-CI 对 PR、main push 和手动触发执行 Go test/vet、独立 PostgreSQL 集成测试、前端 typecheck/test/build、e2e 真实应用浏览器验收。
+PR 和 main push 执行 Go vet、前端与 Worker 静态检查、API 生成一致性及 CI 脚本检查。Nightly 和发布门槛执行 Go test/vet、独立 PostgreSQL 集成测试、前端 typecheck/test/build、e2e 真实应用浏览器验收、workerd 运行时验收及双架构 Docker 构建验证。
 
 Worker 独立执行 check/test 和 cf build。依赖使用锁文件，Docker 构建检查不推送镜像。
 
@@ -20,7 +20,7 @@ Worker 独立执行 check/test 和 cf build。依赖使用锁文件，Docker 构
 
 同时读取 Docker Hub latest 的版本标签，拒绝降级。只有明确不存在的 package 才允许首次发布；认证或网络失败中止。同 tag 镜像成功而 Release 失败可重跑。
 
-CI 仅有只读权限；镜像和 Release job 分别获取 Docker Hub secrets/contents 写入权限。Worker 只允许 main 手动部署，Cloudflare token 限定目标账户与 Worker。
+CI 验收使用只读权限，Nightly 的报告 job 单独获取 issues 写入权限。镜像和 Release job 分别获取 Docker Hub secrets/contents 写入权限。Worker 部署限于 main 的相关文件变更或手动触发。两种入口均执行配置校验、静态检查和 Worker 单测，手动入口另跑 workerd 验收。Cloudflare token 限定目标账户与 Worker。
 
 本地实现和测试不授权实际 push、tag、发布或部署。镜像默认前端路径为 `/`；子路径继续使用 PUBLIC_BASE_URL 构建参数从源码构建。
 
