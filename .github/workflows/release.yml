@@ -48,9 +48,11 @@ jobs:
             exit 1
           fi
           sha=$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}")
-          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          echo "nightly=$nightly" >> "$GITHUB_OUTPUT"
+          {
+            echo "tag=$RELEASE_TAG"
+            echo "sha=$sha"
+            echo "nightly=$nightly"
+          } >> "$GITHUB_OUTPUT"
   ci:
     needs: validate
     uses: ./.github/workflows/ci.yml
