@@ -127,3 +127,11 @@ GitHub Release 同时提供 voices-linux-amd64.tar.gz、voices-linux-arm64.tar.g
 模型地址保存在 Secret，不出现在源码默认值。网络请求前为完整地址、origin、hostname 和密钥注册日志掩码；连接探针只报告受控结果，不打印原始异常、URL 或响应。访问新模型地址前先完成基础设施 ACL 发布。流水线不配置 exit node，不修改 runner 的 DNS 设置。官方 action 入网后立即通过 tailscale set 关闭子网路由，再执行连接探针与测试；不能在 action args 中重复声明它自带的 accept-routes 参数。
 
 日志掩码不保护 Actions artifact。上传前对允许的 UTF-8 文本文件替换完整地址、域名、密钥以及 URL 编码形式，跳过包含敏感值的文件路径、非 UTF-8 文件和二进制文件。仅在脱敏步骤成功后上传新目录，不能回退上传原始目录。更新或撤销 Auth Key 通过 Secret 独立完成；网络失败不切回公网模型地址。
+
+## 自托管 PostgreSQL 升级
+
+两份自托管 Compose 模板均在数据库服务启动前运行 `postgres-upgrade`。服务沿用 `postgres_data`，识别旧 `18/docker` 和新 `19/docker` 集群。缺少旧集群或新集群已初始化时跳过迁移。
+
+迁移要求至少 1.2 倍旧集群大小的可用空间和 PGDG 软件源访问。升级进程通过私有 Unix socket 读取旧集群的数据库编码、排序规则和 locale provider，另从控制文件读取校验和设置。确认配置兼容后，`pg_upgrade --check` 和 `pg_upgrade --copy` 以 postgres 用户执行。
+
+升级成功并复制旧认证与自动配置后，临时新集群目录才移动到正式 PGDATA。失败时数据库和应用保留在停止状态，重新执行 Compose 可重试。旧集群可由旧版 Compose 启动，提供升级前数据；迁移期间允许正常启停产生的 PostgreSQL 写入。保留与清理步骤见[自托管升级](../../../README.md#升级到-postgresql-19)。

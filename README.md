@@ -50,7 +50,51 @@ docker compose pull && docker compose up -d
 
 声纹引擎和模型内置于 Go 程序：标识人物后建立声纹，后续录音自动匹配。直接运行或 `air .` 均无需额外服务和配置。
 
-所有数据都在 `postgres_data` 卷里。升级前建议先备份，方法见[备份与恢复](docs/operations.md)。
+所有数据都在 `postgres_data` 卷里。升级前请[备份数据库](docs/operations.md#备份与恢复)。
+
+#### 升级到 PostgreSQL 19
+
+保留旧的 Compose 文件。在原部署目录用原项目名执行 `docker compose stop app db`，换上新版 Compose，再执行 `docker compose up -d`。一次性服务会把旧卷的 `18/docker` 集群自动升级到同一卷的 `19/docker`，数据库和应用随后启动。全新安装和已完成升级的部署会跳过迁移。
+
+迁移至少需要旧集群大小 1.2 倍的可用空间，并需要连接 PostgreSQL APT 软件源来下载 PostgreSQL 18。失败时运行 `docker compose logs postgres-upgrade`。排除问题后再运行 `docker compose up -d`。
+
+若需回退，执行 `docker compose stop app db`，换回旧 Compose 文件，再执行 `docker compose up -d`。旧集群保留升级前的数据。若自动升级持续失败，可在旧配置下启动数据库，再按下列步骤手动迁移。
+
+1. 保持应用停止，导出旧库。
+
+   ```sh
+   umask 077
+   docker compose exec -T db pg_dump -U voices -d voices -Fc > voices-pg18.dump &&
+     docker compose stop db
+   ```
+
+2. 换上新版 Compose，在同一卷内的临时目录初始化 PG19。
+
+   ```sh
+   restore_container=$(docker compose run -d --no-deps \
+     -e PGDATA=/var/lib/postgresql/19/manual-restore db)
+   ```
+
+3. 在同一终端执行 `docker exec "$restore_container" pg_isready -h 127.0.0.1 -U voices -d voices`。确认接受连接后，导入备份并启动完整应用。
+
+   ```sh
+   docker exec -i "$restore_container" pg_restore -U voices -d voices --single-transaction < voices-pg18.dump &&
+     docker stop "$restore_container" &&
+     docker rm "$restore_container" &&
+     docker compose run --rm --no-deps --entrypoint sh db -ec '
+       if [ -d "$PGDATA" ]; then rmdir "$PGDATA"; fi
+       mv -T /var/lib/postgresql/19/manual-restore "$PGDATA"
+     ' &&
+     docker compose up -d
+   ```
+
+确认应用数据完整并备份 PG19 后，可以删除旧集群释放空间。该操作会失去用旧集群回退的能力。
+
+```sh
+docker compose exec -T db psql -U voices -d voices -Atc 'SHOW data_directory'
+# 确认输出为 /var/lib/postgresql/19/docker 后执行
+docker compose exec -T -u root db rm -rf -- /var/lib/postgresql/18/docker
+```
 
 ## 致谢
 

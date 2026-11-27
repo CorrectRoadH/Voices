@@ -21,8 +21,118 @@ services:
     mem_limit: 2g
     restart: unless-stopped
     stop_grace_period: 30s
+  postgres-upgrade:
+    image: postgres:19-bookworm
+    environment:
+      POSTGRES_DB: voices
+      POSTGRES_USER: voices
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-voices}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    restart: "no"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        export LC_ALL=C
+        old_data=/var/lib/postgresql/18/docker
+        guide=https://github.com/CorrectRoadH/Voices/blob/main/README.en.md#upgrade-to-postgresql-19
+        export DEBIAN_FRONTEND=noninteractive
+
+        exec 9>/var/lib/postgresql/.voices-pg19-upgrade.lock
+        flock -x 9
+        if [ -s "$$PGDATA/PG_VERSION" ]; then
+          echo "PostgreSQL 19 is already initialized. Skipping upgrade."
+          exit 0
+        fi
+        if [ ! -f "$$old_data/PG_VERSION" ]; then
+          echo "No PostgreSQL 18 cluster found. The database service will initialize PostgreSQL 19."
+          exit 0
+        fi
+
+        work=/var/lib/postgresql/.voices-pg19-upgrade
+        old_bin=/usr/lib/postgresql/18/bin
+        new_bin=/usr/lib/postgresql/19/bin
+        old_running=0
+        cleanup() {
+          status=$$?
+          trap - EXIT
+          if [ "$$old_running" = 1 ]; then
+            gosu postgres "$$old_bin/pg_ctl" -D "$$old_data" -m fast -w stop || status=1
+          fi
+          if [ "$$status" -ne 0 ]; then
+            echo "PostgreSQL upgrade failed. Restore the previous Compose file to start PostgreSQL 18. Manual migration: $$guide" >&2
+          fi
+          rm -rf -- "$$work"
+          exit "$$status"
+        }
+        trap cleanup EXIT
+        trap 'exit 1' HUP INT TERM
+
+        test "$$(cat "$$old_data/PG_VERSION")" = 18
+        if [ -d "$$PGDATA" ]; then
+          rmdir "$$PGDATA"
+        fi
+        rm -rf -- "$$work"
+        old_kib=$$(du -sk "$$old_data" | cut -f1)
+        free_kib=$$(df -Pk /var/lib/postgresql | awk 'NR == 2 { print $$4 }')
+        required_kib=$$(( (old_kib * 6 + 4) / 5 ))
+        if [ "$$free_kib" -lt "$$required_kib" ]; then
+          echo "Upgrade needs $$required_kib KiB free (1.2 times the old cluster); $$free_kib KiB available." >&2
+          exit 1
+        fi
+
+        echo "Installing PostgreSQL 18 binaries for pg_upgrade."
+        apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 update
+        apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 install -y --no-install-recommends postgresql-18
+
+        install -d -m 0700 -o postgres -g postgres "$$work"
+        printf '%s\n' 'local all all trust' > "$$work/pg_hba.conf"
+        cd "$$work"
+        checksum=$$("$$old_bin/pg_controldata" "$$old_data" | awk '/^Data page checksum version:/ { print $$NF }')
+        case "$$checksum" in
+          0) checksum_option=--no-data-checksums ;;
+          1) checksum_option=--data-checksums ;;
+          *) echo "Unrecognized checksum version: $$checksum" >&2; exit 1 ;;
+        esac
+
+        old_options="-c listen_addresses='' -c hba_file=$$work/pg_hba.conf -c unix_socket_permissions=0700"
+        gosu postgres "$$old_bin/pg_ctl" -D "$$old_data" -o "$$old_options -k $$work" -w start
+        old_running=1
+        locale_info=$$(gosu postgres "$$old_bin/psql" -h "$$work" -U "$$POSTGRES_USER" -d template1 -XAt -v ON_ERROR_STOP=1 \
+          -c "SELECT pg_encoding_to_char(encoding), datcollate, datctype, datlocprovider, coalesce(datlocale, ''), coalesce(daticurules, '') FROM pg_database WHERE datname = 'template1'")
+        gosu postgres "$$old_bin/pg_ctl" -D "$$old_data" -m fast -w stop
+        old_running=0
+
+        IFS='|' read -r encoding collate ctype provider locale icu_rules <<EOF
+        $$locale_info
+        EOF
+        set -- "$$checksum_option" --username="$$POSTGRES_USER" --encoding="$$encoding" --lc-collate="$$collate" --lc-ctype="$$ctype"
+        case "$$provider" in
+          c) set -- "$$@" --locale-provider=libc ;;
+          b) set -- "$$@" --locale-provider=builtin --builtin-locale="$$locale" ;;
+          i)
+            set -- "$$@" --locale-provider=icu --icu-locale="$$locale"
+            if [ -n "$$icu_rules" ]; then set -- "$$@" --icu-rules="$$icu_rules"; fi
+            ;;
+          *) echo "Unrecognized locale provider: $$provider" >&2; exit 1 ;;
+        esac
+
+        gosu postgres "$$new_bin/initdb" -D "$$work/new" "$$@"
+        set -- -b "$$old_bin" -B "$$new_bin" -d "$$old_data" -D "$$work/new" -U "$$POSTGRES_USER" -s "$$work" -o "$$old_options" --copy
+        gosu postgres "$$new_bin/pg_upgrade" "$$@" --check
+        gosu postgres "$$new_bin/pg_upgrade" "$$@"
+
+        cp -p "$$old_data/pg_hba.conf" "$$old_data/postgresql.auto.conf" "$$work/new/"
+        mkdir -p "$$(dirname "$$PGDATA")"
+        mv -T "$$work/new" "$$PGDATA"
+        echo "PostgreSQL 18 to 19 upgrade complete. The PostgreSQL 18 cluster remains available for rollback."
   db:
-    image: postgres:18-bookworm
+    image: postgres:19-bookworm
+    depends_on:
+      postgres-upgrade:
+        condition: service_completed_successfully
     environment:
       POSTGRES_DB: voices
       POSTGRES_USER: voices
@@ -30,7 +140,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U voices -d voices"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U voices -d voices"]
       interval: 5s
       timeout: 5s
       retries: 10
