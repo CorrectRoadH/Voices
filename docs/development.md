@@ -8,6 +8,7 @@
 
 ```sh
 DATABASE_URL=postgres://voices:password@127.0.0.1:54329/voices?sslmode=disable
+POSTGRES_PASSWORD=password
 LISTEN_ADDR=0.0.0.0:18080
 PUBLIC_BASE_URL=http://<本机局域网 IP>:5173
 # 可选：SONIOX_API_KEY / ASSEMBLYAI_API_KEY
@@ -22,6 +23,27 @@ vp run dev          # 终端二：前端 5173，API 代理到 18080
 ```
 
 访问 `PUBLIC_BASE_URL` 指定的地址；登录来源须与它一致，更换 IP 或主机名时同步修改并重启。`vp run db:down` 停止数据库并保留数据卷。前端只暴露 `VITE_` 前缀的环境变量。业务配置的数据库优先规则见 [运维](operations.md#配置)。
+
+### 将本地开发数据库从 PostgreSQL 18 升到 19
+
+默认 Compose 项目名 `voices-dev` 下，新卷为 `voices-dev_postgres_data_pg19`，旧卷为 `voices-dev_postgres_data`。如果自定义了项目名，使用对应的卷名前缀。全新环境可直接执行 `vp run db:up`。
+
+1. 停止写入开发库的应用进程。仍使用旧版 `compose.dev.yaml` 时，导出 `voices` 库并停止旧数据库。
+
+   ```sh
+   umask 077
+   docker compose -f compose.dev.yaml exec -T db pg_dump -U voices -d voices -Fc > voices-pg18.dump &&
+     vp run db:down
+   ```
+
+2. 切换到新版 `compose.dev.yaml`，启动使用新卷的数据库。在启动应用前，将备份导入空的 `voices` 库。
+
+   ```sh
+   vp run db:up &&
+     docker compose -f compose.dev.yaml exec -T db pg_restore -U voices -d voices --single-transaction < voices-pg18.dump
+   ```
+
+3. 启动应用并核对原有数据。需要回退时，停止写入并执行 `vp run db:down`，再用旧版 `compose.dev.yaml` 执行 `vp run db:up`。旧卷只包含切换前的数据。
 
 ## 测试
 

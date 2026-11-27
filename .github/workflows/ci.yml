@@ -49,7 +49,7 @@ jobs:
             e2e_filter: '^(TestReferencesBrowser|TestCallLogsBrowser|TestOIDCBrowser)$'
     services:
       postgres:
-        image: postgres:18-bookworm
+        image: postgres:19-bookworm
         env:
           POSTGRES_USER: voices
           POSTGRES_PASSWORD: test-only-password
